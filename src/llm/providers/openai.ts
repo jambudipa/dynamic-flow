@@ -1,0 +1,1 @@
+export { OpenAiEffectModel } from '../service';

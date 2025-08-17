@@ -1,0 +1,51 @@
+# Source files
+src/
+__tests__/
+*.test.ts
+*.spec.ts
+
+# Configuration files
+.eslintrc.json
+.prettierrc
+tsconfig.json
+vite.config.ts
+vitest.config.ts
+
+# Development files
+.github/
+.vscode/
+.idea/
+coverage/
+screenshots/
+specs/
+.claude/
+
+# Git files
+.git/
+.gitignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+.cache/
+
+# Environment files
+.env
+.env.*
+
+# Build artifacts
+*.tsbuildinfo
+
+# Package files
+*.tgz
+
+# Keep only what's needed
+!dist/
+!README.md
+!LICENSE
+!package.json
