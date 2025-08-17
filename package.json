@@ -1,6 +1,6 @@
 {
   "name": "@jambudipa/dynamic-flow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A TypeScript library for building dynamic AI-driven workflows with LLM planning and static flow composition using Effect.js",
   "type": "module",
   "main": "./dist/index.js",
@@ -69,22 +69,30 @@
     "tsx": "^4.20.3",
     "typescript": "^5.3.0",
     "vite": "^5.0.0",
-    "vitest": "^1.6.1"
+    "vitest": "^1.6.1",
+    "effect": "^3.17.6",
+    "@effect/ai": "^0.25.0",
+    "@effect/ai-openai": "^0.28.1",
+    "@effect/cli": "^0.69.0",
+    "@effect/platform-node": "^0.95.0",
+    "@effect/schema": "^0.75.5"
   },
   "dependencies": {
-    "@effect/ai": "^0.25.0",
-    "@effect/ai-openai": "0.28.1",
-    "@effect/cli": "^0.69.0",
-    "@effect/platform-node": "0.95.0",
-    "@effect/schema": "^0.75.5",
     "@types/pg": "^8.15.5",
     "@types/uuid": "^10.0.0",
     "commander": "^12.0.0",
     "dotenv": "17.2.1",
-    "effect": "^3.17.6",
     "openai": "^4.104.0",
     "pg": "^8.16.3",
     "uuid": "^11.1.0",
     "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "effect": "^3.17.0",
+    "@effect/ai": "^0.25.0",
+    "@effect/ai-openai": "^0.28.0",
+    "@effect/cli": "^0.69.0",
+    "@effect/platform-node": "^0.95.0",
+    "@effect/schema": "^0.75.0"
   }
 }

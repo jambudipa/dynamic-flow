@@ -3,7 +3,7 @@
  */
 
 import type { Duration } from 'effect';
-import { Effect, Stream, Schema } from 'effect';
+import { Effect, Schema, Stream } from 'effect';
 import type { Tool, ToolJoin } from '@/tools/types';
 import { ValidatedFlowInstance } from './validated-flow-instance';
 import { JSONToIRCompiler } from '@/compiler';
@@ -11,8 +11,8 @@ import { type DynamicFlowType } from '@/schema/flow-schema';
 import { LLMCoreService } from '@/llm/service';
 import {
   generateConnectivityPrompt,
-  validateToolConnectivity,
   generateCorrectivePrompt,
+  validateToolConnectivity
 } from '@/operators/tool-connectivity';
 import { OperatorRegistry } from '@/operators';
 import { BaseFields } from '@/operators/base';
@@ -25,7 +25,7 @@ import {
   GenerationError,
   type ModelPoolConfig,
   type RetryStrategy,
-  type ValidatedFlow,
+  type ValidatedFlow
 } from './types';
 
 /**

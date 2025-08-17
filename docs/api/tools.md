@@ -125,7 +125,8 @@ Create a new tool with full type safety and runtime validation.
 **Example:**
 ```typescript
 import * as S from 'effect/Schema'
-import { Tools, Effect } from '@jambudipa/dynamic-flow'
+import { Tools } from '@jambudipa/dynamic-flow'
+import { Effect, Duration } from 'effect'
 
 const weatherTool = Tools.createTool({
   id: 'fetchWeather',
@@ -495,7 +496,8 @@ const chainedTool = Tools.createTool({
 ### Using Tools in Flows
 
 ```typescript
-import { pipe, Flow, Tools } from '@jambudipa/dynamic-flow'
+import { Flow, Tools } from '@jambudipa/dynamic-flow'
+import { pipe } from 'effect'
 
 const weatherFlow = pipe(
   Effect.succeed({ city: 'London' }),

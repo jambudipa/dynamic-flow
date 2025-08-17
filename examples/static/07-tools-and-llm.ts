@@ -38,10 +38,9 @@
 
 import { loadEnv } from '../env';
 import { Effect, pipe, Schema, Stream } from 'effect';
-import { Flow, Tools } from '../../src/index';
-import { createOpenAiCompletionTool } from '../../src/llm/providers/effect-openai-tool';
-import { LLMLive } from '../../src/index';
 import type { Tool } from '../../src/index';
+import { Flow, LLMLive, Tools } from '../../src/index';
+import { createOpenAiCompletionTool } from '../../src/llm/providers/effect-openai-tool';
 
 // A small tool that formats a clean prompt for the LLM
 const promptPrepTool: Tool<{ topic: string }, { prompt: string }> = {

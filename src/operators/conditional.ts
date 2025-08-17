@@ -8,7 +8,7 @@ import {
   type ExecutionContext,
   type IRGenerationContext,
   type StepResolver,
-  type UnifiedOperator,
+  type UnifiedOperator
 } from './base';
 import { evaluateCondition, inferType } from './utils';
 import type { IRNode } from '@/ir';

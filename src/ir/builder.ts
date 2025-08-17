@@ -19,7 +19,7 @@ import type {
   NodeConfig,
   ParallelNode,
   SequenceNode,
-  ToolNode,
+  ToolNode
 } from './core-types';
 import { IRValidationError } from './core-types';
 

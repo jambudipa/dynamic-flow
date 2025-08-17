@@ -36,9 +36,8 @@
 
 import { loadEnv } from '../env';
 import { Duration, Effect, pipe, Stream } from 'effect';
-import { Flow, Tools } from '../../src/index';
+import { Flow, LLMLive, Tools } from '../../src/index';
 import { createOpenAiCompletionTool } from '../../src/llm/providers/effect-openai-tool';
-import { LLMLive } from '../../src/index';
 
 async function createLlmFlow() {
   const ask = createOpenAiCompletionTool(

@@ -5,16 +5,7 @@
  * persistence, and timeout handling.
  */
 
-import {
-  Chunk,
-  Duration,
-  Effect,
-  Fiber,
-  Option,
-  Queue,
-  Ref,
-  Schema,
-} from 'effect';
+import { Chunk, Duration, Effect, Fiber, Option, Queue, Ref, Schema } from 'effect';
 import type { FlowEffect } from '@/types';
 import { FlowError, mapToFlowError } from '@/types/errors';
 

@@ -9,7 +9,8 @@ The Flow API is built on Effect.js principles, providing functional composition 
 ### Basic Pattern
 
 ```typescript
-import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe, Duration } from 'effect'
 
 const myFlow = pipe(
   Effect.succeed(initialValue),

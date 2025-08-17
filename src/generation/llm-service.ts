@@ -6,11 +6,7 @@ import type { Stream } from 'effect';
 import { Effect, pipe } from 'effect';
 import type { AiModel } from './types';
 import { type FlowJSON, LLMGenerationError, type ToolContext } from './types';
-import {
-  formatToolCapabilities,
-  formatToolJoins,
-  summariseOperations,
-} from './tool-context';
+import { formatToolCapabilities, formatToolJoins, summariseOperations } from './tool-context';
 
 /**
  * Service for generating flows using LLM

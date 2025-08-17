@@ -5,15 +5,8 @@
  * with the Flow namespace and Effect system.
  */
 
-import { Effect, pipe } from 'effect';
-import type * as Duration from 'effect/Duration';
-import type {
-  ExecutionContext,
-  LLMTool,
-  Tool,
-  ToolError,
-} from '../tools/types';
-// import { FlowCompiler } from './compiler'; // Removed
+import { Duration, Effect, pipe } from 'effect';
+import type { ExecutionContext, LLMTool, Tool, ToolError } from '../tools/types';
 import { getGlobalRegistry } from '@/tools/registry';
 import type { FlowContext, FlowEffect } from '@/types';
 

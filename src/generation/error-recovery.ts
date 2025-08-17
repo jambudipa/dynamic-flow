@@ -9,7 +9,7 @@ import {
   type GenerationContext,
   GenerationError,
   type RetryStrategy,
-  type ValidationError,
+  type ValidationError
 } from './types';
 
 /**

@@ -35,8 +35,8 @@
  */
 
 import { Duration, Effect, pipe, Schema, Stream } from 'effect';
-import { Flow, Tools } from '../../src/index';
 import type { Tool, ToolJoin } from '../../src/index';
+import { Flow, Tools } from '../../src/index';
 
 // Tool A: given an ID, returns a record with { title: string }
 const toolA: Tool<{ id: number }, { title: string }> = {

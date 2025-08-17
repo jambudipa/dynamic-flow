@@ -6,15 +6,9 @@
  */
 
 import type { Effect, Schema } from 'effect';
-import type {
-  ComponentMetadata,
-  ExecutionContext,
-  ValidationResult,
-} from './core';
+import type { ComponentMetadata, ExecutionContext, ValidationResult } from './core';
 import type { AnyFlowError, FlowError } from './errors';
 import type { FlowContext, FlowEffect, ToolRequirements } from './effects';
-// TODO: Fix missing './tools' module - commenting out until resolved
-// import type { Tool, Executable, LLMAdapter, ToolDefinition } from './tools'
 
 // ============= Core Type Guards =============
 

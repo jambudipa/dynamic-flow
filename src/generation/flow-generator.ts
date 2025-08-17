@@ -15,10 +15,9 @@ import type {
   GenerationContext,
   ToolContext,
   ValidatedFlow,
-  ValidationError,
+  ValidationError
 } from './types';
 import { GenerationError } from './types';
-// Import additional types
 import type { Tool, ToolJoin } from '@/tools/types';
 
 /**

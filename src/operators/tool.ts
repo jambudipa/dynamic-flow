@@ -3,12 +3,7 @@
  */
 
 import { Effect, Schema } from 'effect';
-import {
-  BaseFields,
-  type ExecutionContext,
-  type IRGenerationContext,
-  type UnifiedOperator,
-} from './base';
+import { BaseFields, type ExecutionContext, type IRGenerationContext, type UnifiedOperator } from './base';
 import { resolveVariables } from './utils';
 import type { IRNode, IRValue } from '@/ir';
 

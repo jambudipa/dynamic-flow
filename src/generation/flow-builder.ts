@@ -11,7 +11,7 @@ import {
   type FunctionalNode,
   type ParallelNode,
   type SequenceNode,
-  type ValidatedFlow,
+  type ValidatedFlow
 } from './types';
 import type { Tool, ToolJoin } from '@/tools/types';
 

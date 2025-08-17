@@ -21,7 +21,8 @@ Understanding the different execution modes helps you choose the right approach 
 Direct execution of pre-defined flows using the pipeable API.
 
 ```typescript
-import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 
 const weatherFlow = pipe(
   Effect.succeed({ city: 'London' }),
@@ -110,7 +111,8 @@ npm install @jambudipa/dynamic-flow effect @effect/schema
 ### Your First Flow
 
 ```typescript
-import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 
 // Simple static flow
 const helloFlow = pipe(

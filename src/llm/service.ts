@@ -1,12 +1,4 @@
-import {
-  Context,
-  Effect,
-  Layer,
-  Redacted,
-  Stream,
-  Schema,
-  JSONSchema,
-} from 'effect';
+import { Context, Effect, JSONSchema, Layer, Redacted, Schema, Stream } from 'effect';
 import * as NodeHttpClient from '@effect/platform-node/NodeHttpClient';
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai/index';
 import * as AiLanguageModel from '@effect/ai/AiLanguageModel';

@@ -5,12 +5,7 @@
 import type { Schema } from 'effect';
 import { Effect, pipe } from 'effect';
 import type { Tool, ToolJoin } from '@/tools/types';
-import type {
-  FlowJSON,
-  ValidatedFlow,
-  ValidationError,
-  ValidationWarning,
-} from './types';
+import type { FlowJSON, ValidatedFlow, ValidationError, ValidationWarning } from './types';
 
 /**
  * Validates generated flows

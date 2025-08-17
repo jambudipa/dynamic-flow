@@ -21,7 +21,8 @@ DynamicFlow's pipeable API enables functional composition of workflows using Eff
 The `pipe` function enables left-to-right function composition, making code more readable and maintainable:
 
 ```typescript
-import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 
 // Sequential operations using pipe
 const dataProcessingFlow = pipe(
@@ -789,7 +790,8 @@ const streamingProcessingFlow = pipe(
 
 ```typescript
 import { describe, it, expect } from 'vitest'
-import { Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect } from 'effect'
 
 describe('Data Processing Steps', () => {
   it('should validate data correctly', async () => {

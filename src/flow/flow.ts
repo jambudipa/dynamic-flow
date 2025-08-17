@@ -12,30 +12,19 @@
  *   can be executed by the engine.
  */
 
-import { Duration, Effect, Effect as _Effect, Schema, Stream } from 'effect';
+import { Duration, Effect, Schema, Stream } from 'effect';
 import type { ParseError } from 'effect/ParseResult';
 import type { Tool, ToolJoin } from '@/tools/types';
 import type { FlowError } from '@/types';
 import { FlowExecutionError } from '@/types';
 import { toFlowError } from '@/types/errors';
-// import { StaticFlowCompiler } from './ir-compiler'; // Removed
 import type { IR } from '@/ir';
-import type {
-  ExecutionResult,
-  FlowEvent,
-  ValidatedFlow,
-} from '@/generation/types';
+import type { ExecutionResult, FlowEvent } from '@/generation/types';
 import type { ValidatedFlowInstance } from '@/generation';
-import { ExecutionError } from '@/generation';
 import { structuredChoice } from '@/llm/structured';
-
-// Re-export Effect for convenience
-export { Effect, Duration } from 'effect';
-export { pipe } from 'effect';
 
 // Re-export Tools namespace
 export { Tools } from './tools';
-// export { FlowCompiler } from './compiler'; // Removed
 
 // ============= Core Flow Namespace =============
 

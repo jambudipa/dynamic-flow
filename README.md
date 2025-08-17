@@ -267,7 +267,8 @@ Integrate with LangChain, MCP servers, or any tool ecosystem.
 You can also define flows programmatically using Effect's powerful composition:
 
 ```typescript
-import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe, Duration, Layer } from 'effect'
 
 const salesAlertFlow = pipe(
   // Fetch sales data with Effect
@@ -324,11 +325,12 @@ const salesAlertFlow = pipe(
 ## Quick Start
 
 ```bash
-npm install @jambudipa/dynamic-flow
+npm install @jambudipa/dynamic-flow effect @effect/schema
 ```
 
 ```typescript
-import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 
 // Create a simple flow
 const myFlow = pipe(
@@ -345,7 +347,8 @@ console.log(result) // "HELLO, WORLD!"
 ### 1. Create Pipeable Tools
 
 ```typescript
-import { Tools, pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Tools, Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 import * as S from 'effect/Schema'
 
 // Define a weather tool that returns an Effect
@@ -377,7 +380,8 @@ const weatherFlow = pipe(
 ### 2. AI-Generated Flow Execution
 
 ```typescript
-import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 
 // Your AI generates a complete execution plan as JSON
 const userRequest = "Check weather in multiple cities and alert if any have storms"
@@ -408,7 +412,8 @@ const result = await Flow.run(weatherAnalysisFlow)
 ### 3. Advanced Flow Composition
 
 ```typescript
-import { pipe, Flow, Effect, Tools } from '@jambudipa/dynamic-flow'
+import { Flow, Tools } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 
 // Compose complex flows with conditional logic and parallel processing
 const weatherAnalysisFlow = pipe(

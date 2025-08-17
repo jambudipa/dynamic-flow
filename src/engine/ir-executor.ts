@@ -7,7 +7,6 @@
 import { Effect, Stream } from 'effect';
 import type { IR } from '@/ir';
 import { ToolRegistryImpl } from '@/tools/registry';
-// Types moved inline from removed executor.ts
 import type { Tool, ToolJoin } from '@/tools/types';
 import type { ToolRequirements } from '@/types';
 

@@ -9,8 +9,7 @@
  *
  * ### Core Flow Operations
  * - `Flow` - Namespace containing all pipeable flow operations
- * - `pipe` - Function composition utility from Effect.js
- * - `Effect` - Core Effect type and utilities
+ * - Use `pipe` and `Effect` directly from `effect`
  * - `Tools` - Tool creation and management utilities
  *
  * ### Dynamic Flow Generation
@@ -31,7 +30,8 @@
  *
  * ### Static Flow (Programmatic)
  * ```typescript
- * import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+ * import { Flow } from '@jambudipa/dynamic-flow'
+ * import { Effect, pipe } from 'effect'
  *
  * const myFlow = pipe(
  *   Effect.succeed("Hello"),
@@ -75,19 +75,6 @@
  * @license MIT
  */
 
-// Core exports
-export { Effect, Duration, Layer, Context, Schema } from 'effect';
-
-// ============= Types =============
-
-/** No legacy types exported at the package root. */
-
-// ============= Main Class =============
-
-/** No legacy classes retained. */
-
-// ============= Factory Functions =============
-
 // ============= Re-exports =============
 
 /**
@@ -95,7 +82,8 @@ export { Effect, Duration, Layer, Context, Schema } from 'effect';
  *
  * @example
  * ```typescript
- * import { pipe, Flow, Tools } from '@jambudipa/dynamic-flow'
+ * import { Flow, Tools } from '@jambudipa/dynamic-flow'
+ * import { pipe, Effect } from 'effect'
  *
  * const workflow = pipe(
  *   Effect.succeed(input),
@@ -104,7 +92,7 @@ export { Effect, Duration, Layer, Context, Schema } from 'effect';
  * )
  * ```
  */
-export { pipe, Flow, Tools } from './flow/flow';
+export { Flow, Tools } from './flow/flow';
 
 /**
  * Utility functions for creating and managing Effects in flows.

@@ -179,23 +179,6 @@ export {
   optional,
 } from './guards';
 
-// ============= Legacy Compatibility =============
-
-/* TODO: Fix missing types - commenting out deprecated legacy types until resolved
-export type LegacyExecutionContext = ExecutionContext
-export type LegacyFlowError = FlowError
-export type LegacyDynamicFlowEffect<A, E = FlowError, R = FlowContext> = FlowEffect<A, E, R>
-*/
-
-// ============= Re-exports from Effect =============
-
-/**
- * Common Effect types re-exported for convenience
- */
-export type { Effect } from 'effect';
-export type * as Schema from 'effect/Schema';
-export type { ParseError } from 'effect/ParseResult';
-
 // ============= Module Information =============
 
 /**

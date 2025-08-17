@@ -4,12 +4,7 @@
 
 import { Duration, Effect, pipe, Ref, Stream } from 'effect';
 import type { AiModel } from './types';
-import {
-  type ModelPool,
-  type ModelPoolConfig,
-  PoolError,
-  type PoolMetrics,
-} from './types';
+import { type ModelPool, type ModelPoolConfig, PoolError, type PoolMetrics } from './types';
 
 /**
  * Manages a pool of AI models for parallel execution

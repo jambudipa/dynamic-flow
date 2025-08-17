@@ -8,7 +8,7 @@ import {
   type ExecutionContext,
   type IRGenerationContext,
   type StepResolver,
-  type UnifiedOperator,
+  type UnifiedOperator
 } from './base';
 import { inferType } from './utils';
 import { structuredChoice } from '@/llm/structured';

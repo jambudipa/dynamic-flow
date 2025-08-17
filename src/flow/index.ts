@@ -7,20 +7,9 @@
  */
 
 import { Context, Effect, Layer, Schema } from 'effect';
-import type {
-  ExecutionContext,
-  FlowContext,
-  FlowEffect,
-  ToolRequirements,
-} from '@/types';
-import {
-  FlowError,
-  FlowExecutionError,
-  FlowTypeError,
-  ToolError,
-} from '@/types';
+import type { ExecutionContext, FlowContext, FlowEffect, ToolRequirements } from '@/types';
+import { FlowError, FlowExecutionError, FlowTypeError, ToolError } from '@/types';
 import { toFlowError } from '@/types/errors';
-// (no local types needed)
 
 // ============= Re-export Core Types =============
 
@@ -82,51 +71,7 @@ export interface FlowContextService {
 export const FlowContextTag =
   Context.GenericTag<FlowContextService>('FlowContext');
 
-/**
- * Pipeable flow function type
- */
-export interface PipeableFlow<A, B, E = FlowError, R = never> {
-  readonly _tag: 'PipeableFlow';
-  readonly effect: Effect.Effect<B, E, R | FlowContext>;
-  readonly _A: A; // Input type (phantom)
-  readonly _B: B; // Output type (phantom)
-}
-
-// ============= Core Pipe Function =============
-
-/**
- * The fundamental pipe function for composing flows
- * Provides type-safe composition of effectful operations
- */
-export function pipe<A>(flow: FlowEffect<A>): FlowEffect<A>;
-export function pipe<A, B>(
-  flow: FlowEffect<A>,
-  fn: (a: FlowEffect<A>) => FlowEffect<B>
-): FlowEffect<B>;
-export function pipe<A, B, C>(
-  flow: FlowEffect<A>,
-  fn1: (a: FlowEffect<A>) => FlowEffect<B>,
-  fn2: (b: FlowEffect<B>) => FlowEffect<C>
-): FlowEffect<C>;
-export function pipe<A, B, C, D>(
-  flow: FlowEffect<A>,
-  fn1: (a: FlowEffect<A>) => FlowEffect<B>,
-  fn2: (b: FlowEffect<B>) => FlowEffect<C>,
-  fn3: (c: FlowEffect<C>) => FlowEffect<D>
-): FlowEffect<D>;
-export function pipe<A, B, C, D, E>(
-  flow: FlowEffect<A>,
-  fn1: (a: FlowEffect<A>) => FlowEffect<B>,
-  fn2: (b: FlowEffect<B>) => FlowEffect<C>,
-  fn3: (c: FlowEffect<C>) => FlowEffect<D>,
-  fn4: (d: FlowEffect<D>) => FlowEffect<E>
-): FlowEffect<E>;
-export function pipe(
-  flow: FlowEffect<unknown>,
-  ...fns: Array<(input: FlowEffect<unknown>) => FlowEffect<unknown>>
-): FlowEffect<unknown> {
-  return fns.reduce((acc, fn) => fn(acc), flow);
-}
+// Note: Use `pipe` from `effect` in consumers for composition.
 
 // ============= Flow Utility Functions =============
 
@@ -206,8 +151,4 @@ export const typed = <From, To, E = FlowError, R = never>(
   ) as unknown as FlowEffect<To, FlowError | E, R | FlowContext>;
 };
 
-// ============= Export the pipe function =============
-export { pipe as default };
-
-// Re-export Effect's pipe for compatibility
-export { pipe as effectPipe } from 'effect';
+// No pipe exports to avoid confusion with Effect's pipe.

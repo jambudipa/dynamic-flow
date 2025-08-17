@@ -2,8 +2,7 @@
  * Validated Flow Instance - Executable flow with streaming support
  */
 
-import { Effect, pipe, Ref, Stream } from 'effect';
-import * as Duration from 'effect/Duration';
+import { Duration, Effect, pipe, Ref, Stream } from 'effect';
 import { StreamExecutor } from './stream-executor';
 import type { ExecutionError } from './types';
 import {
@@ -15,7 +14,7 @@ import {
   type FlowSnapshot,
   type FlowState,
   RestoreError,
-  type ValidatedFlow,
+  type ValidatedFlow
 } from './types';
 
 //TODO Is this still required? Is a ValidatedFlow pertaining to the IR, or has it been superseded by something else?

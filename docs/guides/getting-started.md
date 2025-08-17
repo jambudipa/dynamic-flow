@@ -48,7 +48,8 @@ Create a simple hello world flow using the pipeable API:
 
 ```typescript
 // hello-flow.ts
-import { pipe, Flow, Effect } from '@jambudipa/dynamic-flow'
+import { Flow } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 
 const helloFlow = pipe(
   Effect.succeed("Hello"),
@@ -69,7 +70,8 @@ Tools are the building blocks that LLMs can use in generated workflows:
 
 ```typescript
 // weather-tool.ts
-import { Tools, Effect } from '@jambudipa/dynamic-flow'
+import { Tools } from '@jambudipa/dynamic-flow'
+import { Effect } from 'effect'
 import * as S from 'effect/Schema'
 
 const weatherTool = Tools.createTool({
