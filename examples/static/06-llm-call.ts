@@ -18,7 +18,7 @@
  *
  * Expected console output:
  * ```
- * LLM response (collected): { response: "Dynamic Flow is..." }
+ * LLM response (collected): { response: "DynamicFlow is..." }
  * — Streaming events —
  * • flow-start
  * • tool-start — tool=llm:basic-ask
@@ -49,7 +49,7 @@ async function createLlmFlow() {
   // Piped static flow
   const run = Tools.createTool<{ prompt: string }, { response: string }>(ask);
   const program = pipe(
-    Effect.succeed({ prompt: 'In one short sentence, what is Dynamic Flow?' }),
+    Effect.succeed({ prompt: 'In one short sentence, what is DynamicFlow?' }),
     Flow.andThen(run)
   );
 
@@ -74,20 +74,32 @@ export async function runExample(): Promise<{ response: string }> {
     console.log('— Non-streaming (collect) —');
     const collected = await Effect.runPromise(
       //TODO fix typing / requirements of runCollect to avoid this "as"
-      Flow.runCollect(programWithLLM as Effect.Effect<any, any, never>, { name: 'Static LLM Call' })
+      Flow.runCollect(programWithLLM as Effect.Effect<any, any, never>, {
+        name: 'Static LLM Call',
+      })
     );
     console.log('Final result:', collected.output);
-    console.log('Execution time:', Duration.toMillis(collected.metadata.duration), 'ms');
+    console.log(
+      'Execution time:',
+      Duration.toMillis(collected.metadata.duration),
+      'ms'
+    );
 
     // Streaming: get events as they happen
     console.log('\n— Streaming (events) —');
     await Stream.runForEach(
-      Flow.runStream(programWithLLM as Effect.Effect<any, any, never>, { name: 'Static LLM Call' }),
-      (event) => Effect.sync(() => {
-        console.log(`• ${event.type}`,
-          event.type === 'flow-complete' ? `result: ${JSON.stringify((event as any).result)}` : ''
-        );
-      })
+      Flow.runStream(programWithLLM as Effect.Effect<any, any, never>, {
+        name: 'Static LLM Call',
+      }),
+      (event) =>
+        Effect.sync(() => {
+          console.log(
+            `• ${event.type}`,
+            event.type === 'flow-complete'
+              ? `result: ${JSON.stringify((event as any).result)}`
+              : ''
+          );
+        })
     ).pipe(Effect.runPromise);
 
     console.log('\n✅ LLM call completed successfully!');
@@ -106,7 +118,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-
 /**
  * Expected Output:
  * ===============
@@ -115,7 +126,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  *
  * — Non-streaming (collect) —
  * Final result: {
- *   response: "Dynamic Flow is the modeling and management of time-varying flows through a system or network that adapt to changing conditions."
+ *   response: "DynamicFlow is the modeling and management of time-varying flows through a system or network that adapt to changing conditions."
  * }
  * Execution time: 5024 ms
  *

@@ -1,10 +1,10 @@
 /**
- * Dynamic Flow API - Main entry point for flow generation and execution
+ * DynamicFlow API - Main entry point for flow generation and execution
  */
 
 import type { Duration } from 'effect';
 import { Effect, Schema, Stream } from 'effect';
-import type { Tool, ToolJoin } from '@/tools/types';
+import type { Tool, ToolJoin, UntypedToolArray } from '@/tools/types';
 import { ValidatedFlowInstance } from './validated-flow-instance';
 import { JSONToIRCompiler } from '@/compiler';
 import { type DynamicFlowType } from '@/schema/flow-schema';
@@ -12,10 +12,11 @@ import { LLMCoreService } from '@/llm/service';
 import {
   generateConnectivityPrompt,
   generateCorrectivePrompt,
-  validateToolConnectivity
+  validateToolConnectivity,
 } from '@/operators/tool-connectivity';
 import { OperatorRegistry } from '@/operators';
 import { BaseFields } from '@/operators/base';
+import { getErrorMessage } from '@/types/type-utils';
 import {
   type AiModel,
   type DynamicFlowOptions,
@@ -25,7 +26,7 @@ import {
   GenerationError,
   type ModelPoolConfig,
   type RetryStrategy,
-  type ValidatedFlow
+  type ValidatedFlow,
 } from './types';
 
 /**
@@ -45,7 +46,7 @@ export class DynamicFlowOrchestrator {
    */
   async execute(config: {
     prompt: string;
-    tools: ReadonlyArray<Tool<any, any>>;
+    tools: UntypedToolArray;
     joins: ReadonlyArray<ToolJoin<any, any>>;
     model: AiModel;
     options?: DynamicFlowOptions | undefined;
@@ -72,7 +73,7 @@ export class DynamicFlowOrchestrator {
         // Include the generated JSON for debugging
         version: '1.0',
         metadata: {
-          name: json.metadata?.name || 'Dynamic Flow',
+          name: json.metadata?.name || 'DynamicFlow',
           description: json.metadata?.description || 'Generated flow',
           generated: true,
           model: config.model.toString(),
@@ -103,7 +104,7 @@ export class DynamicFlowOrchestrator {
    */
   async compile(config: {
     prompt: string;
-    tools: ReadonlyArray<Tool<any, any>>;
+    tools: UntypedToolArray;
     joins: ReadonlyArray<ToolJoin<any, any>>;
     model: AiModel;
     options?: DynamicFlowOptions | undefined;
@@ -116,7 +117,7 @@ export class DynamicFlowOrchestrator {
    */
   private async generateJSONFromLLM(
     prompt: string,
-    tools: ReadonlyArray<Tool<any, any>>,
+    tools: UntypedToolArray,
     joins: ReadonlyArray<ToolJoin<any, any>>,
     model: AiModel,
     options?: DynamicFlowOptions
@@ -157,7 +158,7 @@ Rules:
     const registry = OperatorRegistry.getInstance();
 
     // Build a custom schema with actual tools instead of generic tool operator
-    const buildFlowSchemaWithTools = (tools: ReadonlyArray<Tool<any, any>>) => {
+    const buildFlowSchemaWithTools = (tools: UntypedToolArray) => {
       // Create specific tool schemas for each available tool
       // Create JSON-compatible value type (no Schema.Any!)
       const JsonValue = Schema.Union(
@@ -304,7 +305,7 @@ Rules:
   // Create a simple fallback flow when LLM generation fails
   private createFallbackFlow(
     prompt: string,
-    tools: ReadonlyArray<Tool<any, any>>
+    tools: UntypedToolArray
   ): DynamicFlowType {
     // Creating fallback flow
 
@@ -336,7 +337,7 @@ Rules:
               } else if (name === 'id') {
                 args[name] = '123';
               } else if (name === 'message') {
-                args[name] = 'Hello from Dynamic Flow!';
+                args[name] = 'Hello from DynamicFlow!';
               } else {
                 args[name] = `${name} value`;
               }
@@ -429,7 +430,7 @@ export class DynamicFlow {
    */
   static execute(config: {
     prompt: string;
-    tools: ReadonlyArray<Tool<any, any>>;
+    tools: UntypedToolArray;
     joins: ReadonlyArray<ToolJoin<any, any>>;
     model: AiModel;
     options?: DynamicFlowOptions | undefined;
@@ -449,10 +450,7 @@ export class DynamicFlow {
     });
 
     const stream = Stream.unwrap(effectOfStream);
-    return Stream.mapError(
-      stream,
-      (e) => new FlowError((e as any)?.message ?? String(e), e)
-    );
+    return Stream.mapError(stream, (e) => new FlowError(getErrorMessage(e), e));
   }
 
   /**
@@ -460,7 +458,7 @@ export class DynamicFlow {
    */
   static compile(config: {
     prompt: string;
-    tools: ReadonlyArray<Tool<any, any>>;
+    tools: UntypedToolArray;
     joins: ReadonlyArray<ToolJoin<any, any>>;
     model: AiModel;
     options?: DynamicFlowOptions | undefined;
@@ -479,7 +477,7 @@ export class DynamicFlow {
    */
   static generate(config: {
     prompt: string;
-    tools: ReadonlyArray<Tool<any, any>>;
+    tools: UntypedToolArray;
     joins: ReadonlyArray<ToolJoin<any, any>>;
     model: AiModel;
     options?: DynamicFlowOptions | undefined;
@@ -525,9 +523,7 @@ export class DynamicFlow {
       });
       const instance = new ValidatedFlowInstance(validatedFlow, config.options);
       return yield* instance.runCollect(config.input);
-    }).pipe(
-      Effect.mapError((e) => new FlowError((e as any)?.message ?? String(e), e))
-    );
+    }).pipe(Effect.mapError((e) => new FlowError(getErrorMessage(e), e)));
   }
 }
 
@@ -536,7 +532,7 @@ export class DynamicFlow {
  */
 export class FlowBuilder {
   private prompt?: string | undefined;
-  private tools: ReadonlyArray<Tool<any, any>> = [];
+  private tools: UntypedToolArray = [];
   private joins: ReadonlyArray<ToolJoin<any, any>> = [];
   private model?: AiModel | undefined;
   private modelPool?: ModelPoolConfig | undefined;
@@ -547,7 +543,7 @@ export class FlowBuilder {
     return this;
   }
 
-  withTools(tools: ReadonlyArray<Tool<any, any>>): this {
+  withTools(tools: UntypedToolArray): this {
     this.tools = tools;
     return this;
   }

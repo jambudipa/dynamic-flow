@@ -12,7 +12,7 @@
  * - Use `pipe` and `Effect` directly from `effect`
  * - `Tools` - Tool creation and management utilities
  *
- * ### Dynamic Flow Generation
+ * ### DynamicFlow Generation
  * - `DynamicFlow` - AI-powered workflow generation from natural language
  * - `ValidatedFlowInstance` - Wrapper for compiled and validated flows
  *
@@ -42,7 +42,7 @@
  * const result = await Flow.run(myFlow)
  * ```
  *
- * ### Dynamic Flow (AI-Generated)
+ * ### DynamicFlow (AI-Generated)
  * ```typescript
  * import { DynamicFlow, Tools } from '@jambudipa/dynamic-flow'
  * import { OpenAi } from '@effect/ai-openai'
@@ -58,14 +58,14 @@
  * ### Tool Creation
  * ```typescript
  * import { Tools } from '@jambudipa/dynamic-flow'
- * import * as S from 'effect/Schema'
+ * import { Schema } from 'effect'
  *
- * const myTool = Tools.createTool({
+ * const myTool = ToolSchema.createTool({
  *   id: 'myTool',
  *   name: 'My Tool',
  *   description: 'Does something useful',
- *   inputSchema: S.Struct({ input: S.String }),
- *   outputSchema: S.Struct({ output: S.String }),
+ *   inputSchema: Schema.Struct({ input: Schema.String }),
+ *   outputSchema: Schema.Struct({ output: Schema.String }),
  *   execute: (input, context) => Effect.succeed({ output: input.input.toUpperCase() })
  * })
  * ```

@@ -42,10 +42,22 @@ import { LLMCoreService } from '../../src/llm/service';
 // Dynamic import MCP client only at runtime so the library is optional
 async function withMcpCurl<T>(f: (client: any) => Promise<T>): Promise<T> {
   try {
-    // @ts-ignore - Optional MCP dependency
-    const { Client } = await import('@modelcontextprotocol/sdk/client');
-    // @ts-ignore - Optional MCP dependency
-    const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio');
+    // Try to import MCP SDK - skip if not installed
+    let Client: any;
+    let StdioClientTransport: any;
+    
+    try {
+      // @ts-ignore - Optional MCP dependency
+      const clientModule = await import('@modelcontextprotocol/sdk/client');
+      Client = clientModule.Client;
+      // @ts-ignore - Optional MCP dependency
+      const stdioModule = await import('@modelcontextprotocol/sdk/client/stdio');
+      StdioClientTransport = stdioModule.StdioClientTransport;
+    } catch (e) {
+      console.log('⚠️  MCP SDK not installed - skipping example');
+      console.log('   To run this example: npm install @modelcontextprotocol/sdk');
+      return {} as T;
+    }
 
     console.log('Initializing MCP curl server connection...');
 
@@ -53,10 +65,13 @@ async function withMcpCurl<T>(f: (client: any) => Promise<T>): Promise<T> {
     // Tip: you can also install globally and use 'mcp-server-curl'
     const transport = new StdioClientTransport({
       command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['-y', '@modelcontextprotocol/server-curl']
+      args: ['-y', '@modelcontextprotocol/server-curl'],
     });
 
-    const client = new (Client as any)({ name: 'dynamic-flow-mcp-client', version: '1.0.0' }, transport);
+    const client = new (Client as any)(
+      { name: 'dynamic-flow-mcp-client', version: '1.0.0' },
+      transport
+    );
     await (client as any).connect?.();
     await (client as any).initialize?.();
 
@@ -67,7 +82,9 @@ async function withMcpCurl<T>(f: (client: any) => Promise<T>): Promise<T> {
     }
   } catch (error) {
     console.error('MCP client error:', error);
-    throw new Error(`MCP integration failed: ${(error as any).message}. Ensure @modelcontextprotocol/sdk and @modelcontextprotocol/server-curl are installed.`);
+    throw new Error(
+      `MCP integration failed: ${(error as any).message}. Ensure @modelcontextprotocol/sdk and @modelcontextprotocol/server-curl are installed.`
+    );
   }
 }
 
@@ -99,10 +116,14 @@ export async function runExample(): Promise<{ data: string; summary: string }> {
       }
 
       console.log('Executing curl tool...');
-      const invoked = await client.callTool({ name: 'curl', arguments: { url } });
+      const invoked = await client.callTool({
+        name: 'curl',
+        arguments: { url },
+      });
 
       // The curl server typically returns text content; pull the first text item
-      const body = invoked?.content?.find((c: any) => c.type === 'text')?.text ?? '';
+      const body =
+        invoked?.content?.find((c: any) => c.type === 'text')?.text ?? '';
       return body;
     });
 
@@ -114,7 +135,9 @@ export async function runExample(): Promise<{ data: string; summary: string }> {
 
 ${mcpResult.slice(0, 4000)}`;
 
-    const summary = await Effect.runPromise(LLMCoreService.completion(summaryPrompt));
+    const summary = await Effect.runPromise(
+      LLMCoreService.completion(summaryPrompt)
+    );
     console.log('Summary:', summary.content);
 
     console.log('\n✅ MCP curl integration completed successfully!');
@@ -136,25 +159,25 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 /**
  * Expected Output:
  * ===============
- * 
+ *
  * === MCP Curl Integration Example ===
- * 
+ *
  * Fetching data from: https://api.github.com/repos/openai/gpt-2
  * Initializing MCP curl server connection...
  * Discovering available tools...
  * Available tools: [curl]
  * Executing curl tool...
  * MCP curl body length: 2847
- * 
+ *
  * Generating LLM summary...
  * Summary: The OpenAI GPT-2 repository is a public GitHub repository containing the code and model files for GPT-2, created in February 2019 with 21,533 stars and written primarily in Python.
- * 
+ *
  * ✅ MCP curl integration completed successfully!
- * 
+ *
  * Requirements:
  *   npm i @modelcontextprotocol/sdk @modelcontextprotocol/server-curl
  *   OPENAI_API_KEY environment variable
- * 
+ *
  * Note: This example requires MCP (Model Context Protocol) packages to be installed.
  * Note: MCP server communication may have compatibility issues with current SDK versions.
  */

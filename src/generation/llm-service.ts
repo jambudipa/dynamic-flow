@@ -6,7 +6,14 @@ import type { Stream } from 'effect';
 import { Effect, pipe } from 'effect';
 import type { AiModel } from './types';
 import { type FlowJSON, LLMGenerationError, type ToolContext } from './types';
-import { formatToolCapabilities, formatToolJoins, summariseOperations } from './tool-context';
+import {
+  formatToolCapabilities,
+  formatToolJoins,
+  summariseOperations,
+} from './tool-context';
+import { safeOp } from '../utils/effect-patterns';
+import { logDebug } from '../utils/logging';
+import { ParseError } from '../errors/base';
 
 /**
  * Service for generating flows using LLM
@@ -30,10 +37,12 @@ export class LLMService {
       // Optional debug: raw LLM content
       Effect.tap((completion) =>
         debug
-          ? Effect.sync(() => {
-              console.log('[DynamicFlow][LLM][raw]');
-              console.log(completion.content);
-            })
+          ? pipe(
+              logDebug('[DynamicFlow][LLM][raw]', { module: 'LLM' }),
+              Effect.flatMap(() =>
+                logDebug(completion.content, { module: 'LLM' })
+              )
+            )
           : Effect.void
       ),
       // Parse response to JSON
@@ -41,18 +50,39 @@ export class LLMService {
       // Optional debug: parsed JSON (pre-validation)
       Effect.tap((json) =>
         debug
-          ? Effect.sync(() => {
-              console.log('[DynamicFlow][LLM][parsed-json]');
-              try {
-                console.log(JSON.stringify(json, null, 2));
-              } catch {
-                console.log(json);
-              }
-            })
+          ? pipe(
+              safeOp(
+                () => JSON.stringify(json, null, 2),
+                () =>
+                  new ParseError({
+                    input: String(json),
+                    expected: 'JSON',
+                    message: 'Failed to stringify JSON for debug output',
+                  })
+              ),
+              Effect.flatMap((jsonStr) =>
+                pipe(
+                  logDebug('[DynamicFlow][LLM][parsed-json]', {
+                    module: 'LLM',
+                  }),
+                  Effect.flatMap(() => logDebug(jsonStr, { module: 'LLM' }))
+                )
+              ),
+              Effect.catchAll(() =>
+                pipe(
+                  logDebug('[DynamicFlow][LLM][parsed-json]', {
+                    module: 'LLM',
+                  }),
+                  Effect.flatMap(() =>
+                    logDebug(String(json), { module: 'LLM' })
+                  )
+                )
+              )
+            )
           : Effect.void
       ),
       // Validate basic structure
-      Effect.flatMap(this.validateBasicStructure)
+      Effect.flatMap((json) => this.validateBasicStructure(json))
     );
   }
 
@@ -150,7 +180,7 @@ Rules:
 5. Use parallel execution where possible
 6. Include error handling considerations
 ${
-  context.errorContext
+  context.errorContext !== null && context.errorContext !== undefined
     ? '\n7. Address the following errors from previous attempt:\n' +
       context.errorContext.map((e) => `- ${e.message}`).join('\n')
     : ''
@@ -187,9 +217,13 @@ Requirements:
       let text = raw.trim();
       // Extract fenced ```json ... ``` block if present
       const fenceMatch =
-        text.match(/```json\s*([\s\S]*?)```/i) ||
+        text.match(/```json\s*([\s\S]*?)```/i) ??
         text.match(/```\s*([\s\S]*?)```/i);
-      if (fenceMatch && fenceMatch[1]) {
+      if (
+        fenceMatch !== null &&
+        fenceMatch[1] !== null &&
+        fenceMatch[1] !== undefined
+      ) {
         text = fenceMatch[1].trim();
       }
       // If still surrounded by prose, try to isolate first JSON object by braces
@@ -199,7 +233,8 @@ Requirements:
           let depth = 0;
           let end = -1;
           for (let i = start; i < text.length; i++) {
-            const c = text[i]!;
+            const c = text[i];
+            if (c === undefined) break;
             if (c === '{') depth++;
             if (c === '}') {
               depth--;
@@ -220,50 +255,81 @@ Requirements:
       return text;
     };
 
-    const postProcess = (obj: any): any => {
-      try {
-        if (obj && Array.isArray(obj.nodes)) {
-          for (const node of obj.nodes) {
-            if (node && node.inputs && typeof node.inputs === 'object') {
+    const postProcess = (
+      obj: Record<string, unknown>
+    ): Effect.Effect<Record<string, unknown>, never> =>
+      Effect.try(() => {
+        if (obj !== null && obj !== undefined && Array.isArray(obj.nodes)) {
+          for (const node of obj.nodes as Array<{
+            inputs?: Record<string, unknown>;
+          }>) {
+            if (
+              node !== null &&
+              node !== undefined &&
+              node.inputs !== null &&
+              node.inputs !== undefined &&
+              typeof node.inputs === 'object'
+            ) {
               for (const [k, v] of Object.entries(node.inputs)) {
                 if (
-                  v &&
+                  v !== null &&
+                  v !== undefined &&
                   typeof v === 'object' &&
-                  'source' in (v as any) &&
-                  typeof (v as any).source === 'string'
+                  'source' in v &&
+                  typeof (v as { source?: unknown }).source === 'string'
                 ) {
-                  const src = (v as any).source as string;
-                  const base = src.split('.')[0] || src;
+                  const src = (v as { source: string }).source;
+                  const base = src.split('.')[0] ?? src;
                   node.inputs[k] = `$${base}`;
                 }
               }
             }
           }
         }
-      } catch {}
-      return obj;
-    };
+        return obj;
+      }).pipe(Effect.catchAll(() => Effect.succeed(obj)));
 
-    return Effect.try({
-      try: () => {
-        const content = completion.content;
-        const text = sanitize(content);
-        const parsed = JSON.parse(text);
-        const fixed = postProcess(parsed);
-        if (debug) {
-          try {
-            console.log('[DynamicFlow][LLM][sanitized-json]');
-            console.log(JSON.stringify(fixed, null, 2));
-          } catch {}
-        }
-        return fixed as FlowJSON;
-      },
-      catch: (error) =>
-        new LLMGenerationError(
-          `Failed to parse LLM response: ${error}`,
-          error as Error
-        ),
-    });
+    return pipe(
+      Effect.sync(() => completion.content),
+      Effect.map((content) => sanitize(content)),
+      Effect.flatMap((text) =>
+        safeOp(
+          () => JSON.parse(text) as Record<string, unknown>,
+          (error) =>
+            new LLMGenerationError(
+              `Failed to parse LLM response as JSON: ${error}`,
+              error instanceof Error ? error : new Error(String(error))
+            )
+        )
+      ),
+      Effect.flatMap((parsed) => postProcess(parsed)),
+      Effect.tap((fixed) =>
+        debug
+          ? pipe(
+              safeOp(
+                () => JSON.stringify(fixed, null, 2),
+                () =>
+                  new ParseError({
+                    input: String(fixed),
+                    expected: 'JSON',
+                    message:
+                      'Failed to stringify sanitized JSON for debug output',
+                  })
+              ),
+              Effect.flatMap((jsonStr) =>
+                pipe(
+                  logDebug('[DynamicFlow][LLM][sanitized-json]', {
+                    module: 'LLM',
+                  }),
+                  Effect.flatMap(() => logDebug(jsonStr, { module: 'LLM' }))
+                )
+              ),
+              Effect.catchAll(() => Effect.void)
+            )
+          : Effect.void
+      ),
+      Effect.map((fixed) => fixed as unknown as FlowJSON)
+    );
   }
 
   /**
@@ -286,7 +352,7 @@ Requirements:
     }
 
     // Check nodes have required fields
-    if (json.nodes) {
+    if (Array.isArray(json.nodes)) {
       json.nodes.forEach((node, i) => {
         if (!node.id) {
           errors.push(`Node at index ${i} missing 'id'`);
@@ -294,19 +360,24 @@ Requirements:
         if (!node.type) {
           errors.push(`Node at index ${i} missing 'type'`);
         }
-        if (node.type === 'tool' && !node.toolId) {
+        if (
+          node.type === 'tool' &&
+          (node.toolId === null ||
+            node.toolId === undefined ||
+            node.toolId === '')
+        ) {
           errors.push(`Tool node '${node.id}' missing 'toolId'`);
         }
       });
     }
 
     // Check edges have required fields
-    if (json.edges) {
+    if (Array.isArray(json.edges)) {
       json.edges.forEach((edge, i) => {
-        if (!edge.from) {
+        if (edge.from === null || edge.from === undefined || edge.from === '') {
           errors.push(`Edge at index ${i} missing 'from'`);
         }
-        if (!edge.to) {
+        if (edge.to === null || edge.to === undefined || edge.to === '') {
           errors.push(`Edge at index ${i} missing 'to'`);
         }
       });
@@ -319,7 +390,7 @@ Requirements:
     }
 
     // Set defaults
-    if (!json.metadata) {
+    if (json.metadata === null || json.metadata === undefined) {
       json.metadata = {};
     }
     json.metadata.generated = true;

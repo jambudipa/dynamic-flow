@@ -18,6 +18,7 @@ import type { Tool, ToolJoin } from '@/tools/types';
 import type { FlowError } from '@/types';
 import { FlowExecutionError } from '@/types';
 import { toFlowError } from '@/types/errors';
+import { getErrorMessage } from '@/types/type-utils';
 import type { IR } from '@/ir';
 import type { ExecutionResult, FlowEvent } from '@/generation/types';
 import type { ValidatedFlowInstance } from '@/generation';
@@ -137,13 +138,13 @@ export namespace Flow {
     <A, E, R>(
       self: Effect.Effect<A, E, R>
     ): Effect.Effect<A, E | 'TimeoutError', R> => {
-      return Effect.mapError(
-        Effect.timeout(self as any, duration) as any,
-        (error: any) =>
-          error && error._tag === 'TimeoutException'
+      return Effect.timeout(self, duration).pipe(
+        Effect.mapError((error: any) =>
+          error?._tag === 'TimeoutException'
             ? ('TimeoutError' as const)
-            : error
-      ) as any;
+            : (error as E)
+        )
+      );
     };
 
   /** Retry a flow with simple backoff strategy. */
@@ -155,15 +156,15 @@ export namespace Flow {
     }) =>
     <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
       const run = (remaining: number): Effect.Effect<A, E, R> =>
-        Effect.catchAll(self as any, (err: E) => {
+        Effect.catchAll(self, (err: E) => {
           if (remaining > 0) {
             const next = run(remaining - 1);
             return options.delay
-              ? (Effect.zipRight(Effect.sleep(options.delay), next) as any)
-              : (next as any);
+              ? Effect.zipRight(Effect.sleep(options.delay), next)
+              : next;
           }
-          return Effect.fail(err) as any;
-        }) as any;
+          return Effect.fail(err);
+        });
       return run(options.times);
     };
 
@@ -205,12 +206,12 @@ export namespace Flow {
               name: t.name,
               description: t.description,
             })),
-            { retries: config?.retries ?? 2 }
+            { retries: config?.retries || 2 }
           ).pipe(
             Effect.mapError((e) =>
               toFlowError(
                 new FlowExecutionError({
-                  cause: `Switch routing failed: ${(e as any).message || String(e)}`,
+                  cause: `Switch routing failed: ${getErrorMessage(e)}`,
                 })
               )
             )
@@ -237,7 +238,7 @@ export namespace Flow {
             Effect.mapError((e) =>
               toFlowError(
                 new FlowExecutionError({
-                  cause: `Dynamic branch execution failed: ${String((e as any)?.message ?? e)}`,
+                  cause: `Dynamic branch execution failed: ${getErrorMessage(e)}`,
                 })
               )
             )
@@ -259,7 +260,7 @@ export namespace Flow {
         Effect.mapError((e) =>
           toFlowError(
             new FlowExecutionError({
-              cause: (e as any)?.message ?? String(e),
+              cause: getErrorMessage(e),
             })
           )
         )

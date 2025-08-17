@@ -9,9 +9,10 @@ import {
   type FlowJSON,
   type FlowNode,
   type FunctionalNode,
+  type FunctionalOperation,
   type ParallelNode,
   type SequenceNode,
-  type ValidatedFlow
+  type ValidatedFlow,
 } from './types';
 import type { Tool, ToolJoin } from '@/tools/types';
 
@@ -31,7 +32,7 @@ export class FlowBuilder {
     const builder = new FlowBuilder();
     builder.nodes = [...json.nodes];
     builder.edges = [...json.edges];
-    builder.metadata = json.metadata || {};
+    builder.metadata = json.metadata ?? {};
     return builder;
   }
 
@@ -82,10 +83,15 @@ export class FlowBuilder {
     inputs?: Record<string, any>,
     nodeId?: string | undefined
   ): FlowBuilder {
-    const id = nodeId || this.generateNodeId('tool');
+    const id =
+      nodeId !== null && nodeId !== undefined && nodeId !== ''
+        ? nodeId
+        : this.generateNodeId('tool');
 
-    const node: any = { id, type: 'tool', toolId };
-    if (inputs !== undefined) node.inputs = inputs;
+    const node: FlowNode = { id, type: 'tool', toolId };
+    if (inputs !== undefined) {
+      node.inputs = inputs;
+    }
     this.nodes.push(node);
 
     return this;
@@ -105,10 +111,19 @@ export class FlowBuilder {
     elseBranch?: string[] | undefined,
     nodeId?: string | undefined
   ): FlowBuilder {
-    const id = nodeId || this.generateNodeId('condition');
+    const id =
+      nodeId !== null && nodeId !== undefined && nodeId !== ''
+        ? nodeId
+        : this.generateNodeId('condition');
 
-    const node: any = { id, type: 'if-then', condition, then: thenBranch };
-    if (elseBranch !== undefined) node.else = elseBranch;
+    const node: FlowNode & {
+      condition: unknown;
+      then: string[];
+      else?: string[];
+    } = { id, type: 'if-then', condition, then: thenBranch };
+    if (elseBranch !== undefined) {
+      node.else = elseBranch;
+    }
 
     this.nodes.push(node);
     return this;
@@ -128,10 +143,15 @@ export class FlowBuilder {
     concurrency?: number | undefined,
     nodeId?: string | undefined
   ): FlowBuilder {
-    const id = nodeId || this.generateNodeId('map');
+    const id =
+      nodeId !== null && nodeId !== undefined && nodeId !== ''
+        ? nodeId
+        : this.generateNodeId('map');
 
-    const op: any = { over, operation };
-    if (concurrency !== undefined) op.concurrency = concurrency;
+    const op: FunctionalOperation = { over, operation } as FunctionalOperation;
+    if (concurrency !== undefined) {
+      op.concurrency = concurrency;
+    }
     const node: FunctionalNode = { id, type: 'map', operation: op };
 
     this.nodes.push(node);
@@ -150,7 +170,10 @@ export class FlowBuilder {
     },
     nodeId?: string | undefined
   ): FlowBuilder {
-    const id = nodeId || this.generateNodeId('filter');
+    const id =
+      nodeId !== null && nodeId !== undefined && nodeId !== ''
+        ? nodeId
+        : this.generateNodeId('filter');
 
     const node: FunctionalNode = {
       id,
@@ -178,7 +201,10 @@ export class FlowBuilder {
     },
     nodeId?: string | undefined
   ): FlowBuilder {
-    const id = nodeId || this.generateNodeId('reduce');
+    const id =
+      nodeId !== null && nodeId !== undefined && nodeId !== ''
+        ? nodeId
+        : this.generateNodeId('reduce');
 
     const node: FunctionalNode = {
       id,
@@ -197,7 +223,10 @@ export class FlowBuilder {
    * Add parallel execution branches
    */
   addParallel(branches: string[][], nodeId?: string | undefined): FlowBuilder {
-    const id = nodeId || this.generateNodeId('parallel');
+    const id =
+      nodeId !== null && nodeId !== undefined && nodeId !== ''
+        ? nodeId
+        : this.generateNodeId('parallel');
 
     const node: ParallelNode = {
       id,
@@ -213,7 +242,10 @@ export class FlowBuilder {
    * Add sequential execution
    */
   addSequence(sequence: string[], nodeId?: string | undefined): FlowBuilder {
-    const id = nodeId || this.generateNodeId('sequence');
+    const id =
+      nodeId !== null && nodeId !== undefined && nodeId !== ''
+        ? nodeId
+        : this.generateNodeId('sequence');
 
     const node: SequenceNode = {
       id,
@@ -229,8 +261,10 @@ export class FlowBuilder {
    * Connect two nodes
    */
   connect(from: string, to: string, condition?: string): FlowBuilder {
-    const edge: any = { from, to };
-    if (condition !== undefined) edge.condition = condition;
+    const edge: FlowEdge = { from, to };
+    if (condition !== undefined) {
+      edge.condition = condition;
+    }
     this.edges.push(edge);
     return this;
   }
@@ -240,7 +274,11 @@ export class FlowBuilder {
    */
   chain(...nodeIds: string[]): FlowBuilder {
     for (let i = 0; i < nodeIds.length - 1; i++) {
-      this.connect(nodeIds[i]!, nodeIds[i + 1]!);
+      const currentId = nodeIds[i];
+      const nextId = nodeIds[i + 1];
+      if (currentId !== undefined && nextId !== undefined) {
+        this.connect(currentId, nextId);
+      }
     }
     return this;
   }
@@ -295,10 +333,10 @@ export class FlowBuilder {
 
     // Check all edge references exist
     this.edges.forEach((edge) => {
-      if (!this.nodes.find((n) => n.id === edge.from)) {
+      if (this.nodes.find((n) => n.id === edge.from) === undefined) {
         errors.push(`Edge references non-existent source node: ${edge.from}`);
       }
-      if (!this.nodes.find((n) => n.id === edge.to)) {
+      if (this.nodes.find((n) => n.id === edge.to) === undefined) {
         errors.push(`Edge references non-existent target node: ${edge.to}`);
       }
     });
@@ -308,7 +346,12 @@ export class FlowBuilder {
     this.nodes
       .filter((n) => n.type === 'tool')
       .forEach((n) => {
-        if (n.toolId && !toolMap.has(n.toolId)) {
+        if (
+          n.toolId !== null &&
+          n.toolId !== undefined &&
+          n.toolId !== '' &&
+          !toolMap.has(n.toolId)
+        ) {
           errors.push(`Tool node references non-existent tool: ${n.toolId}`);
         }
       });
@@ -339,195 +382,194 @@ export class FlowBuilder {
 }
 
 /**
- * Simplified flow DSL for common patterns
+ * Create a simple linear flow
  */
-export class FlowDSL {
-  /**
-   * Create a simple linear flow
-   */
-  static linear(tools: string[]): FlowBuilder {
-    const builder = new FlowBuilder();
-    const nodeIds = tools.map((toolId, i) => {
-      const nodeId = `node-${i + 1}`;
-      builder.addTool(toolId, {}, nodeId);
-      return nodeId;
-    });
+export function createLinearFlow(tools: string[]): FlowBuilder {
+  const builder = new FlowBuilder();
+  const nodeIds = tools.map((toolId, i) => {
+    const nodeId = `node-${i + 1}`;
+    builder.addTool(toolId, {}, nodeId);
+    return nodeId;
+  });
 
-    if (nodeIds.length > 1) {
-      builder.chain(...nodeIds);
-    }
-
-    return builder;
+  if (nodeIds.length > 1) {
+    builder.chain(...nodeIds);
   }
 
-  /**
-   * Create a map-reduce flow
-   */
-  static mapReduce(
-    source: string,
-    mapper: { prompt: string },
-    reducer: { prompt: string }
-  ): FlowBuilder {
-    return new FlowBuilder()
-      .addTool(source, {}, 'source')
-      .addMap('$source', { type: 'llm', ...mapper }, undefined, 'map')
-      .addReduce('$map', { type: 'llm', ...reducer }, 'reduce')
-      .chain('source', 'map', 'reduce');
-  }
-
-  /**
-   * Create a conditional branching flow
-   */
-  static conditional(
-    source: string,
-    condition: { prompt: string },
-    thenTools: string[],
-    elseTools: string[]
-  ): FlowBuilder {
-    const builder = new FlowBuilder();
-
-    // Add source
-    builder.addTool(source, {}, 'source');
-
-    // Add then branch tools
-    const thenIds = thenTools.map((toolId, i) => {
-      const nodeId = `then-${i + 1}`;
-      builder.addTool(toolId, {}, nodeId);
-      return nodeId;
-    });
-
-    // Add else branch tools
-    const elseIds = elseTools.map((toolId, i) => {
-      const nodeId = `else-${i + 1}`;
-      builder.addTool(toolId, {}, nodeId);
-      return nodeId;
-    });
-
-    // Add conditional
-    builder.addConditional(
-      { type: 'llm', ...condition },
-      thenIds,
-      elseIds,
-      'condition'
-    );
-
-    // Connect
-    builder.connect('source', 'condition');
-
-    return builder;
-  }
-
-  /**
-   * Create a parallel processing flow
-   */
-  static parallel(
-    source: string,
-    branches: string[][],
-    merger: string
-  ): FlowBuilder {
-    const builder = new FlowBuilder();
-
-    // Add source
-    builder.addTool(source, {}, 'source');
-
-    // Add branch tools
-    const branchIds: string[][] = [];
-    branches.forEach((branch, branchIndex) => {
-      const ids = branch.map((toolId, toolIndex) => {
-        const nodeId = `branch-${branchIndex + 1}-tool-${toolIndex + 1}`;
-        builder.addTool(toolId, {}, nodeId);
-        return nodeId;
-      });
-      branchIds.push(ids);
-    });
-
-    // Add parallel node
-    builder.addParallel(branchIds, 'parallel');
-
-    // Add merger
-    builder.addTool(merger, {}, 'merger');
-
-    // Connect
-    builder.chain('source', 'parallel', 'merger');
-
-    return builder;
-  }
+  return builder;
 }
 
 /**
- * Convert natural language to flow
+ * Create a map-reduce flow
  */
-export class NaturalFlowBuilder {
-  /**
-   * Parse natural language description to flow
-   */
-  static parse(description: string, tools: Tool[]): FlowBuilder {
-    const builder = new FlowBuilder();
+export function createMapReduceFlow(
+  source: string,
+  mapper: { prompt: string },
+  reducer: { prompt: string }
+): FlowBuilder {
+  return new FlowBuilder()
+    .addTool(source, {}, 'source')
+    .addMap('$source', { type: 'llm', ...mapper }, undefined, 'map')
+    .addReduce('$map', { type: 'llm', ...reducer }, 'reduce')
+    .chain('source', 'map', 'reduce');
+}
 
-    // Simple keyword-based parsing (would use LLM in production)
-    const lower = description.toLowerCase();
+/**
+ * Create a conditional branching flow
+ */
+export function createConditionalFlow(
+  source: string,
+  condition: { prompt: string },
+  thenTools: string[],
+  elseTools: string[]
+): FlowBuilder {
+  const builder = new FlowBuilder();
 
-    // Extract tool references
-    // const toolMap = new Map(tools.map(t => [t.name.toLowerCase(), t]))
-    const mentionedTools: string[] = [];
+  // Add source
+  builder.addTool(source, {}, 'source');
 
-    tools.forEach((tool) => {
-      if (lower.includes(tool.name.toLowerCase())) {
-        mentionedTools.push(tool.id);
-      }
+  // Add then branch tools
+  const thenIds = thenTools.map((toolId, i) => {
+    const nodeId = `then-${i + 1}`;
+    builder.addTool(toolId, {}, nodeId);
+    return nodeId;
+  });
+
+  // Add else branch tools
+  const elseIds = elseTools.map((toolId, i) => {
+    const nodeId = `else-${i + 1}`;
+    builder.addTool(toolId, {}, nodeId);
+    return nodeId;
+  });
+
+  // Add conditional
+  builder.addConditional(
+    { type: 'llm', ...condition },
+    thenIds,
+    elseIds,
+    'condition'
+  );
+
+  // Connect
+  builder.connect('source', 'condition');
+
+  return builder;
+}
+
+/**
+ * Create a parallel processing flow
+ */
+export function createParallelFlow(
+  source: string,
+  branches: string[][],
+  merger: string
+): FlowBuilder {
+  const builder = new FlowBuilder();
+
+  // Add source
+  builder.addTool(source, {}, 'source');
+
+  // Add branch tools
+  const branchIds: string[][] = [];
+  branches.forEach((branch, branchIndex) => {
+    const ids = branch.map((toolId, toolIndex) => {
+      const nodeId = `branch-${branchIndex + 1}-tool-${toolIndex + 1}`;
+      builder.addTool(toolId, {}, nodeId);
+      return nodeId;
     });
+    branchIds.push(ids);
+  });
 
-    // Detect patterns
-    if (lower.includes('then') || lower.includes('after')) {
-      // Sequential flow
-      mentionedTools.forEach((toolId, i) => {
-        builder.addTool(toolId, {}, `step-${i + 1}`);
-      });
-      if (mentionedTools.length > 1) {
-        const nodeIds = mentionedTools.map((_, i) => `step-${i + 1}`);
-        builder.chain(...nodeIds);
-      }
-    } else if (lower.includes('parallel') || lower.includes('simultaneously')) {
-      // Parallel flow
-      const branches = mentionedTools.map((toolId) => {
-        const nodeId = `parallel-${toolId}`;
-        builder.addTool(toolId, {}, nodeId);
-        return [nodeId];
-      });
-      builder.addParallel(branches, 'parallel-exec');
-    } else if (lower.includes('if') || lower.includes('when')) {
-      // Conditional flow
-      if (mentionedTools.length >= 2) {
-        builder.addTool(mentionedTools[0]!, {}, 'check');
-        builder.addConditional(
-          { type: 'llm', prompt: 'Evaluate condition from input' },
-          mentionedTools.slice(1).map((_, i) => `then-${i}`),
-          undefined,
-          'condition'
-        );
-        builder.connect('check', 'condition');
-      }
-    } else if (lower.includes('for each') || lower.includes('map')) {
-      // Map operation
-      if (mentionedTools.length > 0) {
-        builder.addTool(mentionedTools[0]!, {}, 'source');
-        builder.addMap(
-          '$source',
-          { type: 'llm', prompt: 'Process each item' },
-          undefined,
-          'map'
-        );
-        builder.connect('source', 'map');
-      }
+  // Add parallel node
+  builder.addParallel(branchIds, 'parallel');
+
+  // Add merger
+  builder.addTool(merger, {}, 'merger');
+
+  // Connect
+  builder.chain('source', 'parallel', 'merger');
+
+  return builder;
+}
+
+/**
+ * Parse natural language description to flow
+ */
+export function parseNaturalLanguageToFlow(
+  description: string,
+  tools: Tool[]
+): FlowBuilder {
+  const builder = new FlowBuilder();
+
+  // Simple keyword-based parsing (would use LLM in production)
+  const lower = description.toLowerCase();
+
+  // Extract tool references
+  // const toolMap = new Map(tools.map(t => [t.name.toLowerCase(), t]))
+  const mentionedTools: string[] = [];
+
+  tools.forEach((tool) => {
+    if (lower.includes(tool.name.toLowerCase())) {
+      mentionedTools.push(tool.id);
     }
+  });
 
-    // Set metadata
-    builder.withMetadata({
-      name: 'Natural Language Flow',
-      description: description,
-      parsedFrom: 'natural language',
+  // Detect patterns
+  if (lower.includes('then') || lower.includes('after')) {
+    // Sequential flow
+    mentionedTools.forEach((toolId, i) => {
+      builder.addTool(toolId, {}, `step-${i + 1}`);
     });
-
-    return builder;
+    if (mentionedTools.length > 1) {
+      const nodeIds = mentionedTools.map((_, i) => `step-${i + 1}`);
+      builder.chain(...nodeIds);
+    }
+  } else if (lower.includes('parallel') || lower.includes('simultaneously')) {
+    // Parallel flow
+    const branches = mentionedTools.map((toolId) => {
+      const nodeId = `parallel-${toolId}`;
+      builder.addTool(toolId, {}, nodeId);
+      return [nodeId];
+    });
+    builder.addParallel(branches, 'parallel-exec');
+  } else if (lower.includes('if') || lower.includes('when')) {
+    // Conditional flow
+    if (mentionedTools.length >= 2) {
+      const firstTool = mentionedTools[0];
+      if (firstTool !== undefined) {
+        builder.addTool(firstTool, {}, 'check');
+      }
+      builder.addConditional(
+        { type: 'llm', prompt: 'Evaluate condition from input' },
+        mentionedTools.slice(1).map((_, i) => `then-${i}`),
+        undefined,
+        'condition'
+      );
+      builder.connect('check', 'condition');
+    }
+  } else if (lower.includes('for each') || lower.includes('map')) {
+    // Map operation
+    if (mentionedTools.length > 0) {
+      const firstTool = mentionedTools[0];
+      if (firstTool !== undefined) {
+        builder.addTool(firstTool, {}, 'source');
+      }
+      builder.addMap(
+        '$source',
+        { type: 'llm', prompt: 'Process each item' },
+        undefined,
+        'map'
+      );
+      builder.connect('source', 'map');
+    }
   }
+
+  // Set metadata
+  builder.withMetadata({
+    name: 'Natural Language Flow',
+    description: description,
+    parsedFrom: 'natural language',
+  });
+
+  return builder;
 }

@@ -35,19 +35,25 @@ interface ValidationResult {
  */
 export const runAllExamples = (): Effect.Effect<ExampleResult[], any, never> =>
   Effect.gen(function* () {
-    console.log('🚀 Running all Dynamic Flow examples...\n');
+    console.log('🚀 Running all DynamicFlow examples...\n');
 
     // Find all example files
     const exampleFiles = yield* Effect.tryPromise(() =>
       glob('**/*.ts', {
         cwd: __dirname,
-        ignore: ['test-runner.ts', 'env.ts', 'tools-registry.ts', 'typecheck-examples.ts', '**/*.d.ts']
+        ignore: [
+          'test-runner.ts',
+          'env.ts',
+          'tools-registry.ts',
+          'typecheck-examples.ts',
+          '**/*.d.ts',
+        ],
       })
     );
 
     const results: ExampleResult[] = [];
 
-    for (const file of (exampleFiles as string[])) {
+    for (const file of exampleFiles as string[]) {
       const startTime = performance.now();
       const startMemory = process.memoryUsage();
       const exampleName = basename(file, '.ts');
@@ -59,7 +65,9 @@ export const runAllExamples = (): Effect.Effect<ExampleResult[], any, never> =>
 
       try {
         // Dynamic import to avoid compilation issues
-        const exampleModule = yield* Effect.tryPromise(() => import(resolve(__dirname, file)));
+        const exampleModule = yield* Effect.tryPromise(
+          () => import(resolve(__dirname, file))
+        );
 
         if (typeof exampleModule.runExample === 'function') {
           // Capture console output
@@ -78,7 +86,9 @@ export const runAllExamples = (): Effect.Effect<ExampleResult[], any, never> =>
           console.error = captureLog;
 
           try {
-            const output = yield* Effect.tryPromise(() => exampleModule.runExample());
+            const output = yield* Effect.tryPromise(() =>
+              exampleModule.runExample()
+            );
 
             // Restore console methods
             console.log = originalLog;
@@ -88,7 +98,9 @@ export const runAllExamples = (): Effect.Effect<ExampleResult[], any, never> =>
             const duration = performance.now() - startTime;
             const endMemory = process.memoryUsage();
 
-            console.log(`✅ ${exampleName} completed successfully in ${duration.toFixed(2)}ms`);
+            console.log(
+              `✅ ${exampleName} completed successfully in ${duration.toFixed(2)}ms`
+            );
 
             results.push({
               name: exampleName,
@@ -100,8 +112,8 @@ export const runAllExamples = (): Effect.Effect<ExampleResult[], any, never> =>
                 heapUsed: endMemory.heapUsed - startMemory.heapUsed,
                 heapTotal: endMemory.heapTotal - startMemory.heapTotal,
                 external: endMemory.external - startMemory.external,
-                arrayBuffers: endMemory.arrayBuffers - startMemory.arrayBuffers
-              }
+                arrayBuffers: endMemory.arrayBuffers - startMemory.arrayBuffers,
+              },
             });
           } catch (executionError) {
             // Restore console methods
@@ -117,19 +129,20 @@ export const runAllExamples = (): Effect.Effect<ExampleResult[], any, never> =>
             name: exampleName,
             success: false,
             error: 'No runExample function exported',
-            duration: performance.now() - startTime
+            duration: performance.now() - startTime,
           });
         }
       } catch (error) {
         const duration = performance.now() - startTime;
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
 
         console.log(`❌ ${exampleName} failed: ${errorMessage}`);
         results.push({
           name: exampleName,
           success: false,
           error: errorMessage,
-          duration
+          duration,
         });
       }
     }
@@ -140,7 +153,9 @@ export const runAllExamples = (): Effect.Effect<ExampleResult[], any, never> =>
 /**
  * Validate a single example file
  */
-export const validateExample = (examplePath: string): Effect.Effect<boolean, any, never> =>
+export const validateExample = (
+  examplePath: string
+): Effect.Effect<boolean, any, never> =>
   Effect.gen(function* () {
     try {
       const exampleModule = yield* Effect.tryPromise(() => import(examplePath));
@@ -166,11 +181,13 @@ export const checkCompilation = (): Effect.Effect<boolean, any, never> =>
     console.log('🔧 Checking TypeScript compilation...');
 
     try {
-      const { execSync } = yield* Effect.tryPromise(() => import('child_process'));
+      const { execSync } = yield* Effect.tryPromise(
+        () => import('child_process')
+      );
 
       execSync('npx tsc --noEmit --project examples/tsconfig.json', {
         stdio: 'inherit',
-        cwd: resolve(__dirname, '..')
+        cwd: resolve(__dirname, '..'),
       });
 
       console.log('✅ TypeScript compilation successful');
@@ -184,9 +201,11 @@ export const checkCompilation = (): Effect.Effect<boolean, any, never> =>
 /**
  * Generate comprehensive validation report
  */
-export const generateValidationReport = (results: ExampleResult[]): ValidationResult => {
-  const successful = results.filter(r => r.success);
-  const failed = results.filter(r => !r.success);
+export const generateValidationReport = (
+  results: ExampleResult[]
+): ValidationResult => {
+  const successful = results.filter((r) => r.success);
+  const failed = results.filter((r) => !r.success);
 
   console.log('\n' + '='.repeat(80));
   console.log('📊 DYNAMIC FLOW EXAMPLES VALIDATION REPORT');
@@ -195,13 +214,16 @@ export const generateValidationReport = (results: ExampleResult[]): ValidationRe
   console.log(`\n🎯 Overall Results:`);
   console.log(`   ✅ Successful: ${successful.length}`);
   console.log(`   ❌ Failed: ${failed.length}`);
-  console.log(`   📈 Success Rate: ${Math.round((successful.length / results.length) * 100)}%`);
+  console.log(
+    `   📈 Success Rate: ${Math.round((successful.length / results.length) * 100)}%`
+  );
   console.log(`   📊 Total Examples: ${results.length}`);
 
   if (successful.length > 0) {
-    const avgDuration = successful.reduce((sum, r) => sum + r.duration, 0) / successful.length;
-    const minDuration = Math.min(...successful.map(r => r.duration));
-    const maxDuration = Math.max(...successful.map(r => r.duration));
+    const avgDuration =
+      successful.reduce((sum, r) => sum + r.duration, 0) / successful.length;
+    const minDuration = Math.min(...successful.map((r) => r.duration));
+    const maxDuration = Math.max(...successful.map((r) => r.duration));
 
     console.log(`\n⏱️  Performance Summary:`);
     console.log(`   Average execution time: ${avgDuration.toFixed(2)}ms`);
@@ -211,13 +233,13 @@ export const generateValidationReport = (results: ExampleResult[]): ValidationRe
 
   if (failed.length > 0) {
     console.log(`\n❌ Failed Examples:`);
-    failed.forEach(failure => {
+    failed.forEach((failure) => {
       console.log(`   • ${failure.name}: ${failure.error}`);
     });
   }
 
   console.log(`\n📝 Successful Examples:`);
-  successful.forEach(example => {
+  successful.forEach((example) => {
     console.log(`   ✅ ${example.name} (${example.duration.toFixed(2)}ms)`);
   });
 
@@ -225,7 +247,7 @@ export const generateValidationReport = (results: ExampleResult[]): ValidationRe
     compilation: true, // Will be updated by checkCompilation
     execution: failed.length === 0,
     outputDocumentation: true, // Could be enhanced to check documentation
-    apiCompliance: failed.length === 0
+    apiCompliance: failed.length === 0,
   };
 };
 
@@ -234,7 +256,7 @@ export const generateValidationReport = (results: ExampleResult[]): ValidationRe
  */
 export const runExampleValidation = (): Effect.Effect<boolean, any, never> =>
   Effect.gen(function* () {
-    console.log('🧪 Dynamic Flow Examples Validation Suite');
+    console.log('🧪 DynamicFlow Examples Validation Suite');
     console.log('='.repeat(80));
 
     // Check TypeScript compilation first
@@ -255,7 +277,7 @@ export const runExampleValidation = (): Effect.Effect<boolean, any, never> =>
     console.log('\n' + '='.repeat(80));
     if (overallSuccess) {
       console.log('🎉 All examples validation PASSED!');
-      console.log('✨ The Dynamic Flow examples are working correctly.');
+      console.log('✨ The DynamicFlow examples are working correctly.');
     } else {
       console.log('⚠️  Examples validation FAILED!');
       console.log('🔧 Please check the errors above and fix the issues.');
@@ -271,10 +293,10 @@ export type { ExampleResult, ValidationResult };
 // Run validation if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   Effect.runPromise(runExampleValidation())
-    .then(success => {
+    .then((success) => {
       process.exit(success ? 0 : 1);
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('❌ Example validation failed:', error);
       process.exit(1);
     });
@@ -285,11 +307,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  * ===============
  *
  * Console Output:
- * 🧪 Dynamic Flow Examples Validation Suite
+ * 🧪 DynamicFlow Examples Validation Suite
  * ================================================================================
  * 🔧 Checking TypeScript compilation...
  * ✅ TypeScript compilation successful
- * 🚀 Running all Dynamic Flow examples...
+ * 🚀 Running all DynamicFlow examples...
  *
  * ============================================================
  * 🔍 Running example: 01-hello-world
@@ -322,7 +344,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  *
  * ================================================================================
  * 🎉 All examples validation PASSED!
- * ✨ The Dynamic Flow examples are working correctly.
+ * ✨ The DynamicFlow examples are working correctly.
  * ================================================================================
  *
  * Performance Notes:

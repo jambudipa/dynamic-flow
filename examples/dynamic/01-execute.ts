@@ -34,7 +34,7 @@ const webScraper: Tool<WebScraperInput, WebScraperOutput> = {
   description: 'Scrapes data from websites',
   inputSchema: Schema.Struct({ url: Schema.String }),
   outputSchema: Schema.Struct({ content: Schema.String }),
-  execute: (_input) => Effect.succeed({ content: '<html>...</html>' })
+  execute: (_input) => Effect.succeed({ content: '<html>...</html>' }),
 };
 
 type SentimentInput = { text: string };
@@ -44,8 +44,11 @@ const sentimentAnalyzer: Tool<SentimentInput, SentimentOutput> = {
   name: 'Sentiment Analyzer',
   description: 'Analyzes sentiment of text',
   inputSchema: Schema.Struct({ text: Schema.String }),
-  outputSchema: Schema.Struct({ sentiment: Schema.String, score: Schema.Number }),
-  execute: (_input) => Effect.succeed({ sentiment: 'positive', score: 0.92 })
+  outputSchema: Schema.Struct({
+    sentiment: Schema.String,
+    score: Schema.Number,
+  }),
+  execute: (_input) => Effect.succeed({ sentiment: 'positive', score: 0.92 }),
 };
 
 const tools = [webScraper, sentimentAnalyzer];
@@ -61,10 +64,10 @@ const joins: Array<ToolJoin<WebScraperOutput, SentimentInput>> = [
       {
         strict: true,
         decode: (s: WebScraperOutput) => ({ text: s.content }),
-        encode: (t: SentimentInput) => ({ content: t.text })
+        encode: (t: SentimentInput) => ({ content: t.text }),
       }
-    )
-  }
+    ),
+  },
 ];
 
 /**
@@ -72,7 +75,9 @@ const joins: Array<ToolJoin<WebScraperOutput, SentimentInput>> = [
  */
 export const runExample = async () => {
   console.log('🚀 Starting Dynamic Execute example...');
-  console.log('📝 This demonstrates LLM-driven flow planning with streaming execution');
+  console.log(
+    '📝 This demonstrates LLM-driven flow planning with streaming execution'
+  );
 
   try {
     console.time('Environment setup');
@@ -88,19 +93,27 @@ export const runExample = async () => {
         prompt: 'Scrape a page and analyze its sentiment.',
         tools,
         joins,
-        model
+        model,
       }),
-      Stream.tap(event => Effect.sync(() => {
-        const details =
-          event.type === 'tool-start' ? `tool=${(event as any).toolId} node=${(event as any).nodeId}` :
-            event.type === 'llm-token' ? `tool=${(event as any).toolId} node=${(event as any).nodeId} token="${(event as any).token}"` :
-              event.type === 'tool-output' ? `tool=${(event as any).toolId} node=${(event as any).nodeId}` :
-                event.type === 'node-complete' ? `node=${(event as any).nodeId}` :
-                  event.type === 'flow-complete' ? `result=${JSON.stringify((event as any).result)}` :
-                    event.type === 'flow-error' ? `error=${JSON.stringify((event as any).error)}` :
-                      '';
-        console.log(`• ${event.type}${details ? ` — ${details}` : ''}`);
-      })),
+      Stream.tap((event) =>
+        Effect.sync(() => {
+          const details =
+            event.type === 'tool-start'
+              ? `tool=${(event as any).toolId} node=${(event as any).nodeId}`
+              : event.type === 'llm-token'
+                ? `tool=${(event as any).toolId} node=${(event as any).nodeId} token="${(event as any).token}"`
+                : event.type === 'tool-output'
+                  ? `tool=${(event as any).toolId} node=${(event as any).nodeId}`
+                  : event.type === 'node-complete'
+                    ? `node=${(event as any).nodeId}`
+                    : event.type === 'flow-complete'
+                      ? `result=${JSON.stringify((event as any).result)}`
+                      : event.type === 'flow-error'
+                        ? `error=${JSON.stringify((event as any).error)}`
+                        : '';
+          console.log(`• ${event.type}${details ? ` — ${details}` : ''}`);
+        })
+      ),
       Stream.runCollect
     ).pipe(Effect.runPromise);
     console.timeEnd('DynamicFlow.execute');
@@ -112,7 +125,7 @@ export const runExample = async () => {
       prompt: 'Scrape a page and analyze its sentiment.',
       tools,
       joins,
-      model
+      model,
     }).pipe(Effect.runPromise);
     console.timeEnd('DynamicFlow.generate');
 
@@ -131,7 +144,7 @@ export const runExample = async () => {
     return {
       streamingEvents: streamingResult,
       planGenerated: plan,
-      executionResult: result
+      executionResult: result,
     };
   } catch (error) {
     console.error('❌ Dynamic execute example failed:', error);
@@ -141,7 +154,7 @@ export const runExample = async () => {
 
 // Run example if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runExample().catch(error => {
+  runExample().catch((error) => {
     console.error('❌ Dynamic execute example failed:', error);
     process.exit(1);
   });
@@ -223,7 +236,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  * - LLM planning takes 22-30 seconds (most of the time) due to OpenAI API calls
  * - Actual flow execution is very fast (4-5ms)
  * - Uses gpt-5 model for flow generation with structured output
- * 
+ *
  * Requires OPENAI_API_KEY environment variable.
  * To use a mock model for faster testing, replace OpenAiEffectModel with a mock.
  */

@@ -4,7 +4,12 @@
 
 import { Duration, Effect, pipe, Ref, Stream } from 'effect';
 import type { AiModel } from './types';
-import { type ModelPool, type ModelPoolConfig, PoolError, type PoolMetrics } from './types';
+import {
+  type ModelPool,
+  type ModelPoolConfig,
+  PoolError,
+  type PoolMetrics,
+} from './types';
 
 /**
  * Manages a pool of AI models for parallel execution
@@ -86,7 +91,7 @@ class ModelPoolInstance implements ModelPool {
     return pipe(
       this.selectModel(),
       Effect.tap((model) => this.trackUsage(model)),
-      Effect.timeout(this.config.timeout ?? Duration.seconds(30)),
+      Effect.timeout(this.config.timeout || Duration.seconds(30)),
       Effect.catchAll(() =>
         this.config.fallback
           ? Effect.succeed(this.config.fallback)
@@ -211,7 +216,7 @@ class ModelPoolInstance implements ModelPool {
     return pipe(
       Ref.update(this.modelUsage, (usage) => {
         const key = this.getModelKey(model);
-        const current = usage.get(key) ?? 0;
+        const current = usage.get(key) || 0;
         usage.set(key, current + 1);
         return usage;
       }),
@@ -232,7 +237,7 @@ class ModelPoolInstance implements ModelPool {
     // In real implementation would have proper model identification
     const anyModel = model as any;
     return String(
-      anyModel?.id ?? anyModel?.name ?? model.constructor?.name ?? 'model'
+      anyModel?.id || anyModel?.name || model.constructor?.name || 'model'
     );
   }
 }

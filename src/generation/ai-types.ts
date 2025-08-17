@@ -3,11 +3,12 @@
  */
 
 import type { Effect } from 'effect';
-import { Stream } from 'effect';
+import { Data, Stream } from 'effect';
 
 /**
  * AI namespace with required types
  */
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Ai {
   /**
    * Base model interface
@@ -64,14 +65,30 @@ export namespace Ai {
   /**
    * Model error
    */
-  export class ModelError extends Error {
-    readonly _tag = 'ModelError';
-
-    constructor(
-      message: string,
-      public readonly cause?: unknown
-    ) {
-      super(message);
+  export class ModelError extends Data.TaggedError('ModelError')<{
+    readonly message: string;
+    readonly cause?: unknown;
+    readonly modelId?: string;
+    readonly operation?: string;
+  }> {
+    get displayMessage(): string {
+      const model =
+        this.modelId !== null &&
+        this.modelId !== undefined &&
+        this.modelId !== ''
+          ? ` for model '${this.modelId}'`
+          : '';
+      const operation =
+        this.operation !== null &&
+        this.operation !== undefined &&
+        this.operation !== ''
+          ? ` during ${this.operation}`
+          : '';
+      const cause =
+        this.cause !== null && this.cause !== undefined
+          ? ` (caused by: ${String(this.cause)})`
+          : '';
+      return `Model error${model}${operation}${cause}: ${this.message}`;
     }
   }
 

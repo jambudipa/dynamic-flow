@@ -3,9 +3,16 @@
  * Wraps LLM calls as standard DynamicFlow tools
  */
 
-import { Duration, Effect, pipe, Schema } from 'effect';
+import { Data, Duration, Effect, pipe, Schema } from 'effect';
 import type { ExecutionContext } from '@/types';
-import type { LLMConfig, LLMTool, Tool, ToolConfig, ToolError, ToolRequirements } from './types';
+import type {
+  LLMConfig,
+  LLMTool,
+  Tool,
+  ToolConfig,
+  ToolError,
+  ToolRequirements,
+} from './types';
 import { ParseError, ToolSchemas } from './types';
 import { ToolError as ToolErrorClass } from '../types/errors';
 
@@ -45,16 +52,18 @@ export interface LLMResponse {
 /**
  * LLM provider error
  */
-export class LLMProviderError extends Error {
-  readonly _tag = 'LLMProviderError';
-
-  constructor(
-    message: string,
-    public readonly provider: string,
-    public readonly cause?: Error
-  ) {
-    super(message);
-    this.name = 'LLMProviderError';
+export class LLMProviderError extends Data.TaggedError('LLMProviderError')<{
+  readonly message: string;
+  readonly provider: string;
+  readonly cause?: unknown;
+  readonly model?: string;
+  readonly requestId?: string;
+}> {
+  get displayMessage(): string {
+    const model = this.model ? ` (model: ${this.model})` : '';
+    const requestId = this.requestId ? ` [${this.requestId}]` : '';
+    const cause = this.cause ? ` (caused by: ${this.cause})` : '';
+    return `LLM provider '${this.provider}' error${model}${requestId}${cause}: ${this.message}`;
   }
 }
 
@@ -289,18 +298,18 @@ export const createJSONExtractionTool = <T>(
       Effect.try({
         try: () => JSON.parse(response) as T,
         catch: (error) =>
-          new ParseError(
-            `Failed to parse JSON response: ${String(error)}`,
-            response
-          ),
+          new ParseError({
+            response: response,
+            message: `Failed to parse JSON response: ${String(error)}`,
+          }),
       }).pipe(
         Effect.flatMap((data) => Schema.decodeUnknown(outputSchema)(data)),
         Effect.mapError(
           (error) =>
-            new ParseError(
-              `Response doesn't match schema: ${String(error)}`,
-              response
-            )
+            new ParseError({
+              response: response,
+              message: `Response doesn't match schema: ${String(error)}`,
+            })
         )
       )
     )
@@ -348,7 +357,10 @@ export const createClassificationTool = (
           return data;
         },
         catch: (error) =>
-          new ParseError(`Failed to parse classification: ${error}`, response),
+          new ParseError({
+            response: response,
+            message: `Failed to parse classification: ${error}`,
+          }),
       })
     )
     .withProvider(provider)
@@ -449,7 +461,10 @@ export const createComparisonTool = (
       Effect.try({
         try: () => JSON.parse(response),
         catch: (error) =>
-          new ParseError(`Failed to parse comparison: ${error}`, response),
+          new ParseError({
+            response: response,
+            message: `Failed to parse comparison: ${error}`,
+          }),
       })
     )
     .withProvider(provider)

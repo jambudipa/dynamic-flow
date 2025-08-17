@@ -6,9 +6,19 @@
  * and context propagation.
  */
 
-import { Context, Effect, Layer, Schema } from 'effect';
-import type { ExecutionContext, FlowContext, FlowEffect, ToolRequirements } from '@/types';
-import { FlowError, FlowExecutionError, FlowTypeError, ToolError } from '@/types';
+import { Context, Data, Effect, Layer, Schema } from 'effect';
+import type {
+  ExecutionContext,
+  FlowContext,
+  FlowEffect,
+  ToolRequirements,
+} from '@/types';
+import {
+  FlowError,
+  FlowExecutionError,
+  FlowTypeError,
+  ToolError,
+} from '@/types';
 import { toFlowError } from '@/types/errors';
 
 // ============= Re-export Core Types =============
@@ -22,40 +32,43 @@ export { FlowError, FlowExecutionError, FlowTypeError, ToolError };
 /**
  * @deprecated Use FlowError from @/types instead
  */
-export class LegacyFlowError extends Error {
-  readonly _tag = 'FlowError';
-
-  constructor(
-    message: string,
-    public readonly cause?: unknown
-  ) {
-    super(message);
+export class LegacyFlowError extends Data.TaggedError('LegacyFlowError')<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {
+  get displayMessage(): string {
+    const cause = this.cause ? ` (caused by: ${this.cause})` : '';
+    return `Legacy flow error${cause}: ${this.message}`;
   }
 }
 
 /**
  * @deprecated Use FlowTypeError from @/types instead
  */
-export class LegacyFlowTypeError extends FlowError {
-  readonly _tag = 'FlowError';
-
-  constructor(
-    message: string,
-    public readonly expected: string,
-    public readonly actual: string
-  ) {
-    super(message);
+export class LegacyFlowTypeError extends Data.TaggedError(
+  'LegacyFlowTypeError'
+)<{
+  readonly message: string;
+  readonly expected: string;
+  readonly actual: string;
+}> {
+  get displayMessage(): string {
+    return `Legacy flow type error: ${this.message} (expected: ${this.expected}, actual: ${this.actual})`;
   }
 }
 
 /**
  * @deprecated Use FlowExecutionError from @/types instead
  */
-export class LegacyFlowExecutionError extends FlowError {
-  readonly _tag = 'FlowError';
-
-  constructor(message: string, cause?: unknown) {
-    super(message, cause);
+export class LegacyFlowExecutionError extends Data.TaggedError(
+  'LegacyFlowExecutionError'
+)<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {
+  get displayMessage(): string {
+    const cause = this.cause ? ` (caused by: ${this.cause})` : '';
+    return `Legacy flow execution error${cause}: ${this.message}`;
   }
 }
 

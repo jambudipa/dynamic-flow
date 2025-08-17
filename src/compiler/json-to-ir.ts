@@ -6,12 +6,13 @@
  */
 
 import { Effect } from 'effect';
+import { logWarn } from '../utils/logging';
 import { type DynamicFlowType, type StepType } from '@/schema/flow-schema';
 import { type IR, IRBuilder, IRCompilationError, type IRNode } from '@/ir';
 import type { IRGenerationContext } from '@/operators';
 import { OperatorRegistry } from '@/operators';
 import { FlowConnectivityValidator } from '@/operators/flow-validator';
-import type { Tool, ToolJoin } from '@/tools/types';
+import type { ToolJoin, UntypedToolArray } from '@/tools/types';
 
 export class JSONToIRCompiler {
   private nodeCounter = 0;
@@ -22,7 +23,7 @@ export class JSONToIRCompiler {
    */
   compile(
     flow: DynamicFlowType,
-    tools?: ReadonlyArray<Tool<any, any>>,
+    tools?: UntypedToolArray,
     joins?: ReadonlyArray<ToolJoin<any, any>>,
     options?: { validateConnections?: boolean }
   ): Effect.Effect<IR, IRCompilationError> {
@@ -34,11 +35,15 @@ export class JSONToIRCompiler {
       // Create context for IR generation
       const context: IRGenerationContext = {
         nodeIdGenerator: () => `node_${++self.nodeCounter}`,
-        tools: tools ? new Map(tools.map((t) => [t.id, t])) : new Map(),
-        joins: joins
-          ? new Map(joins.map((j) => [`${j.fromTool}-${j.toTool}`, j]))
-          : new Map(),
-        validateConnections: options?.validateConnections ?? true,
+        tools:
+          tools !== null && tools !== undefined
+            ? new Map(tools.map((t) => [t.id, t]))
+            : new Map(),
+        joins:
+          joins !== null && joins !== undefined
+            ? new Map(joins.map((j) => [`${j.fromTool}-${j.toTool}`, j]))
+            : new Map(),
+        validateConnections: options?.validateConnections || true,
       };
 
       // Convert steps to IR nodes using operators
@@ -49,24 +54,38 @@ export class JSONToIRCompiler {
       }
 
       // Validate connectivity if requested
-      if (context.validateConnections && context.tools && context.joins) {
+      if (
+        context.validateConnections &&
+        context.tools !== null &&
+        context.tools !== undefined &&
+        context.joins !== null &&
+        context.joins !== undefined
+      ) {
         const validation = yield* FlowConnectivityValidator.validate(irNodes, {
           tools: context.tools,
           joins: context.joins,
           strictMode: false, // Warnings only by default
         });
 
-        if (!validation.valid) {
+        if (validation.valid !== true) {
           return yield* Effect.fail(
-            new IRCompilationError(
-              `Flow validation failed: ${validation.errors.map((e) => e.message).join('; ')}`
-            )
+            new IRCompilationError({
+              message: `Flow validation failed: ${validation.errors.map((e) => e.message).join('; ')}`,
+              source: 'static' as const,
+              context: { errors: validation.errors },
+            })
           );
         }
 
         // Log warnings
         if (validation.warnings.length > 0) {
-          console.warn('Flow validation warnings:', validation.warnings);
+          yield* logWarn(
+            `Flow validation warnings: ${validation.warnings.join(', ')}`,
+            {
+              module: 'Compiler',
+              operation: 'compile',
+            }
+          );
         }
       }
 
@@ -78,13 +97,13 @@ export class JSONToIRCompiler {
       });
 
       // Register tools and joins
-      if (tools) {
+      if (tools !== null && tools !== undefined) {
         for (const tool of tools) {
           builder.registerTool(tool);
         }
       }
 
-      if (joins) {
+      if (joins !== null && joins !== undefined) {
         for (const join of joins) {
           builder.registerJoin(join.fromTool, join);
         }
@@ -102,7 +121,7 @@ export class JSONToIRCompiler {
       }
 
       // Set entry point
-      if (irNodes[0]) {
+      if (irNodes[0] !== null && irNodes[0] !== undefined) {
         builder.setEntryPoint(irNodes[0].id);
       }
 
@@ -124,7 +143,7 @@ export class JSONToIRCompiler {
 
         // Get the operator for this type
         const operator = this.registry.get(stepType);
-        if (!operator) {
+        if (operator === null || operator === undefined) {
           throw new Error(`No operator found for step type: ${stepType}`);
         }
 
@@ -132,25 +151,35 @@ export class JSONToIRCompiler {
         return operator.toIR(step, context);
       },
       catch: (error) =>
-        new IRCompilationError(
-          `Failed to convert step to IR: ${error instanceof Error ? error.message : String(error)}`
-        ),
+        new IRCompilationError({
+          message: `Failed to convert step to IR: ${error instanceof Error ? error.message : String(error)}`,
+          source: 'static' as const,
+        }),
     });
   }
 
   /**
    * Infer the type of a step from its structure
    */
-  private inferStepType(step: any): string {
-    if (step.type) return step.type;
-    if (step.tool) return 'tool';
-    if (step.condition) return 'conditional';
-    if (step.loop) return 'loop';
-    if (step.parallel) return 'parallel';
-    if (step.map) return 'map';
-    if (step.reduce) return 'reduce';
-    if (step.filter) return 'filter';
-    if (step.switch && step.cases) return 'switch';
+  private inferStepType(step: Record<string, unknown>): string {
+    if (step.type !== null && step.type !== undefined)
+      return step.type as string;
+    if (step.tool !== null && step.tool !== undefined) return 'tool';
+    if (step.condition !== null && step.condition !== undefined)
+      return 'conditional';
+    if (step.loop !== null && step.loop !== undefined) return 'loop';
+    if (step.parallel !== null && step.parallel !== undefined)
+      return 'parallel';
+    if (step.map !== null && step.map !== undefined) return 'map';
+    if (step.reduce !== null && step.reduce !== undefined) return 'reduce';
+    if (step.filter !== null && step.filter !== undefined) return 'filter';
+    if (
+      step.switch !== null &&
+      step.switch !== undefined &&
+      step.cases !== null &&
+      step.cases !== undefined
+    )
+      return 'switch';
     return 'tool'; // Default
   }
 
@@ -182,7 +211,7 @@ export function createCompiler(): JSONToIRCompiler {
  */
 export function compileToIR(
   flow: DynamicFlowType,
-  tools?: ReadonlyArray<Tool<any, any>>,
+  tools?: UntypedToolArray,
   joins?: ReadonlyArray<ToolJoin<any, any>>,
   options?: { validateConnections?: boolean }
 ): Effect.Effect<IR, IRCompilationError> {

@@ -8,7 +8,7 @@ import {
   type ExecutionContext,
   type IRGenerationContext,
   type StepResolver,
-  type UnifiedOperator
+  type UnifiedOperator,
 } from './base';
 import { inferType } from './utils';
 import { structuredChoice } from '@/llm/structured';
@@ -75,7 +75,7 @@ export class SwitchOperator implements UnifiedOperator<SwitchConfig> {
     return Effect.gen(function* (_) {
       // Use LLM to choose branch
       const choice = yield* structuredChoice(config.switch, config.options, {
-        retries: config.retry ?? 2,
+        retries: config.retry || 2,
       });
 
       // Get selected branch

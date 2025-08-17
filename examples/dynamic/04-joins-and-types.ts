@@ -31,9 +31,10 @@ const toolA: Tool<{ id: number }, { title: string }> = {
   description: 'Fetches a title by ID',
   inputSchema: Schema.Struct({ id: Schema.Number }),
   outputSchema: Schema.Struct({ title: Schema.String }),
-  execute: ({ id }) => Effect.succeed({ 
-    title: id !== undefined ? `Item-${id}` : 'Item-(no ID provided)' 
-  })
+  execute: ({ id }) =>
+    Effect.succeed({
+      title: id !== undefined ? `Item-${id}` : 'Item-(no ID provided)',
+    }),
 };
 
 const toolB: Tool<{ text: string }, { length: number }> = {
@@ -42,9 +43,10 @@ const toolB: Tool<{ text: string }, { length: number }> = {
   description: 'Computes text length',
   inputSchema: Schema.Struct({ text: Schema.String }),
   outputSchema: Schema.Struct({ length: Schema.Number }),
-  execute: ({ text }) => Effect.succeed({ 
-    length: text ? text.length : 0 
-  })
+  execute: ({ text }) =>
+    Effect.succeed({
+      length: text ? text.length : 0,
+    }),
 };
 
 type Title = { title: string };
@@ -55,8 +57,12 @@ const joinAToB: ToolJoin<Title, Text> = {
   transform: Schema.transform(
     Schema.Struct({ title: Schema.String }),
     Schema.Struct({ text: Schema.String }),
-    { strict: true, decode: (a: Title) => ({ text: a.title }), encode: (b: Text) => ({ title: b.text }) }
-  )
+    {
+      strict: true,
+      decode: (a: Title) => ({ text: a.title }),
+      encode: (b: Text) => ({ title: b.text }),
+    }
+  ),
 };
 
 /**
@@ -64,7 +70,9 @@ const joinAToB: ToolJoin<Title, Text> = {
  */
 export const runExample = async () => {
   console.log('🚀 Starting Tool Joins and Types example...');
-  console.log('📝 This demonstrates type-safe tool joins with automatic data transformation');
+  console.log(
+    '📝 This demonstrates type-safe tool joins with automatic data transformation'
+  );
 
   try {
     loadEnv();
@@ -80,18 +88,24 @@ export const runExample = async () => {
         prompt: 'Take a record by ID and compute the length of its title.',
         tools: toolsArr,
         joins: joinsArr,
-        model
+        model,
       }),
-      Stream.tap(event => Effect.sync(() => {
-        const details =
-          event.type === 'tool-start' ? `tool=${(event as any).toolId} node=${(event as any).nodeId}` :
-            event.type === 'tool-output' ? `tool=${(event as any).toolId} node=${(event as any).nodeId}` :
-              event.type === 'node-complete' ? `node=${(event as any).nodeId}` :
-                event.type === 'flow-complete' ? `result=${JSON.stringify((event as any).result)}` :
-                  '';
-        console.log(`• ${event.type}${details ? ` — ${details}` : ''}`);
-        streamingEvents.push(event);
-      })),
+      Stream.tap((event) =>
+        Effect.sync(() => {
+          const details =
+            event.type === 'tool-start'
+              ? `tool=${(event as any).toolId} node=${(event as any).nodeId}`
+              : event.type === 'tool-output'
+                ? `tool=${(event as any).toolId} node=${(event as any).nodeId}`
+                : event.type === 'node-complete'
+                  ? `node=${(event as any).nodeId}`
+                  : event.type === 'flow-complete'
+                    ? `result=${JSON.stringify((event as any).result)}`
+                    : '';
+          console.log(`• ${event.type}${details ? ` — ${details}` : ''}`);
+          streamingEvents.push(event);
+        })
+      ),
       Stream.runDrain
     ).pipe(Effect.runPromise);
 
@@ -101,7 +115,7 @@ export const runExample = async () => {
       prompt: 'Take a record by ID and compute the length of its title.',
       tools: toolsArr,
       joins: joinsArr,
-      model
+      model,
     }).pipe(Effect.runPromise);
 
     // Display the generated plan (Flow JSON)
@@ -117,7 +131,7 @@ export const runExample = async () => {
     return {
       streamingEvents,
       planWithJoins: plan,
-      executionResult: result
+      executionResult: result,
     };
   } catch (error) {
     console.error('❌ Tool joins example failed:', error);
@@ -127,7 +141,7 @@ export const runExample = async () => {
 
 // Run example if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runExample().catch(error => {
+  runExample().catch((error) => {
     console.error('❌ Tool joins example failed:', error);
     process.exit(1);
   });

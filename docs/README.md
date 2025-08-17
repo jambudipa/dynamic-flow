@@ -105,7 +105,7 @@ await DynamicFlow.execute({
 ### Installation
 
 ```bash
-npm install @jambudipa/dynamic-flow effect @effect/schema
+npm install @jambudipa/dynamic-flow effect
 ```
 
 ### Your First Flow

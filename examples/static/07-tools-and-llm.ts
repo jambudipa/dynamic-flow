@@ -18,9 +18,9 @@
  *
  * Expected console output:
  * ```
- * Preparing prompt for topic: Dynamic Flow
- * Generated prompt: "In one sentence, explain: Dynamic Flow"
- * LLM Response: "Dynamic Flow refers to..."
+ * Preparing prompt for topic: DynamicFlow
+ * Generated prompt: "In one sentence, explain: DynamicFlow"
+ * LLM Response: "DynamicFlow refers to..."
  * — Streaming events —
  * • tool-start
  * • tool-output
@@ -49,12 +49,13 @@ const promptPrepTool: Tool<{ topic: string }, { prompt: string }> = {
   description: 'Prepares a concise prompt from a topic',
   inputSchema: Schema.Struct({ topic: Schema.String }),
   outputSchema: Schema.Struct({ prompt: Schema.String }),
-  execute: (input) => Effect.sync(() => {
-    const prompt = `In one sentence, explain: ${input.topic}`;
-    console.log(`Preparing prompt for topic: ${input.topic}`);
-    console.log(`Generated prompt: "${prompt}"`);
-    return { prompt };
-  })
+  execute: (input) =>
+    Effect.sync(() => {
+      const prompt = `In one sentence, explain: ${input.topic}`;
+      console.log(`Preparing prompt for topic: ${input.topic}`);
+      console.log(`Generated prompt: "${prompt}"`);
+      return { prompt };
+    }),
 };
 
 async function createToolsLlmFlow(topic: string) {
@@ -65,8 +66,12 @@ async function createToolsLlmFlow(topic: string) {
     'Generates a succinct answer from a prompt'
   );
 
-  const prep = Tools.createTool<{ topic: string }, { prompt: string }>(promptPrepTool);
-  const runAsk = Tools.createTool<{ prompt: string }, { response: string }>(ask);
+  const prep = Tools.createTool<{ topic: string }, { prompt: string }>(
+    promptPrepTool
+  );
+  const runAsk = Tools.createTool<{ prompt: string }, { response: string }>(
+    ask
+  );
 
   const program = pipe(
     Effect.succeed({ topic }),
@@ -86,7 +91,7 @@ export async function runExample(): Promise<{ response: string }> {
   loadEnv();
 
   try {
-    const program = await createToolsLlmFlow('Dynamic Flow');
+    const program = await createToolsLlmFlow('DynamicFlow');
 
     // Provide the LLM service layer
     const programWithLLM = pipe(program, Effect.provide(LLMLive));
@@ -94,7 +99,9 @@ export async function runExample(): Promise<{ response: string }> {
     // Non-streaming: collect the final result
     console.log('Executing tools + LLM pipeline...');
     const collected = await Effect.runPromise(
-      Flow.runCollect(programWithLLM as Effect.Effect<any, any, never>, { name: 'Tools + LLM' })
+      Flow.runCollect(programWithLLM as Effect.Effect<any, any, never>, {
+        name: 'Tools + LLM',
+      })
     );
     const response = (collected.output as any)?.response ?? collected.output;
     console.log('LLM Response:', response);
@@ -102,12 +109,18 @@ export async function runExample(): Promise<{ response: string }> {
     // Streaming: get events
     console.log('\n— Streaming events —');
     await Stream.runForEach(
-      Flow.runStream(programWithLLM as Effect.Effect<any, any, never>, { name: 'Tools + LLM' }),
-      (event) => Effect.sync(() => {
-        console.log(`• ${event.type}`,
-          event.type === 'flow-complete' ? `→ ${JSON.stringify((event as any).result?.response || (event as any).result)}` : ''
-        );
-      })
+      Flow.runStream(programWithLLM as Effect.Effect<any, any, never>, {
+        name: 'Tools + LLM',
+      }),
+      (event) =>
+        Effect.sync(() => {
+          console.log(
+            `• ${event.type}`,
+            event.type === 'flow-complete'
+              ? `→ ${JSON.stringify((event as any).result?.response || (event as any).result)}`
+              : ''
+          );
+        })
     ).pipe(Effect.runPromise);
 
     console.log('\n✅ Tools + LLM pipeline completed successfully!');
@@ -126,7 +139,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-
 /**
  * Expected Output:
  * ===============
@@ -134,14 +146,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  * === Tools + LLM Example ===
  *
  * Executing tools + LLM pipeline...
- * Preparing prompt for topic: Dynamic Flow
- * Generated prompt: "In one sentence, explain: Dynamic Flow"
+ * Preparing prompt for topic: DynamicFlow
+ * Generated prompt: "In one sentence, explain: DynamicFlow"
  * LLM Response: Dynamic flow is a model of network flow that accounts for time-varying quantities and travel delays, describing how flow moves through a network over time rather than instantaneously.
  *
  * — Streaming events —
  * • flow-start
- * Preparing prompt for topic: Dynamic Flow
- * Generated prompt: "In one sentence, explain: Dynamic Flow"
+ * Preparing prompt for topic: DynamicFlow
+ * Generated prompt: "In one sentence, explain: DynamicFlow"
  * • flow-complete → "Dynamic flow is a time-varying movement of material, traffic, information, or resources through a system where the flow rates and paths change in response to time, system dynamics, or control actions."
  *
  * ✅ Tools + LLM pipeline completed successfully\!

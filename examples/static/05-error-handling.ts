@@ -36,8 +36,8 @@
  * Run: npx tsx examples/static/05-error-handling.ts
  */
 
-import { Effect, Flow, pipe } from '../../src/index';
-import { Stream } from 'effect';
+import { Flow } from '../../src/index';
+import { Effect, pipe, Stream } from 'effect';
 
 // Domain types
 interface User {
@@ -53,32 +53,56 @@ interface Payment {
 }
 
 type OrderSuccess = { user: User; payment: Payment };
-type ValidationFailed = { status: 'validation_failed'; error: string; fallback: true };
-type NetworkErrorResult = { status: 'network_error'; error: string; fallback: true; retryable: true };
-type BusinessErrorResult = { status: 'business_error'; error: string; fallback: true };
-type UnknownErrorResult = { status: 'unknown_error'; error: string; fallback: true };
-type OrderErrorResult = ValidationFailed | NetworkErrorResult | BusinessErrorResult | UnknownErrorResult;
+type ValidationFailed = {
+  status: 'validation_failed';
+  error: string;
+  fallback: true;
+};
+type NetworkErrorResult = {
+  status: 'network_error';
+  error: string;
+  fallback: true;
+  retryable: true;
+};
+type BusinessErrorResult = {
+  status: 'business_error';
+  error: string;
+  fallback: true;
+};
+type UnknownErrorResult = {
+  status: 'unknown_error';
+  error: string;
+  fallback: true;
+};
+type OrderErrorResult =
+  | ValidationFailed
+  | NetworkErrorResult
+  | BusinessErrorResult
+  | UnknownErrorResult;
 
 // Define custom error types
 class NetworkError {
   readonly _tag = 'NetworkError';
 
-  constructor(readonly message: string, readonly code?: number) {
-  }
+  constructor(
+    readonly message: string,
+    readonly code?: number
+  ) {}
 }
 
 class ValidationError {
   readonly _tag = 'ValidationError';
 
-  constructor(readonly field: string, readonly value: unknown) {
-  }
+  constructor(
+    readonly field: string,
+    readonly value: unknown
+  ) {}
 }
 
 class BusinessError {
   readonly _tag = 'BusinessError';
 
-  constructor(readonly reason: string) {
-  }
+  constructor(readonly reason: string) {}
 }
 
 // Mock functions that might fail
@@ -94,18 +118,22 @@ const fetchUserData = (
   return Effect.succeed<User>({
     id: userId,
     name: `User ${userId}`,
-    email: `user${userId}@example.com`
+    email: `user${userId}@example.com`,
   });
 };
 
-const validateEmail = (email: string): Effect.Effect<string, ValidationError, never> => {
+const validateEmail = (
+  email: string
+): Effect.Effect<string, ValidationError, never> => {
   if (!email.includes('@')) {
     return Effect.fail(new ValidationError('email', email));
   }
   return Effect.succeed(email);
 };
 
-const processPayment = (amount: number): Effect.Effect<Payment, BusinessError, never> => {
+const processPayment = (
+  amount: number
+): Effect.Effect<Payment, BusinessError, never> => {
   if (amount <= 0) {
     return Effect.fail(new BusinessError('Invalid payment amount'));
   }
@@ -115,7 +143,7 @@ const processPayment = (amount: number): Effect.Effect<Payment, BusinessError, n
   return Effect.succeed<Payment>({
     transactionId: Math.random().toString(36).substring(2, 11),
     amount,
-    status: 'completed'
+    status: 'completed',
   });
 };
 
@@ -124,70 +152,91 @@ const processOrder = (
   userId: number,
   amount: number
 ): Effect.Effect<
-  OrderSuccess | ValidationFailed | NetworkErrorResult | BusinessErrorResult | UnknownErrorResult,
+  | OrderSuccess
+  | ValidationFailed
+  | NetworkErrorResult
+  | BusinessErrorResult
+  | UnknownErrorResult,
   never,
   never
-> => pipe(
-  // Fetch user data (might fail)
-  fetchUserData(userId),
+> =>
+  pipe(
+    // Fetch user data (might fail)
+    fetchUserData(userId),
 
-  // Validate email (might fail)
-  Flow.andThen((user: User) => pipe(
-    validateEmail(user.email),
-    Flow.map(() => user)
-  )),
+    // Validate email (might fail)
+    Flow.andThen((user: User) =>
+      pipe(
+        validateEmail(user.email),
+        Flow.map(() => user)
+      )
+    ),
 
-  // Process payment (might fail)
-  Flow.andThen((user: User) => pipe(
-    processPayment(amount),
-    Flow.map((payment: Payment): OrderSuccess => ({ user, payment }))
-  )),
+    // Process payment (might fail)
+    Flow.andThen((user: User) =>
+      pipe(
+        processPayment(amount),
+        Flow.map((payment: Payment): OrderSuccess => ({ user, payment }))
+      )
+    ),
 
-  // Log success
-  Flow.tap((result: OrderSuccess) => Effect.sync(() => {
-    console.log(`✅ Order processed for ${result.user.name}`);
-    console.log(`   Transaction: ${result.payment.transactionId}`);
-  })),
+    // Log success
+    Flow.tap((result: OrderSuccess) =>
+      Effect.sync(() => {
+        console.log(`✅ Order processed for ${result.user.name}`);
+        console.log(`   Transaction: ${result.payment.transactionId}`);
+      })
+    ),
 
-  // Handle error types with a discriminated union
-  Flow.catchAll((error: ValidationError | NetworkError | BusinessError): Effect.Effect<OrderErrorResult, never, never> => {
-    switch (error._tag) {
-      case 'ValidationError':
-        return Effect.sync<OrderErrorResult>(() => {
-          console.log(`⚠️  Validation failed: ${error.field} = ${JSON.stringify(error.value)}`);
-          return {
-            status: 'validation_failed' as const,
-            error: `Invalid ${error.field}`,
-            fallback: true as const
-          };
-        });
-      case 'NetworkError':
-        return Effect.sync<OrderErrorResult>(() => {
-          console.log(`🌐 Network error: ${error.message} (code: ${error.code})`);
-          return {
-            status: 'network_error' as const,
-            error: error.message,
-            fallback: true as const,
-            retryable: true as const
-          };
-        });
-      case 'BusinessError':
-        return Effect.sync<OrderErrorResult>(() => {
-          console.log(`💼 Business rule violation: ${error.reason}`);
-          return {
-            status: 'business_error' as const,
-            error: error.reason,
-            fallback: true as const
-          };
-        });
-    }
-  })
-);
+    // Handle error types with a discriminated union
+    Flow.catchAll(
+      (
+        error: ValidationError | NetworkError | BusinessError
+      ): Effect.Effect<OrderErrorResult, never, never> => {
+        switch (error._tag) {
+          case 'ValidationError':
+            return Effect.sync<OrderErrorResult>(() => {
+              console.log(
+                `⚠️  Validation failed: ${error.field} = ${JSON.stringify(error.value)}`
+              );
+              return {
+                status: 'validation_failed' as const,
+                error: `Invalid ${error.field}`,
+                fallback: true as const,
+              };
+            });
+          case 'NetworkError':
+            return Effect.sync<OrderErrorResult>(() => {
+              console.log(
+                `🌐 Network error: ${error.message} (code: ${error.code})`
+              );
+              return {
+                status: 'network_error' as const,
+                error: error.message,
+                fallback: true as const,
+                retryable: true as const,
+              };
+            });
+          case 'BusinessError':
+            return Effect.sync<OrderErrorResult>(() => {
+              console.log(`💼 Business rule violation: ${error.reason}`);
+              return {
+                status: 'business_error' as const,
+                error: error.reason,
+                fallback: true as const,
+              };
+            });
+        }
+      }
+    )
+  );
 
 /**
  * Programmatic example runner for testing and integration
  */
-export async function runExample(): Promise<(OrderSuccess | OrderErrorResult)[]> {
+export async function runExample(): Promise<
+  (OrderSuccess | OrderErrorResult)[]
+> {
   console.log('=== Error Handling Example ===\n');
 
   const testCases = [
@@ -195,7 +244,7 @@ export async function runExample(): Promise<(OrderSuccess | OrderErrorResult)[]>
     { name: 'Invalid user ID', userId: 0, amount: 50 },
     { name: 'Network timeout', userId: 999, amount: 50 },
     { name: 'Invalid amount', userId: 123, amount: -10 },
-    { name: 'Amount too large', userId: 123, amount: 15000 }
+    { name: 'Amount too large', userId: 123, amount: 15000 },
   ];
 
   const results: (OrderSuccess | OrderErrorResult)[] = [];
@@ -206,7 +255,9 @@ export async function runExample(): Promise<(OrderSuccess | OrderErrorResult)[]>
 
     try {
       // Sync collect
-      const result = await Effect.runPromise(processOrder(testCase.userId, testCase.amount));
+      const result = await Effect.runPromise(
+        processOrder(testCase.userId, testCase.amount)
+      );
       console.log('— Sync (collect) —');
       console.log('Result:', result);
       results.push(result);
@@ -233,7 +284,6 @@ export async function runExample(): Promise<(OrderSuccess | OrderErrorResult)[]>
 if (import.meta.url === `file://${process.argv[1]}`) {
   runExample().catch(console.error);
 }
-
 
 /**
  * Expected Output:

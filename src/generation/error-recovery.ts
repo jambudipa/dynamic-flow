@@ -9,7 +9,7 @@ import {
   type GenerationContext,
   GenerationError,
   type RetryStrategy,
-  type ValidationError
+  type ValidationError,
 } from './types';
 
 /**
@@ -35,7 +35,7 @@ export class ErrorRecoverySystem {
     // Check if we should escalate to a better model
     if (this.shouldEscalate(context, config)) {
       const escalationPath =
-        context.options?.escalationPath ?? this.getDefaultEscalationPath();
+        context.options?.escalationPath || this.getDefaultEscalationPath();
       const nextModel: AiModel | null = this.selectNextModel(
         context.currentModel,
         escalationPath

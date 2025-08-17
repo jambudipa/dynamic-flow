@@ -36,17 +36,21 @@ export const runExample = async () => {
 
     // Sync (collect)
     console.log('\n— Sync completion (immediate response) —');
-    const result = await LLMCoreService.completion('Write a haiku about Dynamic Flow.').pipe(Effect.runPromise);
+    const result = await LLMCoreService.completion(
+      'Write a haiku about DynamicFlow.'
+    ).pipe(Effect.runPromise);
     console.log('Complete response:', result.content);
 
     // Streaming
     console.log('\n— Streaming completion (real-time tokens) —');
     let streamedContent = '';
-    await Stream.runForEach(LLMCoreService.stream('Write a haiku about Dynamic Flow.'), (c) =>
-      Effect.sync(() => {
-        process.stdout.write(c.content);
-        streamedContent += c.content;
-      })
+    await Stream.runForEach(
+      LLMCoreService.stream('Write a haiku about DynamicFlow.'),
+      (c) =>
+        Effect.sync(() => {
+          process.stdout.write(c.content);
+          streamedContent += c.content;
+        })
     ).pipe(Effect.runPromise);
     console.log('\n— end of stream —');
 
@@ -62,7 +66,7 @@ export const runExample = async () => {
       description: 'Echoes input text',
       inputSchema: Schema.Struct({ text: Schema.String }),
       outputSchema: Schema.Struct({ echoed: Schema.String }),
-      execute: ({ text }) => Effect.succeed({ echoed: String(text) })
+      execute: ({ text }) => Effect.succeed({ echoed: String(text) }),
     };
     const tools = [echoTool];
 
@@ -70,7 +74,7 @@ export const runExample = async () => {
       prompt: 'Create a simple one-step echo pipeline.',
       tools,
       joins: [],
-      model
+      model,
     }).pipe(Effect.runPromise);
 
     const plan = instance.getPlanJSON();
@@ -82,7 +86,7 @@ export const runExample = async () => {
     return {
       syncCompletion: result.content,
       streamedCompletion: streamedContent,
-      generatedPlan: plan
+      generatedPlan: plan,
     };
   } catch (error) {
     console.error('❌ Streaming example failed:', error);
@@ -92,7 +96,7 @@ export const runExample = async () => {
 
 // Run example if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runExample().catch(error => {
+  runExample().catch((error) => {
     console.error('❌ Streaming example failed:', error);
     process.exit(1);
   });
@@ -107,7 +111,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  * 📝 This demonstrates LLM streaming and dynamic flow generation
  *
  * — Sync completion (immediate response) —
- * Complete response: Dynamic Flow hums,
+ * Complete response: DynamicFlow hums,
  * like rivers learning new banks—
  * change becomes a path.
  *

@@ -4,11 +4,13 @@
  * Unified executor for IR from both static and dynamic flows
  */
 
-import { Effect, Stream } from 'effect';
+import { Data, Effect, Stream } from 'effect';
 import type { IR } from '@/ir';
 import { ToolRegistryImpl } from '@/tools/registry';
 import type { Tool, ToolJoin } from '@/tools/types';
 import type { ToolRequirements } from '@/types';
+import type { StateManager } from '@/state/manager';
+import { createStateManager } from '@/state/manager';
 
 export interface ExecutionResult {
   output: unknown;
@@ -19,13 +21,29 @@ export interface ExecutionResult {
   };
 }
 
-export class ExecutionError extends Error {
-  constructor(
-    message: string,
-    public readonly nodeId?: string
-  ) {
-    super(message);
-    this.name = 'ExecutionError';
+export class ExecutionError extends Data.TaggedError('ExecutionError')<{
+  readonly message: string;
+  readonly nodeId?: string;
+  readonly nodeType?: string;
+  readonly step?: string;
+  readonly context?: Record<string, unknown>;
+}> {
+  get displayMessage(): string {
+    const nodeInfo =
+      this.nodeId !== null && this.nodeId !== undefined && this.nodeId !== ''
+        ? ` in node '${this.nodeId}'`
+        : '';
+    const typeInfo =
+      this.nodeType !== null &&
+      this.nodeType !== undefined &&
+      this.nodeType !== ''
+        ? ` (${this.nodeType})`
+        : '';
+    const stepInfo =
+      this.step !== null && this.step !== undefined && this.step !== ''
+        ? ` at step '${this.step}'`
+        : '';
+    return `Execution failed${nodeInfo}${typeInfo}${stepInfo}: ${this.message}`;
   }
 }
 
@@ -56,12 +74,10 @@ export interface IRExecutionEvent {
  */
 export class IRExecutor {
   private registry: ToolRegistryImpl;
-  private stateManager: any; // StateManager type issue
+  private stateManager: StateManager;
 
   constructor() {
     this.registry = new ToolRegistryImpl();
-    // Import the actual StateManager constructor
-    const { createStateManager } = require('../state/manager');
     this.stateManager = createStateManager();
   }
 
@@ -73,14 +89,14 @@ export class IRExecutor {
     options?: IRExecutionOptions
   ): Effect.Effect<ExecutionResult, ExecutionError, ToolRequirements> {
     // Register tools if provided
-    if (options?.tools) {
+    if (options?.tools !== null && options?.tools !== undefined) {
       for (const tool of options.tools) {
         this.registry.register(tool);
       }
     }
 
     // Register tools from IR registry
-    if (ir.registry?.tools) {
+    if (ir.registry?.tools !== null && ir.registry?.tools !== undefined) {
       for (const [_, tool] of ir.registry.tools) {
         this.registry.register(tool);
       }
@@ -108,41 +124,42 @@ export class IRExecutor {
     ir: IR,
     options?: IRExecutionOptions
   ): Stream.Stream<IRExecutionEvent, ExecutionError, never> {
-    const self = this;
     return Stream.unwrap(
-      Effect.gen(function* () {
-        // Register tools if provided
-        if (options?.tools) {
-          for (const tool of options.tools) {
-            yield* Effect.sync(() => self.registry.register(tool));
+      Effect.gen(
+        function* (this: IRExecutor) {
+          // Register tools if provided
+          if (options?.tools !== null && options?.tools !== undefined) {
+            for (const tool of options.tools) {
+              yield* Effect.sync(() => this.registry.register(tool));
+            }
           }
-        }
 
-        // Register tools from IR registry
-        if (ir.registry?.tools) {
-          for (const [_, tool] of ir.registry.tools) {
-            yield* Effect.sync(() => self.registry.register(tool));
+          // Register tools from IR registry
+          if (ir.registry?.tools !== null && ir.registry?.tools !== undefined) {
+            for (const [_, tool] of ir.registry.tools) {
+              yield* Effect.sync(() => this.registry.register(tool));
+            }
           }
-        }
 
-        // Set initial input if provided
-        if (options?.input !== undefined) {
-          yield* self.stateManager.set('input', options.input);
-        }
+          // Set initial input if provided
+          if (options?.input !== undefined) {
+            yield* this.stateManager.set('input', options.input);
+          }
 
-        // Create event stream
-        return Stream.async<IRExecutionEvent, ExecutionError>((emit) => {
-          // Start execution
-          emit.single({
-            type: 'flow-complete',
-            timestamp: Date.now(),
-          } as IRExecutionEvent);
+          // Create event stream
+          return Stream.async<IRExecutionEvent, ExecutionError>((emit) => {
+            // Start execution
+            void emit.single({
+              type: 'flow-complete',
+              timestamp: Date.now(),
+            } as IRExecutionEvent);
 
-          // TODO: Implement proper streaming execution
-          // For now, just emit completion event
-        });
-      })
-    ) as Stream.Stream<IRExecutionEvent, ExecutionError, never>;
+            // TODO: Implement proper streaming execution
+            // For now, just emit completion event
+          });
+        }.bind(this)
+      )
+    );
   }
 
   /**
@@ -150,7 +167,6 @@ export class IRExecutor {
    */
   reset(): void {
     this.registry = new ToolRegistryImpl();
-    const { createStateManager } = require('../state/manager');
     this.stateManager = createStateManager();
   }
 }

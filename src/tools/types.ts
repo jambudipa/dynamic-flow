@@ -11,11 +11,36 @@
  * - Generators and validators use schemas to ensure type-safe composition.
  */
 
-import { Duration, Effect, Schema } from 'effect';
+import { Data, Duration, Effect, Schema } from 'effect';
 import type { ExecutionContext, ToolError, ToolRequirements } from '@/types';
 
 // Re-export for backwards compatibility
 export type { ToolError, ToolRequirements, ExecutionContext } from '@/types';
+
+// ============= Type Constraints =============
+
+/**
+ * Base constraint for tool input/output types.
+ * Must be serializable for schema validation and JSON transport.
+ * More flexible than strict JsonValue to allow optional properties and unknown types.
+ */
+export type ToolDataType = unknown;
+
+/**
+ * Untyped tool for when specific input/output types are not known at compile time.
+ * Commonly used in registries and dynamic contexts.
+ */
+export type UntypedTool = Tool<any, any>;
+
+/**
+ * Array of untyped tools - accepts any tool types
+ */
+export type UntypedToolArray = ReadonlyArray<Tool<any, any>>;
+
+/**
+ * Tool map for registries and contexts
+ */
+export type ToolMap = Map<string, Tool<any, any>>;
 
 // ============= Tool Configuration =============
 
@@ -55,12 +80,15 @@ export interface ToolConfig {
 /**
  * Tool definition: a typed command with input/output schemas and runtime
  * behavior under `execute()`.
- * @template TInput Tool input type validated by `inputSchema`.
- * @template TOutput Tool output type validated by `outputSchema`.
+ * @template TInput Tool input type validated by `inputSchema`. Must be serializable.
+ * @template TOutput Tool output type validated by `outputSchema`. Must be serializable.
  * @remarks The `execute()` implementation should be pure-Effect (no thrown
  * errors) and surface failures via the error channel.
  */
-export interface Tool<TInput = unknown, TOutput = unknown> {
+export interface Tool<
+  TInput extends ToolDataType = ToolDataType,
+  TOutput extends ToolDataType = ToolDataType,
+> {
   id: string;
   name: string;
   description: string;
@@ -98,8 +126,10 @@ export interface LLMConfig {
  * LLM tool extends base `Tool` with LLM-specific config and optional
  * prompt/parse helpers.
  */
-export interface LLMTool<TInput = unknown, TOutput = unknown>
-  extends Tool<TInput, TOutput> {
+export interface LLMTool<
+  TInput extends ToolDataType = ToolDataType,
+  TOutput extends ToolDataType = ToolDataType,
+> extends Tool<TInput, TOutput> {
   llmConfig: LLMConfig;
   promptTemplate?: ((input: TInput) => string) | undefined;
   parseResponse?:
@@ -228,73 +258,77 @@ export interface ToolExecutor {
 // ============= Error Types =============
 // Note: ToolError is imported from @/types to avoid duplication
 
-export class RegistrationError extends Error {
-  readonly _tag = 'RegistrationError';
-
-  constructor(
-    message: string,
-    public readonly toolId: string
-  ) {
-    super(message);
-    this.name = 'RegistrationError';
+export class RegistrationError extends Data.TaggedError('RegistrationError')<{
+  readonly message: string;
+  readonly toolId: string;
+  readonly reason?: string;
+}> {
+  get displayMessage(): string {
+    const reason = this.reason ? ` (${this.reason})` : '';
+    return `Tool registration failed for '${this.toolId}'${reason}: ${this.message}`;
   }
 }
 
-export class ToolNotFoundError extends Error {
-  readonly _tag = 'ToolNotFoundError';
-
-  constructor(public readonly toolId: string) {
-    super(`Tool not found: ${toolId}`);
-    this.name = 'ToolNotFoundError';
+export class ToolNotFoundError extends Data.TaggedError('ToolNotFoundError')<{
+  readonly toolId: string;
+  readonly context?: string;
+}> {
+  get displayMessage(): string {
+    const context = this.context ? ` in ${this.context}` : '';
+    return `Tool '${this.toolId}' not found${context}`;
   }
 }
 
-export class ValidationError extends Error {
-  readonly _tag = 'ValidationError';
-
-  constructor(
-    message: string,
-    public readonly toolId: string,
-    public readonly field?: string | undefined
-  ) {
-    super(message);
-    this.name = 'ValidationError';
+export class ValidationError extends Data.TaggedError('ValidationError')<{
+  readonly message: string;
+  readonly toolId: string;
+  readonly field?: string;
+  readonly value?: unknown;
+  readonly expected?: string;
+}> {
+  get displayMessage(): string {
+    const field = this.field ? ` for field '${this.field}'` : '';
+    const expected = this.expected ? ` (expected: ${this.expected})` : '';
+    return `Validation failed for tool '${this.toolId}'${field}${expected}: ${this.message}`;
   }
 }
 
-export class ParseError extends Error {
-  readonly _tag = 'ParseError';
-
-  constructor(
-    message: string,
-    public readonly response: string
-  ) {
-    super(message);
-    this.name = 'ParseError';
+export class ParseError extends Data.TaggedError('ParseError')<{
+  readonly message: string;
+  readonly response: string;
+  readonly expectedFormat?: string;
+  readonly toolId?: string;
+}> {
+  get displayMessage(): string {
+    const tool = this.toolId ? ` in tool '${this.toolId}'` : '';
+    const format = this.expectedFormat
+      ? ` (expected: ${this.expectedFormat})`
+      : '';
+    return `Parse error${tool}${format}: ${this.message}`;
   }
 }
 
-export class TimeoutError extends Error {
-  readonly _tag = 'TimeoutError';
-
-  constructor(
-    public readonly toolId: string,
-    public readonly duration: Duration.Duration
-  ) {
-    super(`Tool ${toolId} timed out after ${Duration.toMillis(duration)}ms`);
-    this.name = 'TimeoutError';
+export class TimeoutError extends Data.TaggedError('TimeoutError')<{
+  readonly toolId: string;
+  readonly duration: Duration.Duration;
+  readonly operation?: string;
+}> {
+  get displayMessage(): string {
+    const operation = this.operation ? ` during ${this.operation}` : '';
+    return `Tool '${this.toolId}' timed out${operation} after ${Duration.toMillis(this.duration)}ms`;
   }
 }
 
-export class ApprovalRequiredError extends Error {
-  readonly _tag = 'ApprovalRequiredError';
-
-  constructor(
-    public readonly toolId: string,
-    public readonly input: unknown
-  ) {
-    super(`Tool ${toolId} requires approval`);
-    this.name = 'ApprovalRequiredError';
+export class ApprovalRequiredError extends Data.TaggedError(
+  'ApprovalRequiredError'
+)<{
+  readonly toolId: string;
+  readonly input: unknown;
+  readonly reason?: string;
+}> {
+  get displayMessage(): string {
+    const reason = this.reason ? ` (${this.reason})` : '';
+    return `Tool '${this.toolId}' requires approval${reason}`;
   }
 }
 
@@ -339,13 +373,17 @@ export class ToolBuilder<TInput = unknown, TOutput = unknown> {
     return this;
   }
 
-  input<TNew>(schema: Schema.Schema<TNew>): ToolBuilder<TNew, TOutput> {
-    this.tool.inputSchema = schema as Schema.Schema<any>;
+  input<TNew extends ToolDataType>(
+    schema: Schema.Schema<TNew>
+  ): ToolBuilder<TNew, TOutput> {
+    this.tool.inputSchema = schema;
     return this as unknown as ToolBuilder<TNew, TOutput>;
   }
 
-  output<TNew>(schema: Schema.Schema<TNew>): ToolBuilder<TInput, TNew> {
-    this.tool.outputSchema = schema as Schema.Schema<any>;
+  output<TNew extends ToolDataType>(
+    schema: Schema.Schema<TNew>
+  ): ToolBuilder<TInput, TNew> {
+    this.tool.outputSchema = schema;
     return this as unknown as ToolBuilder<TInput, TNew>;
   }
 

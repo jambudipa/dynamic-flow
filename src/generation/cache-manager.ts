@@ -3,7 +3,12 @@
  */
 
 import { Duration, Effect, pipe } from 'effect';
-import type { CacheEntry, CacheStats, GenerateFlowRequest, ValidatedFlow } from './types';
+import type {
+  CacheEntry,
+  CacheStats,
+  GenerateFlowRequest,
+  ValidatedFlow,
+} from './types';
 import type { Tool, ToolJoin } from '@/tools/types';
 
 /**
@@ -34,7 +39,7 @@ export class CacheManager {
     const key = this.generateKey(request);
     const entry = this.cache.get(key);
 
-    if (entry) {
+    if (entry !== null && entry !== undefined) {
       const now = Date.now();
       const age = now - entry.timestamp;
       const ttlMillis = Duration.toMillis(this.ttl);
@@ -174,7 +179,7 @@ export class CacheManager {
       }
     }
 
-    if (lruKey) {
+    if (lruKey !== null && lruKey !== undefined) {
       this.cache.delete(lruKey);
       this.stats.size--;
       this.stats.evictions++;

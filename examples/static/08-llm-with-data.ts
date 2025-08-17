@@ -51,44 +51,50 @@ interface SalesData {
 }
 
 // Mock service: returns simple sales data
-const fetchSalesData = (): Effect.Effect<SalesData, never, never> => Effect.sync(() => {
-  const data = {
-    quarter: 'Q2-2025',
-    regions: [
-      { region: 'North', sales: 125000 },
-      { region: 'South', sales: 98000 },
-      { region: 'East', sales: 143500 },
-      { region: 'West', sales: 112300 }
-    ]
-  };
-  console.log(`Fetching sales data for ${data.quarter}...`);
-  console.log(`Retrieved ${data.regions.length} regional sales records`);
-  return data;
-});
+const fetchSalesData = (): Effect.Effect<SalesData, never, never> =>
+  Effect.sync(() => {
+    const data = {
+      quarter: 'Q2-2025',
+      regions: [
+        { region: 'North', sales: 125000 },
+        { region: 'South', sales: 98000 },
+        { region: 'East', sales: 143500 },
+        { region: 'West', sales: 112300 },
+      ],
+    };
+    console.log(`Fetching sales data for ${data.quarter}...`);
+    console.log(`Retrieved ${data.regions.length} regional sales records`);
+    return data;
+  });
 
 // Tool: prepare a concise prompt from data and a question
-const promptFromData: Tool<{ data: unknown; question: string }, { prompt: string }> = {
+const promptFromData: Tool<
+  { data: unknown; question: string },
+  { prompt: string }
+> = {
   id: 'prep:promptFromData',
   name: 'Prompt From Data',
-  description: 'Formats a short, structured prompt using the data and a question',
+  description:
+    'Formats a short, structured prompt using the data and a question',
   inputSchema: Schema.Struct({ data: Schema.Unknown, question: Schema.String }),
   outputSchema: Schema.Struct({ prompt: Schema.String }),
-  execute: ({ data, question }) => Effect.sync(() => {
-    console.log('Preparing data-driven prompt...');
-    const regions = (data as SalesData).regions.length;
-    console.log(`Generated prompt with ${regions} regions of data`);
+  execute: ({ data, question }) =>
+    Effect.sync(() => {
+      console.log('Preparing data-driven prompt...');
+      const regions = (data as SalesData).regions.length;
+      console.log(`Generated prompt with ${regions} regions of data`);
 
-    const prompt = [
-      'You are a helpful data assistant. Answer strictly and concisely.',
-      'Data (JSON):',
-      JSON.stringify(data, null, 2),
-      'Question:',
-      question,
-      'Return only the answer, no explanations.'
-    ].join('\n');
+      const prompt = [
+        'You are a helpful data assistant. Answer strictly and concisely.',
+        'Data (JSON):',
+        JSON.stringify(data, null, 2),
+        'Question:',
+        question,
+        'Return only the answer, no explanations.',
+      ].join('\n');
 
-    return { prompt };
-  })
+      return { prompt };
+    }),
 };
 
 async function createDataLlmFlow(question: string) {
@@ -100,8 +106,13 @@ async function createDataLlmFlow(question: string) {
   );
 
   // Pipeable functions
-  const toPrompt = Tools.createTool<{ data: unknown; question: string }, { prompt: string }>(promptFromData);
-  const runAsk = Tools.createTool<{ prompt: string }, { response: string }>(ask);
+  const toPrompt = Tools.createTool<
+    { data: unknown; question: string },
+    { prompt: string }
+  >(promptFromData);
+  const runAsk = Tools.createTool<{ prompt: string }, { response: string }>(
+    ask
+  );
 
   // Build a flow
   const program = pipe(
@@ -117,13 +128,17 @@ async function createDataLlmFlow(question: string) {
 /**
  * Programmatic example runner for testing and integration
  */
-export async function runExample(): Promise<{ analysis: string; data: SalesData }> {
+export async function runExample(): Promise<{
+  analysis: string;
+  data: SalesData;
+}> {
   console.log('=== LLM + Mock Data Pipeline ===\n');
 
   loadEnv();
 
   try {
-    const question = 'Which region has the highest sales and what is the amount?';
+    const question =
+      'Which region has the highest sales and what is the amount?';
     const program = await createDataLlmFlow(question);
 
     // Provide the LLM service layer
@@ -131,19 +146,27 @@ export async function runExample(): Promise<{ analysis: string; data: SalesData 
 
     console.log(`Question: ${question}`);
     const collected = await Effect.runPromise(
-      Flow.runCollect(programWithLLM as Effect.Effect<any, any, never>, { name: 'LLM + Data' })
+      Flow.runCollect(programWithLLM as Effect.Effect<any, any, never>, {
+        name: 'LLM + Data',
+      })
     );
     const analysis = (collected.output as any)?.response ?? collected.output;
     console.log('LLM Analysis:', analysis);
 
     console.log('\n— Streaming events —');
     await Stream.runForEach(
-      Flow.runStream(programWithLLM as Effect.Effect<any, any, never>, { name: 'LLM + Data' }),
-      (event) => Effect.sync(() => {
-        console.log(`• ${event.type}`,
-          event.type === 'flow-complete' ? `→ ${JSON.stringify((event as any).result?.response || (event as any).result).substring(0, 100)}...` : ''
-        );
-      })
+      Flow.runStream(programWithLLM as Effect.Effect<any, any, never>, {
+        name: 'LLM + Data',
+      }),
+      (event) =>
+        Effect.sync(() => {
+          console.log(
+            `• ${event.type}`,
+            event.type === 'flow-complete'
+              ? `→ ${JSON.stringify((event as any).result?.response || (event as any).result).substring(0, 100)}...`
+              : ''
+          );
+        })
     ).pipe(Effect.runPromise);
 
     // Get the data for the response
@@ -164,7 +187,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   });
 }
-
 
 /**
  * Expected Output:

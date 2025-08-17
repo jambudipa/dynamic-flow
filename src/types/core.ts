@@ -2,7 +2,7 @@
  * Core Types - Unified Type Definitions
  *
  * This module provides the single source of truth for core types used
- * throughout the Dynamic Flow system, eliminating conflicts and ensuring
+ * throughout the DynamicFlow system, eliminating conflicts and ensuring
  * consistency across all modules.
  */
 

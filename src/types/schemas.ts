@@ -2,12 +2,13 @@
  * Schema Types - Schema-related types and utilities
  *
  * This module provides types and utilities for working with Effect Schema
- * in the context of Dynamic Flow operations.
+ * in the context of DynamicFlow operations.
  */
 
 import { Effect, Schema } from 'effect';
 import type { ParseError } from 'effect/ParseResult';
 import { FlowSchemaError } from './errors';
+import { safeOp } from '../utils/effect-patterns';
 
 // ============= Schema Utility Types =============
 
@@ -168,23 +169,26 @@ export const validateSyncWithSchema = <A, I>(
   input: I,
   schemaName?: string
 ): A => {
-  try {
-    return Schema.decodeSync(schema)(input);
-  } catch (error) {
-    const props: {
-      schemaName?: string;
-      fieldPath?: string;
-      cause?: unknown;
-    } = {
-      cause: error,
-    };
+  return Effect.runSync(
+    safeOp(
+      () => Schema.decodeSync(schema)(input),
+      (error) => {
+        const props: {
+          schemaName?: string;
+          fieldPath?: string;
+          cause?: unknown;
+        } = {
+          cause: error,
+        };
 
-    if (schemaName !== undefined) {
-      props.schemaName = schemaName;
-    }
+        if (schemaName !== undefined) {
+          props.schemaName = schemaName;
+        }
 
-    throw new FlowSchemaError(props);
-  }
+        return new FlowSchemaError(props);
+      }
+    )
+  );
 };
 
 // ============= Common Schema Patterns =============

@@ -20,7 +20,7 @@
  * ```
  * Validating OpenAI credentials...
  * Executing LLM tool with prompt...
- * LLM response: "Dynamic Flow refers to a system or process..."
+ * LLM response: "DynamicFlow refers to a system or process..."
  * ```
  *
  * Return value: Promise<{ response: string }>
@@ -61,12 +61,12 @@ export async function runExample(): Promise<{ response: string }> {
 
     console.log('Executing LLM tool with prompt...');
     const program = pipe(
-      Effect.succeed({ prompt: 'Respond succinctly: What is Dynamic Flow?' }),
+      Effect.succeed({ prompt: 'Respond succinctly: What is DynamicFlow?' }),
       Flow.andThen(run)
     );
-    
+
     const programWithLLM = pipe(program, Effect.provide(LLMLive));
-    const output = await Flow.run(programWithLLM) as { response: string };
+    const output = (await Flow.run(programWithLLM)) as { response: string };
 
     let response: string;
     if ('response' in output) {
@@ -96,14 +96,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 /**
  * Expected Output:
  * ===============
- * 
+ *
  * === LLM OpenAI Tool Example ===
- * 
+ *
  * Validating OpenAI credentials...
  * Executing LLM tool with prompt...
  * LLM response: Dynamic flow = any flow that varies over time rather than being steady-state. In networks/algorithms it means time-dependent flow (flows with travel/delay times, time-varying capacities and arrivals); in fluid mechanics it's called unsteady flow (velocity/pressure change with time). Common applications: traffic/transport modeling, communications and supply chains, and transient fluid problems.
- * 
+ *
  * ✅ OpenAI tool execution completed successfully!
- * 
+ *
  * Note: Requires OPENAI_API_KEY environment variable
  */

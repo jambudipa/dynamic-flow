@@ -5,9 +5,10 @@
  * with hierarchical scoping, session management, and proper cleanup.
  */
 
-// TODO: Clean up unused imports when methods are uncommented
-// import { Effect, Layer, Context } from 'effect'
+import { Duration, Effect } from 'effect';
 import { v4 as uuidv4 } from 'uuid';
+import { createFiberPool, parallelWithConfig } from '../../utils/concurrency';
+import { safeAsyncOp } from '../../utils/effect-patterns';
 
 // ============= Core Context Types =============
 
@@ -257,7 +258,7 @@ export class VariableScopeImpl implements VariableScope {
   }
 
   has(key: string): boolean {
-    return this.variables.has(key) || (this.parent?.has(key) ?? false);
+    return this.variables.has(key) || this.parent?.has(key) || false;
   }
 
   delete(key: string): boolean {
@@ -274,7 +275,7 @@ export class VariableScopeImpl implements VariableScope {
 
   getKeys(): string[] {
     const keys = Array.from(this.variables.keys());
-    if (this.parent) {
+    if (this.parent !== null && this.parent !== undefined) {
       const parentKeys = this.parent.getKeys();
       // Merge keys, child scope keys override parent keys
       const allKeys = new Set([...parentKeys, ...keys]);
@@ -325,6 +326,34 @@ export class WorkerPoolImpl implements WorkerPool {
 
   getAvailableWorkers(): number {
     return Math.max(0, this.maxWorkers - this.activeTasks);
+  }
+
+  /**
+   * Execute tasks using Effect-based concurrency with Fiber management
+   */
+  executeWithEffects<T>(
+    tasks: Array<() => Promise<T>>,
+    options?: {
+      concurrency?: number;
+      timeout?: Duration.Duration;
+    }
+  ): Effect.Effect<ReadonlyArray<T>, unknown> {
+    const concurrency = options?.concurrency || this.maxWorkers;
+    const timeout = options?.timeout || Duration.seconds(30);
+
+    return parallelWithConfig(
+      tasks,
+      (task, index) =>
+        safeAsyncOp(task, (error) => ({
+          _tag: 'TaskError' as const,
+          error,
+        })).pipe(Effect.timeout(timeout)),
+      {
+        concurrency,
+        failFast: false,
+        timeout,
+      }
+    );
   }
 
   getMaxWorkers(): number {
@@ -394,7 +423,7 @@ export class FlowControlManagerImpl implements FlowControlManager {
 
   exitContext(): void {
     const previousContext = this.contextStack.pop();
-    if (previousContext !== undefined) {
+    if (previousContext !== null && previousContext !== undefined) {
       this._isParallelContext = previousContext;
     }
   }
@@ -424,7 +453,7 @@ export class PauseResumeManagerImpl implements PauseResumeManager {
   private currentPrompt: string | undefined;
 
   async pause<T>(prompt: string): Promise<T> {
-    if (this.pausePromise) {
+    if (this.pausePromise !== null && this.pausePromise !== undefined) {
       throw new Error('Already paused - cannot pause again');
     }
 
@@ -438,7 +467,7 @@ export class PauseResumeManagerImpl implements PauseResumeManager {
   }
 
   resume<T>(value: T): void {
-    if (!this.resumeCallback) {
+    if (this.resumeCallback === null || this.resumeCallback === undefined) {
       throw new Error('Not currently paused');
     }
 
@@ -459,7 +488,7 @@ export class PauseResumeManagerImpl implements PauseResumeManager {
   }
 
   cancel(): void {
-    if (this.resumeCallback) {
+    if (this.resumeCallback !== null && this.resumeCallback !== undefined) {
       const callback = this.resumeCallback;
       this.resumeCallback = null;
       this.pausePromise = null;
@@ -486,6 +515,8 @@ export class ExecutionContextImpl implements EnhancedExecutionContext {
   public readonly workers: WorkerPool;
   public readonly pauseResume: PauseResumeManager;
   public readonly flowControl: FlowControlManager;
+  private readonly fiberPool?: Effect.Effect<any, never>;
+  private readonly managedResources: Array<() => Effect.Effect<void>> = [];
 
   /* TODO: Fix Layer type mismatch - comment out until Layer types are resolved
   public readonly layers: {
@@ -514,16 +545,16 @@ export class ExecutionContextImpl implements EnhancedExecutionContext {
     */
     } = {}
   ) {
-    this.flowId = options.flowId ?? 'default-flow';
-    this.stepId = options.stepId ?? 'default-step';
-    this.sessionId = options.sessionId ?? uuidv4();
-    this.variableScope = options.variables ?? new VariableScopeImpl();
-    this.workers = options.workers ?? new WorkerPoolImpl();
-    this.pauseResume = options.pauseResume ?? new PauseResumeManagerImpl();
-    this.flowControl = options.flowControl ?? new FlowControlManagerImpl();
-    this.metadata = options.metadata ?? {};
+    this.flowId = options.flowId || 'default-flow';
+    this.stepId = options.stepId || 'default-step';
+    this.sessionId = options.sessionId || uuidv4();
+    this.variableScope = options.variables || new VariableScopeImpl();
+    this.workers = options.workers || new WorkerPoolImpl();
+    this.pauseResume = options.pauseResume || new PauseResumeManagerImpl();
+    this.flowControl = options.flowControl || new FlowControlManagerImpl();
+    this.metadata = options.metadata || {};
     /* TODO: Fix Layer type mismatch - Layer.Layer vs Layer
-    this.layers = options.layers ?? {
+    this.layers = options.layers || {
       http: Layer.empty,
       llm: Layer.empty,
       database: Layer.empty
@@ -559,7 +590,7 @@ export class ExecutionContextImpl implements EnhancedExecutionContext {
     const childVariables = this.variableScope.createScope();
 
     // Apply scope overrides if provided
-    if (scopeOverrides) {
+    if (scopeOverrides !== null && scopeOverrides !== undefined) {
       Object.entries(scopeOverrides).forEach(([key, value]) => {
         if (typeof value !== 'undefined') {
           childVariables.set(key, value);
@@ -581,8 +612,50 @@ export class ExecutionContextImpl implements EnhancedExecutionContext {
     });
   }
 
+  /**
+   * Add a managed resource that will be cleaned up when the context is disposed
+   */
+  addManagedResource(cleanup: () => Effect.Effect<void>): void {
+    this.managedResources.push(cleanup);
+  }
+
+  /**
+   * Execute an effect with managed resources
+   */
+  withResource<T, E, R>(
+    acquire: Effect.Effect<T, E, R>,
+    use: (resource: T) => Effect.Effect<any, E, R>
+  ): Effect.Effect<any, E, R> {
+    return Effect.acquireUseRelease(acquire, use, (resource) => {
+      // Add cleanup to managed resources
+      this.addManagedResource(() => Effect.void);
+      return Effect.void;
+    });
+  }
+
+  /**
+   * Get the fiber pool for concurrent operations
+   */
+  getFiberPool(): Effect.Effect<any, never> {
+    if (this.fiberPool === null || this.fiberPool === undefined) {
+      return createFiberPool(this.workers.getMaxWorkers());
+    }
+    return this.fiberPool;
+  }
+
   async dispose(): Promise<void> {
-    // Clean up resources
+    // Clean up managed Effect resources first
+    if (this.managedResources.length > 0) {
+      await Effect.runPromise(
+        Effect.forEach(this.managedResources, (cleanup) => cleanup(), {
+          concurrency: 'unbounded',
+        }).pipe(
+          Effect.catchAll(() => Effect.void) // Don't fail disposal on cleanup errors
+        )
+      );
+    }
+
+    // Clean up other resources
     this.variableScope.clear();
     await this.workers.shutdown();
     this.pauseResume.cancel();

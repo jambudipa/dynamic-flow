@@ -161,7 +161,7 @@ export class FlowConnectivityValidator {
     const sequence: IRNode[] = [];
     const visited = new Set<string>();
 
-    function visit(node: IRNode) {
+    function visit(node: IRNode): void {
       if (visited.has(node.id)) return;
       visited.add(node.id);
 

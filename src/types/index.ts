@@ -1,8 +1,8 @@
 /**
- * Dynamic Flow Types - Central Type System
+ * DynamicFlow Types - Central Type System
  *
  * This module serves as the single source of truth for all types used
- * throughout the Dynamic Flow system. It consolidates and exports all
+ * throughout the DynamicFlow system. It consolidates and exports all
  * core types, interfaces, and utilities to eliminate type conflicts
  * and ensure consistency across modules.
  */
@@ -198,7 +198,7 @@ export const TYPE_SYSTEM_METADATA = {
   version: TYPE_SYSTEM_VERSION,
   supportedEffect: SUPPORTED_EFFECT_VERSION,
   created: '2024-12-19',
-  description: 'Unified type system for Dynamic Flow',
+  description: 'Unified type system for DynamicFlow',
   breaking_changes: [
     'Consolidated ExecutionContext interfaces',
     'Unified FlowError hierarchy',

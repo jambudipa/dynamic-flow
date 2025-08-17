@@ -21,7 +21,7 @@ export const structuredChoice = (
   options: ReadonlyArray<ChoiceOption>,
   config?: { retries?: number }
 ): Effect.Effect<ChoiceResult, Error, any> => {
-  const retries = Math.max(0, config?.retries ?? 2);
+  const retries = Math.max(0, config?.retries || 2);
 
   const allowedIds = options.map((o) => o.id);
   const ChoiceUnion = (() => {

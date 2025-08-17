@@ -1,5 +1,5 @@
 /**
- * Dynamic Flow Generation - Main exports
+ * DynamicFlow Generation - Main exports
  */
 
 // Main API
@@ -7,7 +7,7 @@ export { DynamicFlow } from './dynamic-flow-api';
 export { ValidatedFlowInstance } from './validated-flow-instance';
 
 // Flow building
-export { FlowBuilder, FlowDSL, NaturalFlowBuilder } from './flow-builder';
+export { FlowBuilder } from './flow-builder';
 
 // Operations have been moved to unified operators
 // They are no longer exported from here

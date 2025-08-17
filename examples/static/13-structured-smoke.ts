@@ -35,8 +35,12 @@ import { LLMCoreService } from '../../src/llm/service';
 import { loadEnv } from '../env';
 
 const Choice = Schema.Struct({
-  choice: Schema.Union(Schema.Literal('prep:prompt1'), Schema.Literal('prep:prompt2'), Schema.Literal('prep:prompt3')),
-  reason: Schema.optional(Schema.String)
+  choice: Schema.Union(
+    Schema.Literal('prep:prompt1'),
+    Schema.Literal('prep:prompt2'),
+    Schema.Literal('prep:prompt3')
+  ),
+  reason: Schema.optional(Schema.String),
 });
 
 type ChoiceResult = typeof Choice.Type;
@@ -54,11 +58,14 @@ export async function runExample(): Promise<ChoiceResult> {
   }
 
   try {
-    const prompt = 'Choose the best id for a topic about Buddhist selflessness of persons: prep:prompt1, prep:prompt2, prep:prompt3.';
+    const prompt =
+      'Choose the best id for a topic about Buddhist selflessness of persons: prep:prompt1, prep:prompt2, prep:prompt3.';
     console.log('Requesting structured choice from LLM...');
     console.log(`Prompt: "${prompt}"`);
 
-    const res = await Effect.runPromise(LLMCoreService.structured(prompt, Choice));
+    const res = await Effect.runPromise(
+      LLMCoreService.structured(prompt, Choice)
+    );
 
     console.log('\nTEXT:', res.text);
     console.log('JSON:', res.json);
@@ -87,14 +94,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 /**
  * Expected Output:
  * ===============
- * 
+ *
  * === Structured LLM Output Example ===
- * 
+ *
  * Requesting structured choice from LLM...
  * Prompt: "Choose the best id for a topic about Buddhist selflessness of persons: prep:prompt1, prep:prompt2, prep:prompt3."
  * 🤖 Using OpenAI SDK for structured output...
  * 📥 SDK response text: {"choice":"prep:prompt2","reason":"Without the prompts' text, prompt2 is the best single pick as a neutral middle option; typically a second prompt is used to present the core topic (Buddhist anattā/selflessness of persons) with balanced depth between an introductory and an advanced prompt."}
- * 
+ *
  * TEXT: {"choice":"prep:prompt2","reason":"Without the prompts' text, prompt2 is the best single pick as a neutral middle option; typically a second prompt is used to present the core topic (Buddhist anattā/selflessness of persons) with balanced depth between an introductory and an advanced prompt."}
  * JSON: {
  *   choice: 'prep:prompt2',
@@ -102,8 +109,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  * }
  * Validated choice: prep:prompt2
  * Reason: Without the prompts' text, prompt2 is the best single pick as a neutral middle option; typically a second prompt is used to present the core topic (Buddhist anattā/selflessness of persons) with balanced depth between an introductory and an advanced prompt.
- * 
+ *
  * ✅ Structured output parsing completed successfully!
- * 
+ *
  * Note: Requires OPENAI_API_KEY environment variable
  */

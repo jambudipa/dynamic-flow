@@ -8,7 +8,7 @@ import {
   type ExecutionContext,
   type IRGenerationContext,
   type StepResolver,
-  type UnifiedOperator
+  type UnifiedOperator,
 } from './base';
 import { evaluateCondition, inferType } from './utils';
 import type { IRNode } from '@/ir';
@@ -65,7 +65,7 @@ export class ConditionalOperator implements UnifiedOperator<ConditionalConfig> {
 
       // Select branch
       const branch = conditionResult ? config.if_true : config.if_false;
-      if (!branch || branch.length === 0) {
+      if (branch === null || branch === undefined || branch.length === 0) {
         return input; // Pass through if no branch
       }
 

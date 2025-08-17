@@ -2,13 +2,19 @@
  * Type Guards and Predicates
  *
  * This module provides comprehensive type guards and predicate functions
- * for runtime type checking and validation throughout the Dynamic Flow system.
+ * for runtime type checking and validation throughout the DynamicFlow system.
  */
 
-import type { Effect, Schema } from 'effect';
-import type { ComponentMetadata, ExecutionContext, ValidationResult } from './core';
+import { Effect, type Schema } from 'effect';
+import { safeOp } from '../utils/effect-patterns';
+import type {
+  ComponentMetadata,
+  ExecutionContext,
+  ValidationResult,
+} from './core';
 import type { AnyFlowError, FlowError } from './errors';
 import type { FlowContext, FlowEffect, ToolRequirements } from './effects';
+import { isArray, isDefined, isRecord, isString } from './type-utils';
 
 // ============= Core Type Guards =============
 
@@ -18,21 +24,17 @@ import type { FlowContext, FlowEffect, ToolRequirements } from './effects';
 export const isExecutionContext = (
   value: unknown
 ): value is ExecutionContext => {
-  if (typeof value !== 'object' || value === null) {
+  if (!isRecord(value)) {
     return false;
   }
 
-  const obj = value as any;
-
-  // Check required fields
+  // Check required fields using type-safe guards
   const hasRequired =
-    typeof obj.flowId === 'string' &&
-    typeof obj.stepId === 'string' &&
-    typeof obj.sessionId === 'string' &&
-    typeof obj.variables === 'object' &&
-    obj.variables !== null &&
-    typeof obj.metadata === 'object' &&
-    obj.metadata !== null;
+    isString(value.flowId) &&
+    isString(value.stepId) &&
+    isString(value.sessionId) &&
+    isRecord(value.variables) &&
+    isRecord(value.metadata);
 
   if (!hasRequired) {
     return false;
@@ -40,13 +42,17 @@ export const isExecutionContext = (
 
   // Check optional fields if present
   if (
-    obj.parentContext !== undefined &&
-    !isExecutionContext(obj.parentContext)
+    isDefined(value.parentContext) &&
+    !isExecutionContext(value.parentContext)
   ) {
     return false;
   }
 
-  return !(obj.currentScope !== undefined && !Array.isArray(obj.currentScope));
+  if (isDefined(value.currentScope) && !isArray(value.currentScope)) {
+    return false;
+  }
+
+  return true;
 };
 
 /**
@@ -55,13 +61,16 @@ export const isExecutionContext = (
 export const isCompleteExecutionContext = (
   value: unknown
 ): value is Required<ExecutionContext> => {
+  if (!isExecutionContext(value)) {
+    return false;
+  }
+
   return (
-    isExecutionContext(value) &&
-    (value as any).parentContext !== undefined &&
-    (value as any).currentScope !== undefined &&
-    (value as any).workerPool !== undefined &&
-    (value as any).flowControl !== undefined &&
-    (value as any).pauseResume !== undefined
+    isDefined(value.parentContext) &&
+    isDefined(value.currentScope) &&
+    isDefined((value as any).workerPool) &&
+    isDefined((value as any).flowControl) &&
+    isDefined((value as any).pauseResume)
   );
 };
 
@@ -71,14 +80,19 @@ export const isCompleteExecutionContext = (
 export const isValidationResult = <T>(
   value: unknown
 ): value is ValidationResult<T> => {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as any).success === 'boolean' &&
-    ((value as any).success === true
-      ? 'data' in value
-      : typeof (value as any).error === 'string')
-  );
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (typeof value.success !== 'boolean') {
+    return false;
+  }
+
+  if (value.success === true) {
+    return 'data' in value;
+  } else {
+    return isString(value.error);
+  }
 };
 
 /**
@@ -127,11 +141,12 @@ export const isComponentMetadata = (
  * FlowError type guard with tag checking
  */
 export const isFlowError = (value: unknown): value is FlowError => {
-  return (
-    value instanceof Error &&
-    typeof (value as any)._tag === 'string' &&
-    typeof (value as any).name === 'string'
-  );
+  if (!(value instanceof Error)) {
+    return false;
+  }
+
+  const errorWithTag = value as Error & { _tag?: unknown; name?: unknown };
+  return isString(errorWithTag._tag) && isString(errorWithTag.name);
 };
 
 /**
@@ -407,12 +422,15 @@ export const isValidUrl = (value: unknown): value is string => {
     return false;
   }
 
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
+  return Effect.runSync(
+    safeOp(
+      () => {
+        new URL(value);
+        return true;
+      },
+      () => ({ _tag: 'ValidationError' as const, result: false })
+    ).pipe(Effect.catchAll(() => Effect.succeed(false)))
+  );
 };
 
 /**

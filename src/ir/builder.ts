@@ -19,7 +19,7 @@ import type {
   NodeConfig,
   ParallelNode,
   SequenceNode,
-  ToolNode
+  ToolNode,
 } from './core-types';
 import { IRValidationError } from './core-types';
 
@@ -378,8 +378,8 @@ export class IRBuilder {
     this.validate();
 
     const metadata: IRMetadata = {
-      source: (this.metadata.source ?? 'static') as 'static' | 'dynamic',
-      created: this.metadata.created ?? new Date().toISOString(),
+      source: (this.metadata.source || 'static') as 'static' | 'dynamic',
+      created: this.metadata.created || new Date().toISOString(),
     };
 
     if (this.metadata.name !== undefined) {
@@ -562,7 +562,10 @@ export class IRBuilder {
     }
 
     if (errors.length > 0) {
-      throw new IRValidationError('IR validation failed', errors);
+      throw new IRValidationError({
+        message: 'IR validation failed',
+        errors: errors as ReadonlyArray<string>,
+      });
     }
   }
 

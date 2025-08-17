@@ -19,10 +19,10 @@
  * Expected console output:
  * ```
  * — Sync (collect) —
- * Dynamic Flow is a workflow orchestration framework...
+ * DynamicFlow is a workflow orchestration framework...
  *
  * — Streaming tokens —
- * Dynamic Flow is a workflow orchestration framework...
+ * DynamicFlow is a workflow orchestration framework...
  * (displays character by character as received)
  * ```
  *
@@ -39,12 +39,15 @@ import { LLMCoreService } from '@/llm/service';
 /**
  * Programmatic example runner for testing and integration
  */
-export async function runExample(): Promise<{ fullResponse: string; streamedTokens: string[] }> {
+export async function runExample(): Promise<{
+  fullResponse: string;
+  streamedTokens: string[];
+}> {
   console.log('=== LLM Streaming Example ===\n');
 
   loadEnv();
 
-  const prompt = 'Stream a concise definition of Dynamic Flow.';
+  const prompt = 'Stream a concise definition of DynamicFlow.';
 
   try {
     console.log(`Prompt: "${prompt}"`);
@@ -52,7 +55,9 @@ export async function runExample(): Promise<{ fullResponse: string; streamedToke
 
     // Sync (collect)
     console.log('— Sync (collect) —');
-    const resp = await LLMCoreService.completion(prompt).pipe(Effect.runPromise);
+    const resp = await LLMCoreService.completion(prompt).pipe(
+      Effect.runPromise
+    );
     console.log(resp.content);
     console.log();
 
@@ -61,9 +66,8 @@ export async function runExample(): Promise<{ fullResponse: string; streamedToke
     const streamedTokens: string[] = [];
     let streamedContent = '';
 
-    await Stream.runForEach(
-      LLMCoreService.stream(prompt),
-      (c) => Effect.sync(() => {
+    await Stream.runForEach(LLMCoreService.stream(prompt), (c) =>
+      Effect.sync(() => {
         streamedTokens.push(c.content);
         streamedContent += c.content;
         process.stdout.write(c.content);
@@ -71,12 +75,14 @@ export async function runExample(): Promise<{ fullResponse: string; streamedToke
     ).pipe(Effect.runPromise);
 
     console.log('\n');
-    console.log(`— Streaming complete: received ${streamedTokens.length} tokens —`);
+    console.log(
+      `— Streaming complete: received ${streamedTokens.length} tokens —`
+    );
     console.log('\n✅ LLM streaming completed successfully!');
 
     return {
       fullResponse: resp.content,
-      streamedTokens
+      streamedTokens,
     };
   } catch (error) {
     console.error('❌ LLM streaming failed:', error);
@@ -92,22 +98,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-
 /**
  * Expected Output:
  * ===============
  *
  * === LLM Streaming Example ===
  *
- * Prompt: "Stream a concise definition of Dynamic Flow."
+ * Prompt: "Stream a concise definition of DynamicFlow."
  *
  * — Sync (collect) —
- * Dynamic Flow (networks): a time-dependent network flow model in which units of flow move through edges with travel times and capacity limits, respecting flow conservation at nodes; flows and edge availabilities vary over a time horizon and objectives typically involve maximizing throughput or minimizing arrival times. 
- * 
+ * DynamicFlow (networks): a time-dependent network flow model in which units of flow move through edges with travel times and capacity limits, respecting flow conservation at nodes; flows and edge availabilities vary over a time horizon and objectives typically involve maximizing throughput or minimizing arrival times.
+ *
  * (Alternate, concise meaning in fluid mechanics: unsteady flow — a velocity field that changes with time.)
  *
  * — Streaming tokens —
- * Dynamic flow — the movement or transfer of entities (fluid, traffic, data, etc.) whose rate, direction, or routing changes over time in response to varying inputs, constraints, or system state (contrast with steady/static flow). 
+ * Dynamic flow — the movement or transfer of entities (fluid, traffic, data, etc.) whose rate, direction, or routing changes over time in response to varying inputs, constraints, or system state (contrast with steady/static flow).
  *
  * — Streaming complete: received 34 tokens —
  *

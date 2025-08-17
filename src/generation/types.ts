@@ -1,11 +1,16 @@
 /**
- * Dynamic Flow Generation - Core Types
+ * DynamicFlow Generation - Core Types
  */
 // Consolidated types from types-fixed.ts
 import type { Duration, Effect, Stream } from 'effect';
 import type { Tool, ToolJoin } from '@/tools/types';
 // Import error types from the main errors module
-import { DynamicFlowError, FlowError, FlowExecutionError, LLMError } from '@/types/errors';
+import {
+  DynamicFlowError,
+  FlowError,
+  FlowExecutionError,
+  LLMError,
+} from '@/types/errors';
 // no Schema imports needed here
 
 // Re-export some tool types and import Tool/ToolJoin for local usage

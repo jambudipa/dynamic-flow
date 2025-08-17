@@ -32,9 +32,12 @@ const summarizeTool: Tool<SummarizeIn, SummarizeOut> = {
   description: 'Summarizes input text',
   inputSchema: Schema.Struct({ text: Schema.String }),
   outputSchema: Schema.Struct({ summary: Schema.String }),
-  execute: ({ text }) => Effect.succeed({ 
-    summary: text ? text.slice(0, 20) + '...' : 'No text provided to summarize' 
-  })
+  execute: ({ text }) =>
+    Effect.succeed({
+      summary: text
+        ? text.slice(0, 20) + '...'
+        : 'No text provided to summarize',
+    }),
 };
 const tools = [summarizeTool];
 
@@ -43,7 +46,9 @@ const tools = [summarizeTool];
  */
 export const runExample = async () => {
   console.log('🚀 Starting Generate-Then-Run example...');
-  console.log('📝 This demonstrates two-stage dynamic flow: generate plan, then execute');
+  console.log(
+    '📝 This demonstrates two-stage dynamic flow: generate plan, then execute'
+  );
 
   try {
     loadEnv();
@@ -55,7 +60,7 @@ export const runExample = async () => {
       prompt: 'Create a simple flow that summarizes text.',
       tools,
       joins: [],
-      model
+      model,
     }).pipe(Effect.runPromise);
 
     // Display the generated plan (Flow JSON)
@@ -67,10 +72,12 @@ export const runExample = async () => {
     console.log('\n— Stage 2a: Streaming Execution —');
     const streamingEvents: any[] = [];
     await instance.run().pipe(
-      Stream.tap(evt => Effect.sync(() => {
-        console.log(`• ${evt.type}`);
-        streamingEvents.push(evt);
-      })),
+      Stream.tap((evt) =>
+        Effect.sync(() => {
+          console.log(`• ${evt.type}`);
+          streamingEvents.push(evt);
+        })
+      ),
       Stream.runDrain,
       Effect.runPromise
     );
@@ -85,7 +92,7 @@ export const runExample = async () => {
     return {
       generatedPlan: plan,
       streamingEvents,
-      executionResult: result
+      executionResult: result,
     };
   } catch (error) {
     console.error('❌ Generate-then-run example failed:', error);
@@ -95,7 +102,7 @@ export const runExample = async () => {
 
 // Run example if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runExample().catch(error => {
+  runExample().catch((error) => {
     console.error('❌ Generate-then-run example failed:', error);
     process.exit(1);
   });

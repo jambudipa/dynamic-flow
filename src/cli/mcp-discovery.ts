@@ -8,9 +8,7 @@
  */
 
 import { Command } from 'commander';
-// import { Command } from 'commander'
 import { Effect } from 'effect';
-// import * as S from 'effect/Schema' // Unused import
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -96,14 +94,14 @@ program
     'json'
   )
   .option('-v, --verbose', 'Verbose output', false)
-  .action(async (options) => {
+  .action(async (options: Record<string, unknown>) => {
     console.log('🔍 Starting MCP server discovery...');
 
     const discoveryOptions: DiscoveryOptions = {
-      source: options.source as 'network' | 'config' | 'url',
-      timeout: parseInt(options.timeout) * 1000,
-      filter: options.filter,
-      verbose: options.verbose,
+      source: String(options.source) as 'network' | 'config' | 'url',
+      timeout: parseInt(String(options.timeout)) * 1000,
+      filter: options.filter !== undefined ? String(options.filter) : undefined,
+      verbose: Boolean(options.verbose),
     };
 
     try {
@@ -117,7 +115,8 @@ program
       console.log(`✅ Found ${servers.length} server(s)`);
 
       // Output results based on format
-      switch (options.output) {
+      const outputFormat = String(options.output);
+      switch (outputFormat) {
         case 'json':
           console.log(JSON.stringify(servers, null, 2));
           break;
@@ -146,14 +145,14 @@ program
   .requiredOption('-o, --output <dir>', 'Output directory for generated code')
   .option('-m, --module-name <name>', 'Module name', 'mcp-tools')
   .option('--dry-run', 'Preview without generating files', false)
-  .action(async (options) => {
+  .action(async (options: Record<string, unknown>) => {
     console.log('🔧 Generating DynamicFlow tools...');
 
     const generationOptions: GenerationOptions = {
-      input: options.input,
-      output: options.output,
-      moduleName: options.moduleName,
-      dryRun: options.dryRun,
+      input: String(options.input),
+      output: String(options.output),
+      moduleName: String(options.moduleName),
+      dryRun: Boolean(options.dryRun),
     };
 
     try {
@@ -172,19 +171,22 @@ program
   .command('validate <server-url>')
   .description('Validate MCP server compatibility')
   .option('-v, --verbose', 'Verbose output', false)
-  .action(async (serverUrl, options) => {
+  .action(async (serverUrl: string, options: Record<string, unknown>) => {
     console.log(`🔍 Validating MCP server: ${serverUrl}`);
 
     try {
-      const result = await validateServer(serverUrl, options.verbose);
+      const result = await validateServer(
+        serverUrl,
+        Boolean(options['verbose'])
+      );
 
       if (result.compatible) {
         console.log('✅ Server is compatible');
         console.log(`Protocol version: ${result.version}`);
-        console.log(`Capabilities: ${result.capabilities?.length || 0}`);
+        console.log(`Capabilities: ${result.capabilities?.length ?? 0}`);
       } else {
         console.log('❌ Server is not compatible');
-        console.log(`Reason: ${result.reason}`);
+        console.log(`Reason: ${result.reason ?? 'Unknown reason'}`);
       }
     } catch (error) {
       console.error('❌ Validation failed:', error);
@@ -202,6 +204,7 @@ program
     console.log('🔍 Running diagnostics...');
 
     // TODO: Implement comprehensive diagnostics
+    await Promise.resolve(); // Satisfy require-await
     console.log('✅ Network: OK');
     console.log('✅ Permissions: OK');
     console.log('✅ Dependencies: OK');
@@ -250,7 +253,11 @@ async function discoverServers(
       ];
 
       // Apply filter if provided
-      if (options.filter) {
+      if (
+        options.filter !== null &&
+        options.filter !== undefined &&
+        options.filter !== ''
+      ) {
         const filter = options.filter;
         return mockServers.filter(
           (s) =>
@@ -309,6 +316,7 @@ async function validateServer(
   reason?: string | undefined;
 }> {
   // TODO: Implement actual validation
+  await Promise.resolve(); // Satisfy require-await
 
   return {
     compatible: true,
@@ -334,7 +342,7 @@ ${servers
 export const mcpServers = ${JSON.stringify(
     servers.map((s) => ({
       id: s.id,
-      name: s.metadata.name || s.id,
+      name: typeof s.metadata.name === 'string' ? s.metadata.name : s.id,
       url: s.url,
     })),
     null,
@@ -349,7 +357,7 @@ export const mcpServers = ${JSON.stringify(
 function generateToolFile(server: MCPServer): string {
   // TODO: Implement proper code generation
   return `/**
- * MCP Server: ${server.metadata.name || server.id}
+ * MCP Server: ${typeof server.metadata.name === 'string' ? server.metadata.name : server.id}
  * URL: ${server.url}
  * Version: ${server.version}
  */

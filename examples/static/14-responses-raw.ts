@@ -54,8 +54,9 @@ export async function runExample(): Promise<ChoiceResponse> {
 
   try {
     const body = {
-      model: 'gpt-5',  // Updated to current model
-      input: 'Return only valid JSON according to the schema. Choose the best id for a topic about Buddhist selflessness of persons: prep:prompt1, prep:prompt2, prep:prompt3.',
+      model: 'gpt-5', // Updated to current model
+      input:
+        'Return only valid JSON according to the schema. Choose the best id for a topic about Buddhist selflessness of persons: prep:prompt1, prep:prompt2, prep:prompt3.',
       text: {
         format: {
           type: 'json_schema',
@@ -64,14 +65,17 @@ export async function runExample(): Promise<ChoiceResponse> {
             type: 'object',
             additionalProperties: false,
             properties: {
-              choice: { type: 'string', enum: ['prep:prompt1', 'prep:prompt2', 'prep:prompt3'] },
-              reason: { type: 'string' }
+              choice: {
+                type: 'string',
+                enum: ['prep:prompt1', 'prep:prompt2', 'prep:prompt3'],
+              },
+              reason: { type: 'string' },
             },
-            required: ['choice', 'reason']
+            required: ['choice', 'reason'],
           },
-          strict: true
-        }
-      }
+          strict: true,
+        },
+      },
     };
 
     console.log('Request payload:', JSON.stringify(body, null, 2));
@@ -79,10 +83,10 @@ export async function runExample(): Promise<ChoiceResponse> {
     const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
 
     const data = await res.json();
@@ -91,7 +95,9 @@ export async function runExample(): Promise<ChoiceResponse> {
     console.log('Raw response:', JSON.stringify(data, null, 2));
 
     if (!res.ok) {
-      throw new Error(`API request failed with status ${res.status}: ${JSON.stringify(data)}`);
+      throw new Error(
+        `API request failed with status ${res.status}: ${JSON.stringify(data)}`
+      );
     }
 
     // Extract choice data from response structure
@@ -99,16 +105,20 @@ export async function runExample(): Promise<ChoiceResponse> {
     let choiceText = '{}';
     if (data?.output && Array.isArray(data.output)) {
       // Find the message output (type: "message")
-      const messageOutput = data.output.find((item: any) => item.type === 'message');
+      const messageOutput = data.output.find(
+        (item: any) => item.type === 'message'
+      );
       if (messageOutput?.content && Array.isArray(messageOutput.content)) {
         // Find the output_text content
-        const textContent = messageOutput.content.find((item: any) => item.type === 'output_text');
+        const textContent = messageOutput.content.find(
+          (item: any) => item.type === 'output_text'
+        );
         if (textContent?.text) {
           choiceText = textContent.text;
         }
       }
     }
-    
+
     const choice = JSON.parse(choiceText);
 
     console.log('\n✅ Raw API request completed successfully!');
@@ -121,7 +131,7 @@ export async function runExample(): Promise<ChoiceResponse> {
 
 // Run the example when executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runExample().catch(e => {
+  runExample().catch((e) => {
     console.error('Example failed:', e);
     process.exit(1);
   });
@@ -130,9 +140,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 /**
  * Expected Output:
  * ===============
- * 
+ *
  * === Raw OpenAI Responses API Example ===
- * 
+ *
  * Making raw OpenAI API request...
  * Request payload: {
  *   "model": "gpt-5",
@@ -176,8 +186,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  *   ],
  *   ...
  * }
- * 
+ *
  * ✅ Raw API request completed successfully!
- * 
+ *
  * Note: Requires OPENAI_API_KEY environment variable
  */

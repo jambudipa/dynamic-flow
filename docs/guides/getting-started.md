@@ -16,7 +16,7 @@ Unlike other frameworks that route through pre-defined graphs or generate code s
 ### 1. Installation
 
 ```bash
-npm install @jambudipa/dynamic-flow effect @effect/schema
+npm install @jambudipa/dynamic-flow effect
 ```
 
 For AI models, install the appropriate Effect AI package:
@@ -71,21 +71,20 @@ Tools are the building blocks that LLMs can use in generated workflows:
 ```typescript
 // weather-tool.ts
 import { Tools } from '@jambudipa/dynamic-flow'
-import { Effect } from 'effect'
-import * as S from 'effect/Schema'
+import { Effect, Schema} from 'effect'
 
 const weatherTool = Tools.createTool({
   id: 'fetchWeather',
   name: 'Weather Fetcher',
   description: 'Get current weather conditions for any city',
-  inputSchema: S.Struct({
-    city: S.String,
-    units: S.optional(S.Union(S.Literal('celsius'), S.Literal('fahrenheit')))
+  inputSchema: Schema.Struct({
+    city: Schema.String,
+    units: Schema.optional(Schema.Union(Schema.Literal('celsius'), Schema.Literal('fahrenheit')))
   }),
-  outputSchema: S.Struct({
-    temperature: S.Number,
-    conditions: S.String,
-    humidity: S.Number
+  outputSchema: Schema.Struct({
+    temperature: Schema.Number,
+    conditions: Schema.String,
+    humidity: Schema.Number
   }),
   execute: (input, context) =>
     Effect.succeed({

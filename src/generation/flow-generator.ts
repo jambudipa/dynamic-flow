@@ -2,6 +2,7 @@
  * Flow Generator - Main orchestrator for flow generation
  */
 
+import type { Stream } from 'effect';
 import { Effect, pipe } from 'effect';
 import { LLMService } from './llm-service';
 import { FlowValidator } from './flow-validator';
@@ -15,7 +16,7 @@ import type {
   GenerationContext,
   ToolContext,
   ValidatedFlow,
-  ValidationError
+  ValidationError,
 } from './types';
 import { GenerationError } from './types';
 import type { Tool, ToolJoin } from '@/tools/types';
@@ -34,7 +35,7 @@ export class FlowGenerator {
     this.validator = new FlowValidator();
     this.errorRecovery = new ErrorRecoverySystem();
 
-    if (options?.cache) {
+    if (options?.cache === true) {
       this.cacheManager = new CacheManager();
     }
   }
@@ -46,9 +47,9 @@ export class FlowGenerator {
     request: GenerateFlowRequest
   ): Effect.Effect<ValidatedFlow, GenerationError> {
     // Check cache first
-    if (this.cacheManager) {
+    if (this.cacheManager !== undefined) {
       const cached = this.cacheManager.getCached(request);
-      if (cached) {
+      if (cached !== null && cached !== undefined) {
         return Effect.succeed(cached);
       }
     }
@@ -77,8 +78,9 @@ export class FlowGenerator {
       ),
       // Cache successful result
       Effect.tap((result) => {
-        if (this.cacheManager) {
-          return Effect.sync(() => this.cacheManager!.store(request, result));
+        const cache = this.cacheManager;
+        if (cache !== undefined) {
+          return Effect.sync(() => cache.store(request, result));
         }
         return Effect.void;
       })
@@ -90,7 +92,7 @@ export class FlowGenerator {
    */
   generateFlowStreaming(
     request: GenerateFlowRequest
-  ): Effect.Effect<Ai.Stream, GenerationError> {
+  ): Effect.Effect<Stream.Stream<any, never>, GenerationError> {
     const toolContext = createToolContext(
       request.tools,
       request.joins,
@@ -121,8 +123,9 @@ export class FlowGenerator {
    * Clear cache if enabled
    */
   clearCache(): Effect.Effect<void, never> {
-    if (this.cacheManager) {
-      return Effect.sync(() => this.cacheManager!.clear());
+    const cache = this.cacheManager;
+    if (cache !== undefined) {
+      return Effect.sync(() => cache.clear());
     }
     return Effect.void;
   }
@@ -153,7 +156,7 @@ export class FlowGenerator {
               attemptCount: context.attemptCount + 1,
               errors: [...context.errors, ...validationErrors],
             };
-            const retryConfig = context.options?.retryStrategy || {
+            const retryConfig = context.options?.retryStrategy ?? {
               maxAttempts: 3,
               maxEscalations: 2,
               backoffStrategy: 'exponential' as const,

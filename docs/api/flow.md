@@ -207,14 +207,14 @@ Transform data between incompatible tool input/output shapes using Schema transf
 
 **Example:**
 ```typescript
-import * as S from 'effect/Schema'
+import { Schema } from 'effect'
 
 const transformFlow = pipe(
   Effect.succeed({ title: "Document Title" }),
   Flow.join(
-    S.transform(
-      S.Struct({ title: S.String }),
-      S.Struct({ text: S.String }),
+    Schema.transform(
+      Schema.Struct({ title: Schema.String }),
+      Schema.Struct({ text: Schema.String }),
       {
         strict: true,
         decode: (a) => ({ text: a.title }),
@@ -547,6 +547,6 @@ const conditionalFlow = pipe(
 ## Related APIs
 
 - [Tools API](./tools.md) - Creating and using tools in flows
-- [Dynamic Flow API](./dynamic-flow.md) - AI-generated flow execution
+- [DynamicFlow API](./dynamic-flow.md) - AI-generated flow execution
 - [IR API](./ir.md) - Intermediate representation for flows
 - [Streaming API](./streaming.md) - Real-time flow execution events

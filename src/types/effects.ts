@@ -12,7 +12,7 @@ import type { FlowError } from './errors';
 // ============= Flow Effect Types =============
 
 /**
- * Standard Flow Effect type that represents operations in the Dynamic Flow system.
+ * Standard Flow Effect type that represents operations in the DynamicFlow system.
  * This type maintains consistency across all flow operations.
  */
 export type FlowEffect<A, E = FlowError, R = FlowContext> = Effect.Effect<

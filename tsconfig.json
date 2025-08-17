@@ -47,8 +47,6 @@
     "test",
     "**/*.test.ts",
     "**/*.spec.ts",
-    "src/datatypes/examples/**",
-    "src/datatypes/examples/**/*",
     "src/core/workers/**",
     "src/grammar/**"
   ]

@@ -5,7 +5,13 @@
 import type { Schema } from 'effect';
 import { Effect, pipe } from 'effect';
 import type { Tool, ToolJoin } from '@/tools/types';
-import type { FlowJSON, ValidatedFlow, ValidationError, ValidationWarning } from './types';
+import type {
+  FlowJSON,
+  ValidatedFlow,
+  ValidationError,
+  ValidationWarning,
+} from './types';
+import { safeOp } from '../utils/effect-patterns';
 
 /**
  * Validates generated flows
@@ -96,7 +102,7 @@ export class FlowValidator {
     json.nodes.forEach((node, index) => {
       const nodePath = ['nodes', String(index)];
 
-      if (!node.id) {
+      if (node.id === null || node.id === undefined || node.id === '') {
         errors.push({
           code: 'MISSING_NODE_ID',
           type: 'schema',
@@ -139,7 +145,11 @@ export class FlowValidator {
     });
 
     if (errors.length > 0) {
-      return Effect.fail(errors[0]!); // Return first error
+      const firstError = errors[0];
+      if (firstError === undefined) {
+        return Effect.void;
+      }
+      return Effect.fail(firstError); // Return first error
     }
 
     return Effect.void;
@@ -160,7 +170,11 @@ export class FlowValidator {
     json.nodes
       .filter((node) => node.type === 'tool')
       .forEach((node, index) => {
-        if (!node.toolId) {
+        if (
+          node.toolId === null ||
+          node.toolId === undefined ||
+          node.toolId === ''
+        ) {
           errors.push({
             code: 'MISSING_TOOL_ID',
             type: 'tool',
@@ -187,7 +201,9 @@ export class FlowValidator {
       .filter((node) => ['map', 'filter', 'reduce'].includes(node.type))
       .forEach((node, index) => {
         if (
-          node.operation?.operation?.tool &&
+          node.operation?.operation?.tool !== null &&
+          node.operation?.operation?.tool !== undefined &&
+          node.operation.operation.tool !== '' &&
           !toolMap.has(node.operation.operation.tool)
         ) {
           errors.push({
@@ -200,7 +216,11 @@ export class FlowValidator {
       });
 
     if (errors.length > 0) {
-      return Effect.fail(errors[0]!);
+      const firstError = errors[0];
+      if (firstError === undefined) {
+        return Effect.void;
+      }
+      return Effect.fail(firstError);
     }
 
     return Effect.void;
@@ -224,7 +244,9 @@ export class FlowValidator {
     );
 
     // Validate edges reference existing nodes
-    json.edges.forEach((edge, index) => {
+    for (let index = 0; index < json.edges.length; index++) {
+      const edge = json.edges[index];
+      if (!edge) continue;
       const edgePath = ['edges', String(index)];
 
       if (!nodeMap.has(edge.from)) {
@@ -246,16 +268,20 @@ export class FlowValidator {
       }
 
       // Validate type compatibility if both nodes exist
-      if (nodeMap.has(edge.from) && nodeMap.has(edge.to)) {
-        const fromNode = nodeMap.get(edge.from)!;
-        const toNode = nodeMap.get(edge.to)!;
-
+      const fromNode = nodeMap.get(edge.from);
+      const toNode = nodeMap.get(edge.to);
+      if (fromNode !== undefined && toNode !== undefined) {
         // Check tool connections
         if (fromNode.type === 'tool' && toNode.type === 'tool') {
-          const fromTool = toolMap.get(fromNode.toolId!);
-          const toTool = toolMap.get(toNode.toolId!);
+          const fromToolId = (fromNode as any).toolId as string | undefined;
+          const toToolId = (toNode as any).toolId as string | undefined;
+          if (fromToolId === undefined || toToolId === undefined) {
+            continue;
+          }
+          const fromTool = toolMap.get(fromToolId);
+          const toTool = toolMap.get(toToolId);
 
-          if (fromTool && toTool) {
+          if (fromTool !== undefined && toTool !== undefined) {
             const joinKey = `${fromTool.id}-${toTool.id}`;
             const hasJoin = joinMap.has(joinKey);
 
@@ -278,10 +304,14 @@ export class FlowValidator {
           }
         }
       }
-    });
+    }
 
     if (errors.length > 0) {
-      return Effect.fail(errors[0]!);
+      const firstError = errors[0];
+      if (firstError === undefined) {
+        return Effect.void;
+      }
+      return Effect.fail(firstError);
     }
 
     return Effect.void;
@@ -302,7 +332,7 @@ export class FlowValidator {
       .forEach((node, index) => {
         const nodePath = ['nodes', String(index)];
 
-        if (!node.operation) {
+        if (node.operation === null || node.operation === undefined) {
           errors.push({
             code: 'MISSING_OPERATION',
             type: 'operation',
@@ -311,7 +341,11 @@ export class FlowValidator {
           });
         } else {
           // Check operation has required fields
-          if (!node.operation.over) {
+          if (
+            node.operation.over === null ||
+            node.operation.over === undefined ||
+            node.operation.over === ''
+          ) {
             errors.push({
               code: 'MISSING_OPERATION_TARGET',
               type: 'operation',
@@ -320,7 +354,10 @@ export class FlowValidator {
             });
           }
 
-          if (!node.operation.operation) {
+          if (
+            node.operation.operation === null ||
+            node.operation.operation === undefined
+          ) {
             errors.push({
               code: 'MISSING_OPERATION_SPEC',
               type: 'operation',
@@ -335,10 +372,17 @@ export class FlowValidator {
     json.nodes
       .filter((node) => node.type === 'if-then')
       .forEach((node, index) => {
-        const conditionalNode = node as any;
+        const conditionalNode = node as {
+          condition?: unknown;
+          then?: unknown[];
+          else?: unknown[];
+        };
         const nodePath = ['nodes', String(index)];
 
-        if (!conditionalNode.condition) {
+        if (
+          conditionalNode.condition === null ||
+          conditionalNode.condition === undefined
+        ) {
           errors.push({
             code: 'MISSING_CONDITION',
             type: 'operation',
@@ -347,7 +391,11 @@ export class FlowValidator {
           });
         }
 
-        if (!conditionalNode.then || !Array.isArray(conditionalNode.then)) {
+        if (
+          conditionalNode.then === null ||
+          conditionalNode.then === undefined ||
+          !Array.isArray(conditionalNode.then)
+        ) {
           errors.push({
             code: 'MISSING_THEN_BRANCH',
             type: 'operation',
@@ -358,7 +406,11 @@ export class FlowValidator {
       });
 
     if (errors.length > 0) {
-      return Effect.fail(errors[0]!);
+      const firstError = errors[0];
+      if (firstError === undefined) {
+        return Effect.void;
+      }
+      return Effect.fail(firstError);
     }
 
     return Effect.void;
@@ -392,7 +444,11 @@ export class FlowValidator {
     }
 
     if (errors.length > 0) {
-      return Effect.fail(errors[0]!);
+      const firstError = errors[0];
+      if (firstError === undefined) {
+        return Effect.void;
+      }
+      return Effect.fail(firstError);
     }
 
     return Effect.void;
@@ -410,8 +466,11 @@ export class FlowValidator {
     // Check for unused tools
     const usedTools = new Set(
       json.nodes
-        .filter((n) => n.type === 'tool' && n.toolId)
-        .map((n) => n.toolId!)
+        .filter(
+          (n) =>
+            n.type === 'tool' && n.toolId !== null && n.toolId !== undefined
+        )
+        .map((n) => n.toolId as string)
     );
 
     const unusedTools = tools.filter((t) => !usedTools.has(t.id));
@@ -442,16 +501,19 @@ export class FlowValidator {
   ): boolean {
     // Simplified compatibility check
     // In real implementation, would do deep schema comparison
-    try {
-      // If schemas are the same reference, they're compatible
-      if (output === input) return true;
+    return Effect.runSync(
+      safeOp(
+        () => {
+          // If schemas are the same reference, they're compatible
+          if (output === input) return true;
 
-      // Basic check - if both are objects, consider compatible
-      // This is a simplification - real implementation would check field compatibility
-      return true;
-    } catch {
-      return false;
-    }
+          // Basic check - if both are objects, consider compatible
+          // This is a simplification - real implementation would check field compatibility
+          return true;
+        },
+        () => ({ _tag: 'ValidationError' as const, result: false }) // Return false on any error
+      ).pipe(Effect.catchAll(() => Effect.succeed(false)))
+    );
   }
 
   private hasCycles(json: FlowJSON): boolean {
@@ -464,7 +526,10 @@ export class FlowValidator {
       if (!adjacency.has(edge.from)) {
         adjacency.set(edge.from, []);
       }
-      adjacency.get(edge.from)!.push(edge.to);
+      const fromAdjacency = adjacency.get(edge.from);
+      if (fromAdjacency !== undefined) {
+        fromAdjacency.push(edge.to);
+      }
     });
 
     // DFS to detect cycles
@@ -472,7 +537,7 @@ export class FlowValidator {
       visited.add(node);
       recursionStack.add(node);
 
-      const neighbors = adjacency.get(node) || [];
+      const neighbors = adjacency.get(node) ?? [];
       for (const neighbor of neighbors) {
         if (!visited.has(neighbor)) {
           if (hasCycleDFS(neighbor)) return true;
@@ -506,7 +571,10 @@ export class FlowValidator {
       if (!adjacency.has(edge.from)) {
         adjacency.set(edge.from, []);
       }
-      adjacency.get(edge.from)!.push(edge.to);
+      const fromAdjacency = adjacency.get(edge.from);
+      if (fromAdjacency !== undefined) {
+        fromAdjacency.push(edge.to);
+      }
 
       // Also track reverse for finding entry points
       reachable.add(edge.to);
@@ -519,7 +587,10 @@ export class FlowValidator {
 
     if (entryNodes.length === 0 && json.nodes.length > 0) {
       // If no clear entry, use first node
-      entryNodes.push(json.nodes[0]!.id);
+      const firstNode = json.nodes[0];
+      if (firstNode !== undefined) {
+        entryNodes.push(firstNode.id);
+      }
     }
 
     // BFS from entry nodes
@@ -527,8 +598,11 @@ export class FlowValidator {
     const queue = [...entryNodes];
 
     while (queue.length > 0) {
-      const current = queue.shift()!;
-      const neighbors = adjacency.get(current) || [];
+      const current = queue.shift();
+      if (current === undefined) {
+        continue;
+      }
+      const neighbors = adjacency.get(current) ?? [];
 
       for (const neighbor of neighbors) {
         if (!visited.has(neighbor)) {
@@ -555,8 +629,8 @@ export class FlowValidator {
     });
 
     json.edges.forEach((edge) => {
-      inDegree.set(edge.to, (inDegree.get(edge.to) || 0) + 1);
-      outDegree.set(edge.from, (outDegree.get(edge.from) || 0) + 1);
+      inDegree.set(edge.to, (inDegree.get(edge.to) ?? 0) + 1);
+      outDegree.set(edge.from, (outDegree.get(edge.from) ?? 0) + 1);
     });
 
     // Find linear chains

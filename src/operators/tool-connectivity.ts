@@ -207,7 +207,7 @@ export function validateToolConnectivity(
 function extractToolSequence(steps: any[]): string[] {
   const sequence: string[] = [];
 
-  function visit(step: any) {
+  function visit(step: any): void {
     if (step.type === 'tool' && step.tool) {
       sequence.push(step.tool);
     } else if (step.type === 'conditional') {

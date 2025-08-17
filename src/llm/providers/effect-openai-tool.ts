@@ -1,7 +1,6 @@
 import type { LLMTool } from '@/tools/types';
 import { LLMService } from '../service';
-import * as Schema from 'effect/Schema';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import { ToolError } from '@/types';
 
 /**

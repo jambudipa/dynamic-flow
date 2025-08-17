@@ -29,7 +29,7 @@ const staticWorkflow = new WorkflowBuilder()
   .addStep('notify')
   .build()
 
-// Dynamic Flow approach: AI-generated workflow
+// DynamicFlow approach: AI-generated workflow
 const dynamicWorkflow = await DynamicFlow.generate({
   prompt: "Validate user data, process their request, and notify them of completion",
   tools: [validateTool, processTool, notifyTool],

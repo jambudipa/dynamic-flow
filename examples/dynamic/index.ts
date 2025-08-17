@@ -1,7 +1,7 @@
 /**
- * Dynamic Flow Examples — LLM-driven flow generation and execution
+ * DynamicFlow Examples — LLM-driven flow generation and execution
  *
- * These examples demonstrate the Dynamic Flow API: provide tools and a natural
+ * These examples demonstrate the DynamicFlow API: provide tools and a natural
  * language prompt, and let the framework handle planning, validation, and execution.
  *
  * Features:
@@ -36,7 +36,7 @@ const webScraper: Tool<WebScraperIn, WebScraperOut> = {
   description: 'Scrapes data from websites',
   inputSchema: Schema.Struct({ url: Schema.String }),
   outputSchema: Schema.Struct({ content: Schema.String }),
-  execute: (_input) => Effect.succeed({ content: '<html>...</html>' })
+  execute: (_input) => Effect.succeed({ content: '<html>...</html>' }),
 };
 
 type SentimentIn = { text: string };
@@ -46,8 +46,11 @@ const sentimentAnalyzer: Tool<SentimentIn, SentimentOut> = {
   name: 'Sentiment Analyzer',
   description: 'Analyzes sentiment of text',
   inputSchema: Schema.Struct({ text: Schema.String }),
-  outputSchema: Schema.Struct({ sentiment: Schema.String, score: Schema.Number }),
-  execute: (_input) => Effect.succeed({ sentiment: 'positive', score: 0.92 })
+  outputSchema: Schema.Struct({
+    sentiment: Schema.String,
+    score: Schema.Number,
+  }),
+  execute: (_input) => Effect.succeed({ sentiment: 'positive', score: 0.92 }),
 };
 
 type ReportIn = { data: unknown };
@@ -58,13 +61,16 @@ const reportGenerator: Tool<ReportIn, ReportOut> = {
   description: 'Generates formatted reports',
   inputSchema: Schema.Struct({ data: Schema.Unknown }),
   outputSchema: Schema.Struct({ report: Schema.String }),
-  execute: (_input) => Effect.succeed({ report: 'Report generated successfully.' })
+  execute: (_input) =>
+    Effect.succeed({ report: 'Report generated successfully.' }),
 };
 
 const tools = [webScraper, sentimentAnalyzer, reportGenerator];
 
 // Optional joins to demonstrate typed transformations between tools
-const joins: Array<ToolJoin<WebScraperOut, SentimentIn> | ToolJoin<SentimentOut, ReportIn>> = [
+const joins: Array<
+  ToolJoin<WebScraperOut, SentimentIn> | ToolJoin<SentimentOut, ReportIn>
+> = [
   {
     fromTool: 'web-scraper',
     toTool: 'sentiment-analyzer',
@@ -74,9 +80,9 @@ const joins: Array<ToolJoin<WebScraperOut, SentimentIn> | ToolJoin<SentimentOut,
       {
         strict: true,
         decode: (scraped: WebScraperOut) => ({ text: scraped.content }),
-        encode: (analyzed: SentimentIn) => ({ content: analyzed.text })
+        encode: (analyzed: SentimentIn) => ({ content: analyzed.text }),
       }
-    )
+    ),
   },
   {
     fromTool: 'sentiment-analyzer',
@@ -87,12 +93,12 @@ const joins: Array<ToolJoin<WebScraperOut, SentimentIn> | ToolJoin<SentimentOut,
       {
         strict: true,
         decode: (sentiment: SentimentOut) => ({
-          data: { sentiment: sentiment.sentiment, score: sentiment.score }
+          data: { sentiment: sentiment.sentiment, score: sentiment.score },
         }),
-        encode: (_report: ReportIn) => ({ sentiment: 'neutral', score: 0 })
+        encode: (_report: ReportIn) => ({ sentiment: 'neutral', score: 0 }),
       }
-    )
-  }
+    ),
+  },
 ];
 
 // Example 1: Execute directly with streaming events
@@ -105,20 +111,29 @@ async function executeStreamingExample() {
       prompt: 'Scrape a website, analyze sentiment, then produce a report.',
       tools,
       joins,
-      model
+      model,
     }),
-    Stream.tap(event => Effect.sync(() => {
-      const details =
-        event.type === 'node-start' ? `node=${(event as any).nodeId}` :
-          event.type === 'node-complete' ? `node=${(event as any).nodeId}` :
-            event.type === 'tool-start' ? `tool=${(event as any).toolId} node=${(event as any).nodeId}` :
-              event.type === 'tool-output' ? `tool=${(event as any).toolId} node=${(event as any).nodeId}` :
-                event.type === 'llm-token' ? `tool=${(event as any).toolId} node=${(event as any).nodeId} token="${(event as any).token}"` :
-                  event.type === 'llm-completion' ? `tool=${(event as any).toolId} node=${(event as any).nodeId}` :
-                    event.type === 'flow-complete' ? `result=${JSON.stringify((event as any).result)}` :
-                      '';
-      console.log(`• ${event.type}${details ? ` — ${details}` : ''}`);
-    })),
+    Stream.tap((event) =>
+      Effect.sync(() => {
+        const details =
+          event.type === 'node-start'
+            ? `node=${(event as any).nodeId}`
+            : event.type === 'node-complete'
+              ? `node=${(event as any).nodeId}`
+              : event.type === 'tool-start'
+                ? `tool=${(event as any).toolId} node=${(event as any).nodeId}`
+                : event.type === 'tool-output'
+                  ? `tool=${(event as any).toolId} node=${(event as any).nodeId}`
+                  : event.type === 'llm-token'
+                    ? `tool=${(event as any).toolId} node=${(event as any).nodeId} token="${(event as any).token}"`
+                    : event.type === 'llm-completion'
+                      ? `tool=${(event as any).toolId} node=${(event as any).nodeId}`
+                      : event.type === 'flow-complete'
+                        ? `result=${JSON.stringify((event as any).result)}`
+                        : '';
+        console.log(`• ${event.type}${details ? ` — ${details}` : ''}`);
+      })
+    ),
     Stream.runCollect,
     Effect.runPromise
   );
@@ -135,7 +150,7 @@ async function generateThenRunExample() {
     prompt: 'Create a 3-step analysis pipeline',
     tools,
     joins,
-    model
+    model,
   }).pipe(Effect.runPromise);
 
   // Display the generated plan (Flow JSON)
@@ -153,13 +168,15 @@ async function generateThenRunExample() {
  * Main example function that can be called programmatically
  */
 export const runExample = async () => {
-  console.log('🚀 Starting Dynamic Flow comprehensive examples...');
-  console.log('📝 This demonstrates LLM-driven flow generation and execution patterns');
+  console.log('🚀 Starting DynamicFlow comprehensive examples...');
+  console.log(
+    '📝 This demonstrates LLM-driven flow generation and execution patterns'
+  );
 
   try {
     loadEnv();
 
-    console.log('\n=== Dynamic Flow: LLM-Driven Examples ===\n');
+    console.log('\n=== DynamicFlow: LLM-Driven Examples ===\n');
 
     const streamingResult = await executeStreamingExample();
     const generateResult = await generateThenRunExample();
@@ -169,7 +186,7 @@ export const runExample = async () => {
 
     return {
       streamingExecution: streamingResult,
-      generateThenRun: generateResult
+      generateThenRun: generateResult,
     };
   } catch (error) {
     console.error('❌ Dynamic flow examples failed:', error);
@@ -184,7 +201,7 @@ export const runExamples = runExample;
 
 // Run examples if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runExample().catch(error => {
+  runExample().catch((error) => {
     console.error('❌ Dynamic flow examples failed:', error);
     process.exit(1);
   });
@@ -195,10 +212,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  * ===============
  *
  * Console Output:
- * 🚀 Starting Dynamic Flow comprehensive examples...
+ * 🚀 Starting DynamicFlow comprehensive examples...
  * 📝 This demonstrates LLM-driven flow generation and execution patterns
  *
- * === Dynamic Flow: LLM-Driven Examples ===
+ * === DynamicFlow: LLM-Driven Examples ===
  *
  * Example 1: execute() with tools + prompt (streaming)
  * • flow-start

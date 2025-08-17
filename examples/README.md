@@ -1,6 +1,6 @@
-# Dynamic Flow Examples
+# DynamicFlow Examples
 
-This directory contains comprehensive examples demonstrating the Dynamic Flow library's capabilities using the current
+This directory contains comprehensive examples demonstrating the DynamicFlow library's capabilities using the current
 API patterns.
 
 ## Quick Start
@@ -27,7 +27,7 @@ npx tsc --noEmit --project examples/tsconfig.json
 
 ### ⚡ Dynamic Flows — Tools + Prompt API (Streaming supported)
 
-Use the high-level Dynamic Flow API by providing tools and a prompt; planning, validation, and execution happen
+Use the high-level DynamicFlow API by providing tools and a prompt; planning, validation, and execution happen
 internally.
 
 Run the examples aggregator:
@@ -71,7 +71,7 @@ Basic examples showing core concepts and simple flows.
 
 ### 🔌 MCP (Model Context Protocol) Examples
 
-Run a simple MCP server over stdio and consume its tools from Dynamic Flow examples.
+Run a simple MCP server over stdio and consume its tools from DynamicFlow examples.
 
 Prerequisites:
 
@@ -107,9 +107,9 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 Update the model creation in examples:
 
 ```typescript
-import { OpenAi } from "@effect/ai-openai"
+import { OpenAi } from '@effect/ai-openai';
 
-const model = OpenAi.completion("gpt-4")
+const model = OpenAi.completion('gpt-4');
 ```
 
 ## Example Output Structure
@@ -129,12 +129,12 @@ Reusable functions with typed inputs/outputs using Effect.Schema:
 
 ```typescript
 const searchTool: Tool = {
-  id: "search",
-  name: "Web Search",
+  id: 'search',
+  name: 'Web Search',
   inputSchema: S.struct({ query: S.string }),
   outputSchema: S.struct({ results: S.array(S.unknown) }),
-  execute: async (input) => ({ results: [] })
-}
+  execute: async (input) => ({ results: [] }),
+};
 ```
 
 ### 🔗 **Tool Joins**
@@ -143,18 +143,18 @@ Type-safe data transformations between tools using Schema.transform:
 
 ```typescript
 const join: ToolJoin = {
-  fromTool: "search",
-  toTool: "analyze",
+  fromTool: 'search',
+  toTool: 'analyze',
   transform: S.transform(
-    S.Struct({ results: S.Array(S.Unknown) }),  // From schema
-    S.Struct({ data: S.Unknown }),              // To schema
+    S.Struct({ results: S.Array(S.Unknown) }), // From schema
+    S.Struct({ data: S.Unknown }), // To schema
     {
       strict: true,
       decode: (search) => ({ data: search.results }),
-      encode: (analyze) => ({ results: [analyze.data] })
+      encode: (analyze) => ({ results: [analyze.data] }),
     }
-  )
-}
+  ),
+};
 ```
 
 ### 🌊 **Streaming Execution**
@@ -164,15 +164,17 @@ Real-time event processing:
 ```typescript
 await pipe(
   DynamicFlow.execute(prompt, tools, joins, { model }),
-  Stream.tap(event => Effect.sync(() => {
-    console.log(`Event: ${event.type} - ${event.nodeId}`)
-  })),
+  Stream.tap((event) =>
+    Effect.sync(() => {
+      console.log(`Event: ${event.type} - ${event.nodeId}`);
+    })
+  ),
   Stream.runCollect,
   Effect.runPromise
-)
+);
 ```
 
-### 🧭 **Dynamic Flow API**
+### 🧭 **DynamicFlow API**
 
 - `DynamicFlow.execute(...)`: Streams `FlowEvent`s during execution
 - `DynamicFlow.generate(...)`: Returns a `DynamicFlowInstance` for later execution

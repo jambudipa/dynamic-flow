@@ -4,9 +4,18 @@
 
 import { Effect, pipe, Ref, Stream } from 'effect';
 import type { Tool } from '@/tools/types';
-import { LLMService } from '@/llm/service';
-import type { FlowEvent, FlowJSON, FlowNode, FlowSnapshot, FlowState, NodeResult, ValidatedFlow } from './types';
+import { LLMService, type LLMRuntime } from '@/llm/service';
+import type {
+  FlowEvent,
+  FlowJSON,
+  FlowNode,
+  FlowSnapshot,
+  FlowState,
+  NodeResult,
+  ValidatedFlow,
+} from './types';
 import { ExecutionError } from './types';
+import type { ExecutionContext } from '@/types/core';
 
 /**
  * Executes flows and emits events as a stream
@@ -57,8 +66,8 @@ export class StreamExecutor {
                 type: 'flow-error' as const,
                 timestamp: Date.now(),
                 error: {
-                  message: error.message || 'Unknown error',
-                  code: error.code || 'UNKNOWN',
+                  message: error.message ?? 'Unknown error',
+                  code: error.code ?? 'UNKNOWN',
                   nodeId: error.nodeId,
                 },
               },
@@ -86,7 +95,7 @@ export class StreamExecutor {
     flow: ValidatedFlow,
     stateRef: Ref.Ref<FlowState>
   ): Stream.Stream<FlowEvent, ExecutionError> {
-    if (!flow?.json) {
+    if (flow?.json === null || flow?.json === undefined) {
       return Stream.fail(new ExecutionError('Flow JSON is required'));
     }
     const nodeOrder = this.calculateExecutionOrder(flow.json);
@@ -94,7 +103,7 @@ export class StreamExecutor {
     return Stream.fromIterable(nodeOrder).pipe(
       Stream.flatMap((nodeId) => {
         const node = flow.json?.nodes.find((n) => n.id === nodeId);
-        if (!node) {
+        if (node === null || node === undefined) {
           return Stream.fail(
             new ExecutionError(
               `Node not found: ${nodeId}`,
@@ -119,7 +128,7 @@ export class StreamExecutor {
     const commonStart = Stream.succeed<FlowEvent>({
       type: 'node-start',
       timestamp: Date.now(),
-      nodeId: node?.id,
+      nodeId: node?.id ?? '',
       nodeType: node.type,
     });
 
@@ -129,17 +138,17 @@ export class StreamExecutor {
         Effect.map((result) => ({
           type: 'node-complete' as const,
           timestamp: Date.now(),
-          nodeId: node?.id,
+          nodeId: node?.id ?? '',
           result,
         })),
         Effect.catchAll((error) =>
           Effect.succeed({
             type: 'node-error' as const,
             timestamp: Date.now(),
-            nodeId: node?.id,
+            nodeId: node?.id ?? '',
             error: {
-              message: error.message || 'Node execution failed',
-              code: error.code || 'NODE_ERROR',
+              message: error.message ?? 'Node execution failed',
+              code: error.code ?? 'NODE_ERROR',
             },
           })
         )
@@ -162,7 +171,7 @@ export class StreamExecutor {
               nodes: new Map([
                 ...(state.nodes ?? new Map<string, unknown>()),
                 [
-                  node?.id,
+                  node?.id ?? '',
                   {
                     status:
                       event.type === 'node-complete' ? 'completed' : 'failed',
@@ -170,11 +179,11 @@ export class StreamExecutor {
                     endTime: Date.now(),
                     result:
                       event.type === 'node-complete'
-                        ? (event as any).result
+                        ? (event as { result?: unknown }).result
                         : undefined,
                     error:
                       event.type === 'node-error'
-                        ? (event as any).error
+                        ? (event as { error?: unknown }).error
                         : undefined,
                   },
                 ],
@@ -231,7 +240,11 @@ export class StreamExecutor {
     flow: ValidatedFlow,
     stateRef: Ref.Ref<FlowState>
   ): Effect.Effect<NodeResult, ExecutionError> {
-    if (!node?.toolId) {
+    if (
+      node?.toolId === null ||
+      node?.toolId === undefined ||
+      node.toolId === ''
+    ) {
       return Effect.fail(
         new ExecutionError(
           `Tool node ${node.id} missing toolId`,
@@ -241,8 +254,8 @@ export class StreamExecutor {
       );
     }
 
-    const tool = flow.tools.get(node?.toolId);
-    if (!tool) {
+    const tool = flow.tools.get(node?.toolId ?? '');
+    if (tool === null || tool === undefined) {
       return Effect.fail(
         new ExecutionError(
           `Tool not found: ${node.toolId}`,
@@ -262,7 +275,7 @@ export class StreamExecutor {
         return this.executeTool(tool, inputs);
       }),
       Effect.map((output) => ({
-        nodeId: node?.id,
+        nodeId: node?.id ?? '',
         output,
         timestamp: Date.now(),
       }))
@@ -277,7 +290,11 @@ export class StreamExecutor {
     flow: ValidatedFlow,
     stateRef: Ref.Ref<FlowState>
   ): Stream.Stream<FlowEvent, ExecutionError> {
-    if (!node?.toolId) {
+    if (
+      node?.toolId === null ||
+      node?.toolId === undefined ||
+      node.toolId === ''
+    ) {
       return Stream.fail(
         new ExecutionError(
           `Tool node ${node.id} missing toolId`,
@@ -287,8 +304,8 @@ export class StreamExecutor {
       );
     }
 
-    const tool = flow.tools.get(node?.toolId);
-    if (!tool) {
+    const tool = flow.tools.get(node?.toolId ?? '');
+    if (tool === null || tool === undefined) {
       return Stream.fail(
         new ExecutionError(
           `Tool not found: ${node.toolId}`,
@@ -300,7 +317,7 @@ export class StreamExecutor {
 
     const toolId = node.toolId;
     const nodeId = node.id;
-    const ts = () => Date.now();
+    const ts = (): number => Date.now();
 
     return Stream.fromEffect(Ref.get(stateRef)).pipe(
       Stream.flatMap((state) => {
@@ -313,20 +330,30 @@ export class StreamExecutor {
           input: inputs,
         });
 
-        const isLLM = typeof (tool as any).llmConfig !== 'undefined';
-        const hasPrompt = typeof (inputs as any)?.prompt === 'string';
+        const isLLM =
+          typeof (tool as { llmConfig?: unknown }).llmConfig !== 'undefined';
+        const hasPrompt =
+          typeof (inputs as { prompt?: unknown })?.prompt === 'string';
         const emitIntermediate =
-          (node as any)?.config?.emitIntermediate !== false;
-        const emitTokens = (node as any)?.config?.emitTokens !== false;
+          (node as { config?: { emitIntermediate?: boolean } })?.config
+            ?.emitIntermediate !== false;
+        const emitTokens =
+          (node as { config?: { emitTokens?: boolean } })?.config
+            ?.emitTokens !== false;
 
         if (isLLM && hasPrompt) {
           // Stream tokens and finalize
           let acc = '';
           const raw = Stream.unwrap(
-            Effect.map(LLMService, (svc: any) =>
-              svc.stream((inputs as any).prompt)
+            Effect.map(
+              LLMService,
+              (svc: {
+                stream: (
+                  prompt: string
+                ) => Stream.Stream<{ content: string }, never>;
+              }) => svc.stream((inputs as { prompt: string }).prompt)
             )
-          ) as unknown as Stream.Stream<{ content: string }, never>;
+          ) as Stream.Stream<{ content: string }, never>;
           const tokens = emitTokens
             ? raw.pipe(
                 Stream.map(({ content }) => {
@@ -382,11 +409,18 @@ export class StreamExecutor {
           );
         } else {
           // Non-LLM tool: execute and emit events
+          const context: ExecutionContext = {
+            flowId: 'stream-flow',
+            stepId: node.id,
+            sessionId: 'stream-session',
+            variables: {},
+            metadata: {},
+          };
           const eff = tool
-            .execute(inputs as any, {} as any)
+            .execute(inputs as Record<string, unknown>, context)
             .pipe(
               Effect.mapError(
-                (e: any) =>
+                (e: { message?: string }) =>
                   new ExecutionError(
                     e?.message ?? 'Tool execution failed',
                     'TOOL_ERROR',
@@ -404,13 +438,17 @@ export class StreamExecutor {
                       timestamp: ts(),
                       nodeId,
                       toolId,
-                      output,
+                      output: output as Record<string, unknown>,
                     },
                     {
                       type: 'node-complete',
                       timestamp: ts(),
                       nodeId,
-                      result: { nodeId, output, timestamp: ts() },
+                      result: {
+                        nodeId,
+                        output: output as Record<string, unknown>,
+                        timestamp: ts(),
+                      },
                     },
                   ])
                 : Stream.fromIterable<FlowEvent>([
@@ -418,20 +456,30 @@ export class StreamExecutor {
                       type: 'node-complete',
                       timestamp: ts(),
                       nodeId,
-                      result: { nodeId, output, timestamp: ts() },
+                      result: {
+                        nodeId,
+                        output: output as Record<string, unknown>,
+                        timestamp: ts(),
+                      },
                     },
                   ])
             ),
-            Stream.catchAll((error: any) =>
+            Stream.catchAll((error: { message?: string }) =>
               Stream.fromIterable<FlowEvent>([
-                { type: 'tool-error', timestamp: ts(), nodeId, toolId, error },
+                {
+                  type: 'tool-error',
+                  timestamp: ts(),
+                  nodeId,
+                  toolId,
+                  error: new Error(error?.message ?? 'Unknown error'),
+                },
                 {
                   type: 'node-error',
                   timestamp: ts(),
                   nodeId,
                   error: {
                     message:
-                      (error as Error).message || 'Tool execution failed',
+                      (error as Error).message ?? 'Tool execution failed',
                     code: 'TOOL_ERROR',
                   },
                 },
@@ -453,14 +501,14 @@ export class StreamExecutor {
    */
   private executeConditionalNode(
     node: FlowNode & {
-      condition?: unknown | undefined;
+      condition?: string | undefined;
       then?: string[] | undefined;
       else?: string[] | undefined;
     },
     flow: ValidatedFlow,
     stateRef: Ref.Ref<FlowState>
   ): Effect.Effect<NodeResult, ExecutionError> {
-    if (!node?.condition) {
+    if (node?.condition === null || node?.condition === undefined) {
       return Effect.fail(
         new ExecutionError(
           `Conditional node ${node.id} missing condition`,
@@ -479,7 +527,7 @@ export class StreamExecutor {
         return this.evaluateCondition(node?.condition, inputs, flow);
       }),
       Effect.map((conditionResult) => ({
-        nodeId: node?.id,
+        nodeId: node?.id ?? '',
         output: {
           condition: conditionResult,
           selectedBranch: conditionResult ? 'then' : 'else',
@@ -497,7 +545,7 @@ export class StreamExecutor {
     flow: ValidatedFlow,
     stateRef: Ref.Ref<FlowState>
   ): Effect.Effect<NodeResult, ExecutionError> {
-    if (!node?.operation) {
+    if (node?.operation === null || node?.operation === undefined) {
       return Effect.fail(
         new ExecutionError(
           `Functional node ${node.id} missing operation`,
@@ -509,26 +557,53 @@ export class StreamExecutor {
 
     return pipe(
       Ref.get(stateRef),
-      Effect.flatMap((state) => {
+      Effect.flatMap((state): Effect.Effect<NodeResult, ExecutionError> => {
         const collection = this.resolveCollection(node.operation?.over, state);
 
         // Execute operation based on type
         switch (node?.type) {
           case 'map':
-            return this.executeMapOperation(collection, node?.operation, flow);
+            return pipe(
+              this.executeMapOperation(collection, node?.operation ?? {}, flow),
+              Effect.map(
+                (output): NodeResult => ({
+                  nodeId: node.id,
+                  output,
+                  timestamp: Date.now(),
+                })
+              )
+            );
 
           case 'filter':
-            return this.executeFilterOperation(
-              collection,
-              node?.operation,
-              flow
+            return pipe(
+              this.executeFilterOperation(
+                collection,
+                node?.operation ?? {},
+                flow
+              ),
+              Effect.map(
+                (output): NodeResult => ({
+                  nodeId: node.id,
+                  output,
+                  timestamp: Date.now(),
+                })
+              )
             );
 
           case 'reduce':
-            return this.executeReduceOperation(
-              collection,
-              node?.operation,
-              flow
+            return pipe(
+              this.executeReduceOperation(
+                collection,
+                node?.operation ?? {},
+                flow
+              ),
+              Effect.map(
+                (output): NodeResult => ({
+                  nodeId: node.id,
+                  output,
+                  timestamp: Date.now(),
+                })
+              )
             );
 
           default:
@@ -542,7 +617,7 @@ export class StreamExecutor {
         }
       }),
       Effect.map((result) => ({
-        nodeId: node?.id,
+        nodeId: node?.id ?? '',
         output: result,
         timestamp: Date.now(),
       }))
@@ -557,7 +632,11 @@ export class StreamExecutor {
     flow: ValidatedFlow,
     stateRef: Ref.Ref<FlowState>
   ): Effect.Effect<NodeResult, ExecutionError> {
-    if (!node.branches || !Array.isArray(node?.branches)) {
+    if (
+      node.branches === null ||
+      node.branches === undefined ||
+      !Array.isArray(node.branches)
+    ) {
       return Effect.fail(
         new ExecutionError(
           `Parallel node ${node.id} missing branches`,
@@ -567,14 +646,15 @@ export class StreamExecutor {
       );
     }
 
-    if (!flow.json) {
+    if (flow.json === null || flow.json === undefined) {
       return Effect.fail(new ExecutionError('Flow JSON is required'));
     }
 
+    const flowJson = flow.json;
     const branchEffects = node.branches.map((branch) =>
       Effect.forEach(branch, (nodeId) => {
-        const branchNode = flow.json!.nodes.find((n) => n.id === nodeId);
-        if (!branchNode) {
+        const branchNode = flowJson.nodes.find((n) => n.id === nodeId);
+        if (branchNode === null || branchNode === undefined) {
           return Effect.fail(
             new ExecutionError(
               `Node not found in branch: ${nodeId}`,
@@ -590,7 +670,7 @@ export class StreamExecutor {
     return pipe(
       Effect.all(branchEffects, { concurrency: 'unbounded' }),
       Effect.map((results) => ({
-        nodeId: node?.id,
+        nodeId: node?.id ?? '',
         output: { branches: results },
         timestamp: Date.now(),
       }))
@@ -607,7 +687,11 @@ export class StreamExecutor {
     flow: ValidatedFlow,
     stateRef: Ref.Ref<FlowState>
   ): Effect.Effect<NodeResult, ExecutionError> {
-    if (!node.sequence || !Array.isArray(node?.sequence)) {
+    if (
+      node.sequence === null ||
+      node.sequence === undefined ||
+      !Array.isArray(node.sequence)
+    ) {
       return Effect.fail(
         new ExecutionError(
           `Sequence node ${node.id} missing sequence`,
@@ -617,16 +701,17 @@ export class StreamExecutor {
       );
     }
 
-    if (!flow.json) {
+    if (flow.json === null || flow.json === undefined) {
       return Effect.fail(new ExecutionError('Flow JSON is required'));
     }
 
+    const flowJson = flow.json;
     return pipe(
       Effect.forEach(
         node.sequence,
         (nodeId) => {
-          const seqNode = flow.json!.nodes.find((n) => n.id === nodeId);
-          if (!seqNode) {
+          const seqNode = flowJson.nodes.find((n) => n.id === nodeId);
+          if (seqNode === null || seqNode === undefined) {
             return Effect.fail(
               new ExecutionError(
                 `Node not found in sequence: ${nodeId}`,
@@ -640,7 +725,7 @@ export class StreamExecutor {
         { concurrency: 1 } // Sequential execution
       ),
       Effect.map((results) => ({
-        nodeId: node?.id,
+        nodeId: node?.id ?? '',
         output: { sequence: results },
         timestamp: Date.now(),
       }))
@@ -658,15 +743,18 @@ export class StreamExecutor {
       if (!adjacency.has(edge.from)) {
         adjacency.set(edge.from, []);
       }
-      adjacency.get(edge.from)!.push(edge.to);
+      const fromAdjacency = adjacency.get(edge.from);
+      if (fromAdjacency !== undefined) {
+        fromAdjacency.push(edge.to);
+      }
     });
 
     // DFS for topological sort
-    const visit = (nodeId: string) => {
+    const visit = (nodeId: string): void => {
       if (visited.has(nodeId)) return;
       visited.add(nodeId);
 
-      const neighbors = adjacency.get(nodeId) || [];
+      const neighbors = adjacency.get(nodeId) ?? [];
       neighbors.forEach(visit);
 
       order.unshift(nodeId); // Add to beginning for correct order
@@ -682,8 +770,8 @@ export class StreamExecutor {
     // Resolve inputs from state and node configuration
     const inputs: Record<string, any> = {};
 
-    if (node?.inputs) {
-      Object.entries(node?.inputs).forEach(([key, value]) => {
+    if (node?.inputs !== null && node?.inputs !== undefined) {
+      Object.entries(node.inputs).forEach(([key, value]) => {
         if (typeof value === 'string' && value.startsWith('$')) {
           // Reference to another node's output, possibly with a property path
           const ref = value.slice(1); // Remove the $
@@ -692,20 +780,28 @@ export class StreamExecutor {
           const propertyPath = parts.slice(1);
 
           const nodeState = (state.nodes ?? new Map<string, unknown>()).get(
-            refNodeId || ''
-          ) as any;
+            refNodeId ?? ''
+          ) as { result?: { output?: unknown } } | undefined;
 
-          if (nodeState && nodeState.result) {
+          if (
+            nodeState !== null &&
+            nodeState !== undefined &&
+            nodeState.result !== null &&
+            nodeState.result !== undefined
+          ) {
             let resolvedValue = nodeState.result.output;
 
             // Navigate through the property path
             for (const prop of propertyPath) {
               if (
-                resolvedValue &&
+                resolvedValue !== null &&
+                resolvedValue !== undefined &&
                 typeof resolvedValue === 'object' &&
                 prop in resolvedValue
               ) {
-                resolvedValue = resolvedValue[prop];
+                resolvedValue = (resolvedValue as Record<string, unknown>)[
+                  prop
+                ];
               } else {
                 resolvedValue = undefined;
                 break;
@@ -727,13 +823,20 @@ export class StreamExecutor {
     reference: string | undefined,
     state: FlowState
   ): unknown[] {
-    if (!reference) return [];
+    if (reference === null || reference === undefined || reference === '')
+      return [];
     if (reference.startsWith('$')) {
       const nodeId = reference.slice(1);
       const nodeState = (state.nodes ?? new Map<string, unknown>()).get(
         nodeId
-      ) as any;
-      return (nodeState && nodeState.result && nodeState.result.output) || [];
+      ) as { result?: { output?: unknown[] } } | undefined;
+      return nodeState !== null &&
+        nodeState !== undefined &&
+        nodeState.result !== null &&
+        nodeState.result !== undefined &&
+        Array.isArray(nodeState.result.output)
+        ? nodeState.result.output
+        : [];
     }
     return [];
   }
@@ -741,12 +844,22 @@ export class StreamExecutor {
   private executeTool(
     tool: Tool,
     inputs: unknown
-  ): Effect.Effect<any, ExecutionError> {
-    return (tool.execute as any)(inputs, {} as any).pipe(
+  ): Effect.Effect<unknown, ExecutionError> {
+    return (
+      tool.execute as unknown as (
+        inputs: unknown,
+        context: Record<string, unknown>
+      ) => Effect.Effect<unknown, unknown>
+    )(inputs, {} as Record<string, unknown>).pipe(
       Effect.mapError(
-        (e: any) =>
+        (e: unknown) =>
           new ExecutionError(
-            e?.message ?? 'Tool execution failed',
+            typeof e === 'object' &&
+            e !== null &&
+            'message' in e &&
+            typeof (e as any).message === 'string'
+              ? (e as any).message
+              : 'Tool execution failed',
             'TOOL_EXECUTION_FAILED'
           )
       )
@@ -789,19 +902,27 @@ export class StreamExecutor {
     collection: unknown[],
     _operation: unknown,
     _flow: ValidatedFlow
-  ): Effect.Effect<any, ExecutionError> {
+  ): Effect.Effect<{ count: number; reduced: boolean }, ExecutionError> {
     // Simplified reduce operation
-    return Effect.succeed({ count: collection?.length, reduced: true });
+    return Effect.succeed({ count: collection?.length ?? 0, reduced: true });
   }
 
   // (Dynamic edge conditions are not supported; routing is static-only)
 
   private collectResults(state: FlowState): unknown {
     const results: Record<string, unknown> = {};
-    (state.nodes ?? new Map<string, any>()).forEach(
-      (nodeState: any, nodeId: string) => {
-        if (nodeState && nodeState.result) {
-          results[nodeId] = nodeState.result.output;
+    (state.nodes ?? new Map<string, unknown>()).forEach(
+      (nodeState: unknown, nodeId: string) => {
+        if (
+          nodeState !== null &&
+          nodeState !== undefined &&
+          typeof nodeState === 'object' &&
+          'result' in nodeState
+        ) {
+          const ns = nodeState as { result?: { output?: unknown } };
+          if (ns.result !== null && ns.result !== undefined) {
+            results[nodeId] = ns.result.output;
+          }
         }
       }
     );

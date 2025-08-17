@@ -7,42 +7,42 @@
  * Run: npx tsx examples/static/03-parallel.ts
  */
 
-import { Effect, Flow, pipe } from '../../src/index';
-import { Stream } from 'effect';
+import { Flow } from '../../src/index';
+import { Effect, pipe, Stream } from 'effect';
 
 // Simulate API calls with delays
 const fetchWeather = (city: string) =>
   Effect.promise(async () => {
     console.log(`  🌤️  Fetching weather for ${city}...`);
-    await new Promise(r => setTimeout(r, 1000)); // Simulate network delay
+    await new Promise((r) => setTimeout(r, 1000)); // Simulate network delay
     return {
       city,
       temp: Math.floor(Math.random() * 30) + 50,
-      conditions: ['sunny', 'cloudy', 'rainy'][Math.floor(Math.random() * 3)]
+      conditions: ['sunny', 'cloudy', 'rainy'][Math.floor(Math.random() * 3)],
     };
   });
 
 const fetchNews = (category: string) =>
   Effect.promise(async () => {
     console.log(`  📰 Fetching ${category} news...`);
-    await new Promise(r => setTimeout(r, 1000)); // Simulate network delay
+    await new Promise((r) => setTimeout(r, 1000)); // Simulate network delay
     return {
       category,
       headlines: [
         `Breaking: ${category} news item 1`,
-        `Update: ${category} news item 2`
-      ]
+        `Update: ${category} news item 2`,
+      ],
     };
   });
 
 const fetchStockPrice = (symbol: string) =>
   Effect.promise(async () => {
     console.log(`  📈 Fetching stock price for ${symbol}...`);
-    await new Promise(r => setTimeout(r, 1000)); // Simulate network delay
+    await new Promise((r) => setTimeout(r, 1000)); // Simulate network delay
     return {
       symbol,
       price: (Math.random() * 1000).toFixed(2),
-      change: (Math.random() * 10 - 5).toFixed(2)
+      change: (Math.random() * 10 - 5).toFixed(2),
     };
   });
 
@@ -54,23 +54,20 @@ const dashboardFlow = pipe(
     techNews: fetchNews('Technology'),
     businessNews: fetchNews('Business'),
     stockAAPL: fetchStockPrice('AAPL'),
-    stockGOOGL: fetchStockPrice('GOOGL')
+    stockGOOGL: fetchStockPrice('GOOGL'),
   }),
 
   // Process the combined results
-  Flow.map(data => ({
+  Flow.map((data) => ({
     timestamp: new Date().toISOString(),
     dashboard: {
       weather: `${data.weather.city}: ${data.weather.temp}°F, ${data.weather.conditions}`,
-      news: [
-        ...data.techNews.headlines,
-        ...data.businessNews.headlines
-      ],
+      news: [...data.techNews.headlines, ...data.businessNews.headlines],
       stocks: [
         `${data.stockAAPL.symbol}: $${data.stockAAPL.price} (${data.stockAAPL.change}%)`,
-        `${data.stockGOOGL.symbol}: $${data.stockGOOGL.price} (${data.stockGOOGL.change}%)`
-      ]
-    }
+        `${data.stockGOOGL.symbol}: $${data.stockGOOGL.price} (${data.stockGOOGL.change}%)`,
+      ],
+    },
   }))
 );
 
@@ -101,7 +98,7 @@ export const runExample = async () => {
       console.log('event:dashboard', {
         weather: value.dashboard.weather,
         newsCount: value.dashboard.news.length,
-        stocksCount: value.dashboard.stocks.length
+        stocksCount: value.dashboard.stocks.length,
       });
     })
   ).pipe(Effect.runPromise);
@@ -115,7 +112,7 @@ export const runExample = async () => {
 
 // Run example if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runExample().catch(error => {
+  runExample().catch((error) => {
     console.error('❌ Parallel Execution example failed:', error);
     process.exit(1);
   });

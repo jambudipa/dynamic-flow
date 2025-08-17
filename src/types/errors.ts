@@ -2,7 +2,7 @@
  * Error Types - Unified Error Hierarchy using TaggedError
  *
  * This module provides the single source of truth for error types used
- * throughout the Dynamic Flow system, using Effect's TaggedError pattern
+ * throughout the DynamicFlow system, using Effect's TaggedError pattern
  * for type-safe, composable error handling.
  *
  * @see https://effect.website/docs/data-types/data/#taggederror
@@ -14,7 +14,7 @@ import type { SourceLocation } from './core';
 // ============= Base Error Classes =============
 
 /**
- * Base error class for all Dynamic Flow errors
+ * Base error class for all DynamicFlow errors
  */
 export class DynamicFlowError extends Data.TaggedError('DynamicFlowError')<{
   module: string;
@@ -372,7 +372,7 @@ export const createFlowExecutionError = (
     executionContext?: Record<string, unknown>;
     cause?: unknown;
   } = {
-    cause: cause ?? message,
+    cause: cause || message,
   };
 
   if (nodeId !== undefined) {
@@ -408,7 +408,7 @@ export const createFlowTypeError = (
   } = {
     expected,
     actual,
-    cause: cause ?? message,
+    cause: cause || message,
   };
 
   if (location !== undefined) {
@@ -435,7 +435,7 @@ export const createToolError = (
   } = {
     toolId,
     phase: 'execution',
-    cause: cause ?? message,
+    cause: cause || message,
   };
 
   if (details !== undefined) {
@@ -464,7 +464,7 @@ export const createLLMError = (
     cause?: unknown;
   } = {
     toolId,
-    cause: cause ?? message,
+    cause: cause || message,
   };
 
   if (provider !== undefined) {

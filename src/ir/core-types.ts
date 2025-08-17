@@ -25,6 +25,7 @@
  * ```
  */
 
+import { Data } from 'effect';
 import type { Tool, ToolJoin } from '@/tools/types';
 
 // ============= Core IR Structure =============
@@ -348,22 +349,22 @@ export interface NodeConfig {
  * IR compilation error
  *
  * @class IRCompilationError
- * @extends Error
+ * @extends Data.TaggedError
  *
  * @description
  * Thrown when there's an error during the compilation of flows to IR.
  * Includes context about which node and source type caused the error.
  */
-export class IRCompilationError extends Error {
-  readonly _tag = 'IRCompilationError';
-
-  constructor(
-    message: string,
-    public readonly nodeId?: string,
-    public readonly source?: 'static' | 'dynamic'
-  ) {
-    super(message);
-    this.name = 'IRCompilationError';
+export class IRCompilationError extends Data.TaggedError('IRCompilationError')<{
+  readonly message: string;
+  readonly nodeId?: string;
+  readonly source?: 'static' | 'dynamic';
+  readonly context?: Record<string, unknown>;
+}> {
+  get displayMessage(): string {
+    const nodeInfo = this.nodeId ? ` in node '${this.nodeId}'` : '';
+    const sourceInfo = this.source ? ` (${this.source} flow)` : '';
+    return `IR compilation failed${nodeInfo}${sourceInfo}: ${this.message}`;
   }
 }
 
@@ -371,20 +372,21 @@ export class IRCompilationError extends Error {
  * IR validation error
  *
  * @class IRValidationError
- * @extends Error
+ * @extends Data.TaggedError
  *
  * @description
  * Thrown when IR validation fails. Contains a list of validation errors
  * found in the IR structure.
  */
-export class IRValidationError extends Error {
-  readonly _tag = 'IRValidationError';
-
-  constructor(
-    message: string,
-    public readonly errors: string[]
-  ) {
-    super(message);
-    this.name = 'IRValidationError';
+export class IRValidationError extends Data.TaggedError('IRValidationError')<{
+  readonly message: string;
+  readonly errors: ReadonlyArray<string>;
+  readonly nodeId?: string;
+}> {
+  get displayMessage(): string {
+    const nodeInfo = this.nodeId ? ` in node '${this.nodeId}'` : '';
+    const errorList =
+      this.errors.length > 0 ? `\n  - ${this.errors.join('\n  - ')}` : '';
+    return `IR validation failed${nodeInfo}: ${this.message}${errorList}`;
   }
 }

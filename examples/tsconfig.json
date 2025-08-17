@@ -3,10 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": [
-      "ES2022",
-      "DOM"
-    ],
+    "lib": ["ES2022", "DOM"],
     "downlevelIteration": true,
     "strict": true,
     "noImplicitAny": false,
@@ -31,26 +28,13 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "baseUrl": ".",
-    "rootDirs": [
-      ".",
-      "../src"
-    ],
+    "rootDirs": [".", "../src"],
     "outDir": "./dist",
     "paths": {
-      "@/*": [
-        "../src/*"
-      ],
-      "@/types": [
-        "../src/types"
-      ],
-      "@/types/*": [
-        "../src/types/*"
-      ]
+      "@/*": ["../src/*"],
+      "@/types": ["../src/types"],
+      "@/types/*": ["../src/types/*"]
     }
   },
-  "include": [
-    "static/**/*.ts",
-    "dynamic/**/*.ts",
-    "test-runner.ts"
-  ]
+  "include": ["static/**/*.ts", "dynamic/**/*.ts", "test-runner.ts"]
 }

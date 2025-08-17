@@ -4,7 +4,12 @@
 
 import { Schema } from 'effect';
 import type { Tool, ToolJoin } from '@/tools/types';
-import type { FlowConstraints, JoinDescription, ToolContext, ToolDescription } from './types';
+import type {
+  FlowConstraints,
+  JoinDescription,
+  ToolContext,
+  ToolDescription,
+} from './types';
 
 /**
  * Extract tool description from a tool
@@ -59,7 +64,7 @@ export function createToolContext(
     tools: toolDescriptions,
     joins: joinDescriptions,
     constraints: defaultConstraints,
-    errorContext: errorContext ?? [],
+    errorContext: errorContext || [],
   };
 }
 

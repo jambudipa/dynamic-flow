@@ -1,10 +1,10 @@
 # Tools API Reference
 
-The Tools API provides a comprehensive system for creating, registering, and executing typed tools within Dynamic Flow. Tools are the fundamental building blocks that enable AI systems to interact with external services, process data, and perform complex operations.
+The Tools API provides a comprehensive system for creating, registering, and executing typed tools within DynamicFlow. Tools are the fundamental building blocks that enable AI systems to interact with external services, process data, and perform complex operations.
 
 ## Overview
 
-Tools in Dynamic Flow are type-safe, composable units of functionality that:
+Tools in DynamicFlow are type-safe, composable units of functionality that:
 - Accept structured input validated by Effect Schema
 - Return structured output with full type safety
 - Handle errors gracefully through Effect's error channels
@@ -124,7 +124,7 @@ Create a new tool with full type safety and runtime validation.
 
 **Example:**
 ```typescript
-import * as S from 'effect/Schema'
+import { Schema } from 'effect'
 import { Tools } from '@jambudipa/dynamic-flow'
 import { Effect, Duration } from 'effect'
 
@@ -133,15 +133,15 @@ const weatherTool = Tools.createTool({
   name: 'Weather Fetcher',
   description: 'Fetch current weather conditions for a given city',
   category: 'weather',
-  inputSchema: S.Struct({
-    city: S.String,
-    units: S.optional(S.Union(S.Literal('celsius'), S.Literal('fahrenheit')))
+  inputSchema: Schema.Struct({
+    city: Schema.String,
+    units: Schema.optional(Schema.Union(Schema.Literal('celsius'), Schema.Literal('fahrenheit')))
   }),
-  outputSchema: S.Struct({
-    temperature: S.Number,
-    conditions: S.String,
-    humidity: S.Number,
-    windSpeed: S.Number
+  outputSchema: Schema.Struct({
+    temperature: Schema.Number,
+    conditions: Schema.String,
+    humidity: Schema.Number,
+    windSpeed: Schema.Number
   }),
   config: {
     timeout: Duration.seconds(10),
@@ -647,6 +647,6 @@ describe('Tool Registry Integration', () => {
 ## Related APIs
 
 - [Flow API](./flow.md) - Using tools within flows
-- [Dynamic Flow API](./dynamic-flow.md) - AI-generated tool orchestration
+- [DynamicFlow API](./dynamic-flow.md) - AI-generated tool orchestration
 - [Schema API](./schema.md) - Defining tool input/output schemas
 - [Error Handling](./errors.md) - Comprehensive error handling patterns

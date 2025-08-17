@@ -1,4 +1,12 @@
-import { Context, Effect, JSONSchema, Layer, Redacted, Schema, Stream } from 'effect';
+import {
+  Context,
+  Effect,
+  JSONSchema,
+  Layer,
+  Redacted,
+  Schema,
+  Stream,
+} from 'effect';
 import * as NodeHttpClient from '@effect/platform-node/NodeHttpClient';
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai/index';
 import * as AiLanguageModel from '@effect/ai/AiLanguageModel';
@@ -6,7 +14,13 @@ import type { AiModel } from '../generation/types';
 
 const DEFAULT_MODEL = 'gpt-5'; // DO NOT CHANGE
 
-function makeLayers(apiKey: string) {
+function makeLayers(
+  apiKey: string
+): readonly [
+  typeof NodeHttpClient.layer,
+  ReturnType<typeof OpenAiClient.layer>,
+  ReturnType<typeof OpenAiLanguageModel.layer>,
+] {
   return [
     NodeHttpClient.layer,
     OpenAiClient.layer({ apiKey: Redacted.make(apiKey) }),
@@ -19,9 +33,10 @@ export class LLMCoreService {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey)
       return Effect.succeed({ content: '{"error":"missing_api_key"}' });
-    const layer = Layer.mergeAll(...makeLayers(apiKey));
+    const layers = makeLayers(apiKey);
+    const layer = Layer.mergeAll(...layers);
     return AiLanguageModel.generateText({ prompt }).pipe(
-      Effect.provide(layer as any),
+      Effect.provide(layer),
       Effect.map((resp: any) => ({ content: resp.text })),
       Effect.catchAllCause(() =>
         Effect.tryPromise({
@@ -86,7 +101,7 @@ export class LLMCoreService {
       unknown
     >;
     const strictSchema = (() => {
-      const js: any = jsonSchema ?? {};
+      const js: any = jsonSchema || {};
       if (
         js &&
         typeof js === 'object' &&
@@ -118,7 +133,7 @@ export class LLMCoreService {
       try: async () => {
         if (!apiKey) throw new Error('missing_api_key');
         const body = {
-          model: options?.model ?? DEFAULT_MODEL,
+          model: options?.model || DEFAULT_MODEL,
           messages: [
             {
               role: 'user',
@@ -144,7 +159,7 @@ export class LLMCoreService {
         });
         const data = (await res.json()) as any;
         // Extract JSON from the chat completion response
-        const text = data?.choices?.[0]?.message?.content ?? '{}';
+        const text = data?.choices?.[0]?.message?.content || '{}';
         return text;
       },
       catch: (e) => e as Error,

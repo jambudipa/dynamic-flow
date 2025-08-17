@@ -33,20 +33,20 @@ export class ToolRegistryImpl implements ToolRegistry {
       // Check if tool already exists
       if (HashMap.has(self.tools, tool.id)) {
         return yield* Effect.fail(
-          new RegistrationError(
-            `Tool ${tool.id} is already registered`,
-            tool.id
-          )
+          new RegistrationError({
+            message: `Tool ${tool.id} is already registered`,
+            toolId: tool.id,
+          })
         );
       }
 
       // Validate tool definition
       if (!tool.id || !tool.name || !tool.execute) {
         return yield* Effect.fail(
-          new RegistrationError(
-            `Invalid tool definition for ${tool.id}`,
-            tool.id
-          )
+          new RegistrationError({
+            message: `Invalid tool definition for ${tool.id}`,
+            toolId: tool.id,
+          })
         );
       }
 
@@ -94,7 +94,7 @@ export class ToolRegistryImpl implements ToolRegistry {
     return pipe(
       HashMap.get(this.tools, id),
       Option.match({
-        onNone: () => Effect.fail(new ToolNotFoundError(id)),
+        onNone: () => Effect.fail(new ToolNotFoundError({ toolId: id })),
         onSome: (tool) => Effect.succeed(tool),
       })
     );
@@ -108,7 +108,7 @@ export class ToolRegistryImpl implements ToolRegistry {
     return pipe(
       HashMap.get(this.llmTools, id),
       Option.match({
-        onNone: () => Effect.fail(new ToolNotFoundError(id)),
+        onNone: () => Effect.fail(new ToolNotFoundError({ toolId: id })),
         onSome: (tool) => Effect.succeed(tool),
       })
     );
@@ -162,7 +162,7 @@ export class ToolRegistryImpl implements ToolRegistry {
     const self = this;
     return Effect.gen(function* () {
       if (!HashMap.has(self.tools, id)) {
-        return yield* Effect.fail(new ToolNotFoundError(id));
+        return yield* Effect.fail(new ToolNotFoundError({ toolId: id }));
       }
 
       // Get tool to check category
@@ -201,18 +201,18 @@ export class ToolRegistryImpl implements ToolRegistry {
   validateInput(toolId: string, input: unknown) {
     const fetched = Effect.mapError(
       this.get(toolId),
-      () => new ValidationError(`Tool ${toolId} not found`, toolId)
+      () => new ValidationError({ message: `Tool ${toolId} not found`, toolId })
     );
     return Effect.flatMap(fetched, (tool) => {
       const decoded = Schema.decodeUnknown(tool.inputSchema)(input);
       const mapped = Effect.mapError(
         decoded,
         (error) =>
-          new ValidationError(
-            `Input validation failed for tool ${toolId}: ${String(error)}`,
+          new ValidationError({
+            message: `Input validation failed for tool ${toolId}: ${String(error)}`,
             toolId,
-            'input'
-          )
+            field: 'input',
+          })
       );
       return Effect.map(mapped, () => undefined);
     });
@@ -226,18 +226,18 @@ export class ToolRegistryImpl implements ToolRegistry {
   validateOutput(toolId: string, output: unknown) {
     const fetched = Effect.mapError(
       this.get(toolId),
-      () => new ValidationError(`Tool ${toolId} not found`, toolId)
+      () => new ValidationError({ message: `Tool ${toolId} not found`, toolId })
     );
     return Effect.flatMap(fetched, (tool) => {
       const decoded = Schema.decodeUnknown(tool.outputSchema)(output);
       const mapped = Effect.mapError(
         decoded,
         (error) =>
-          new ValidationError(
-            `Output validation failed for tool ${toolId}: ${String(error)}`,
+          new ValidationError({
+            message: `Output validation failed for tool ${toolId}: ${String(error)}`,
             toolId,
-            'output'
-          )
+            field: 'output',
+          })
       );
       return Effect.map(mapped, () => undefined);
     });
@@ -282,13 +282,15 @@ export class ToolRegistryImpl implements ToolRegistry {
 /**
  * Create a new, empty tool registry instance.
  */
-export const createRegistry = () => new ToolRegistryImpl();
+export const createRegistry = (): ToolRegistryImpl => new ToolRegistryImpl();
 
 /**
  * Create a new registry and pre-register a set of tools.
  * @param tools Tools to register in order.
  */
-export const createRegistryWithTools = (tools: Array<Tool<unknown, unknown>>) =>
+export const createRegistryWithTools = (
+  tools: Array<Tool<unknown, unknown>>
+): Effect.Effect<ToolRegistryImpl, RegistrationError> =>
   Effect.gen(function* () {
     const registry = createRegistry();
     for (const tool of tools) {
@@ -305,7 +307,7 @@ let globalRegistry: ToolRegistryImpl | null = null;
  * Get or create a process-wide global tool registry.
  * @remarks Useful for small apps and tests; larger apps should inject a registry.
  */
-export const getGlobalRegistry = () => {
+export const getGlobalRegistry = (): ToolRegistryImpl => {
   if (!globalRegistry) {
     globalRegistry = createRegistry();
   }
@@ -315,7 +317,7 @@ export const getGlobalRegistry = () => {
 /**
  * Reset the global registry (test helper).
  */
-export const resetGlobalRegistry = () =>
+export const resetGlobalRegistry = (): Effect.Effect<void> =>
   Effect.sync(() => {
     globalRegistry = null;
   });
@@ -333,7 +335,9 @@ export const RegistryLive = Layer.succeed(RegistryService, createRegistry());
 /**
  * Create a Layer that provides a registry preloaded with specific tools.
  */
-export const RegistryWithTools = (tools: Array<Tool<unknown, unknown>>) =>
+export const RegistryWithTools = (
+  tools: Array<Tool<unknown, unknown>>
+): Layer.Layer<ToolRegistry, RegistrationError> =>
   Layer.effect(RegistryService, createRegistryWithTools(tools));
 
 // ============= Utility Functions =============
@@ -344,7 +348,7 @@ export const RegistryWithTools = (tools: Array<Tool<unknown, unknown>>) =>
 export const registerMany = (
   registry: ToolRegistry,
   tools: Array<Tool<unknown, unknown>>
-) =>
+): Effect.Effect<void, RegistrationError> =>
   Effect.gen(function* () {
     for (const tool of tools) {
       yield* registry.register(tool);
@@ -357,7 +361,7 @@ export const registerMany = (
 export const findTools = (
   registry: ToolRegistry,
   predicate: (t: Tool<unknown, unknown>) => boolean
-) =>
+): Effect.Effect<Array<Tool<unknown, unknown>>> =>
   Effect.gen(function* () {
     const allTools = yield* registry.list();
     return allTools.filter(predicate);
@@ -366,7 +370,10 @@ export const findTools = (
 /**
  * Utility: get multiple tools by IDs, failing if any is missing.
  */
-export const getMany = (registry: ToolRegistry, ids: string[]) =>
+export const getMany = (
+  registry: ToolRegistry,
+  ids: string[]
+): Effect.Effect<Array<Tool<unknown, unknown>>, ToolNotFoundError> =>
   Effect.gen(function* () {
     const tools: Array<Tool<unknown, unknown>> = [];
     for (const id of ids) {
@@ -377,7 +384,7 @@ export const getMany = (registry: ToolRegistry, ids: string[]) =>
   });
 
 /** Export registry as JSON for serialization */
-export const exportRegistry = (registry: ToolRegistry) =>
+export const exportRegistry = (registry: ToolRegistry): Effect.Effect<string> =>
   Effect.gen(function* () {
     const tools = yield* registry.list();
     const exportData = tools.map((tool) => ({
@@ -392,21 +399,30 @@ export const exportRegistry = (registry: ToolRegistry) =>
   });
 
 /** Validate all tools in registry */
-export const validateRegistry = (registry: ToolRegistry) =>
+export const validateRegistry = (
+  registry: ToolRegistry
+): Effect.Effect<boolean, ValidationError> =>
   Effect.gen(function* () {
     const tools = yield* registry.list();
     for (const tool of tools) {
       // Basic validation
       if (!tool.id || !tool.name || !tool.execute) {
         return yield* Effect.fail(
-          new ValidationError(`Invalid tool definition for ${tool.id}`, tool.id)
+          new ValidationError({
+            message: `Invalid tool definition for ${tool.id}`,
+            toolId: tool.id,
+          })
         );
       }
       // Ensure schemas are present
       if (!tool.inputSchema || !tool.outputSchema) {
         return yield* Effect.fail(
-          new ValidationError(`Missing schema for tool ${tool.id}`, tool.id)
+          new ValidationError({
+            message: `Missing schema for tool ${tool.id}`,
+            toolId: tool.id,
+          })
         );
       }
     }
+    return true;
   });

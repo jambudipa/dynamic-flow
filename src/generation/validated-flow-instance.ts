@@ -14,7 +14,7 @@ import {
   type FlowSnapshot,
   type FlowState,
   RestoreError,
-  type ValidatedFlow
+  type ValidatedFlow,
 } from './types';
 
 //TODO Is this still required? Is a ValidatedFlow pertaining to the IR, or has it been superseded by something else?
@@ -122,7 +122,7 @@ export class ValidatedFlowInstance {
           state,
           completedSteps,
           pendingSteps,
-          intermediateResults: new Map(state.variables ?? new Map()),
+          intermediateResults: new Map(state.variables || new Map()),
           metadata: {
             flowName: this.validatedFlow.json?.metadata?.name,
             model: this.options?.model?.toString(),
@@ -154,10 +154,10 @@ export class ValidatedFlowInstance {
     return {
       name: jsonData?.metadata?.name,
       description: jsonData?.metadata?.description,
-      generated: jsonData?.metadata?.generated ?? false,
+      generated: jsonData?.metadata?.generated || false,
       model: jsonData?.metadata?.model,
       nodeCount: nodes.length,
-      toolCount: this.validatedFlow.tools?.size ?? 0,
+      toolCount: this.validatedFlow.tools?.size || 0,
       hasConditionals: nodes.some((n) => n?.type === 'if-then'),
       hasFunctionalOps: nodes.some((n) =>
         ['map', 'filter', 'reduce'].includes(n?.type)
@@ -229,7 +229,7 @@ export class ValidatedFlowInstance {
         case 'node-error':
           return {
             ...state,
-            errors: [...(state?.errors ?? []), (event as any).error],
+            errors: [...(state?.errors || []), (event as any).error],
             status: 'error' as const,
           };
         case 'flow-complete':
@@ -242,7 +242,7 @@ export class ValidatedFlowInstance {
 
   private isNodeCompleted(nodeId: string, state: FlowState): boolean {
     // Simple check - in real implementation would track execution history
-    return (state.variables ?? new Map()).has(`${nodeId}_output`);
+    return (state.variables || new Map()).has(`${nodeId}_output`);
   }
 }
 

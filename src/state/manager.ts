@@ -12,7 +12,8 @@
  * - Tools can depend on variables populated by previous steps.
  */
 
-import { Effect, HashMap, Option } from 'effect';
+import { Data, Effect, HashMap, Option } from 'effect';
+import { type JsonValue, parseJsonSafe } from '@/types/json';
 
 // ============= Types =============
 
@@ -44,21 +45,27 @@ export interface StateSnapshot {
 /**
  * Typed error thrown for state operations.
  */
-export class StateError extends Error {
-  readonly _tag = 'StateError';
-
-  constructor(message: string) {
-    super(message);
-    this.name = 'StateError';
+export class StateError extends Data.TaggedError('StateError')<{
+  readonly message: string;
+  readonly operation?: string;
+  readonly variable?: string;
+}> {
+  get displayMessage(): string {
+    const operation = this.operation ? ` during ${this.operation}` : '';
+    const variable = this.variable ? ` for variable '${this.variable}'` : '';
+    return `State error${operation}${variable}: ${this.message}`;
   }
 }
 
-export class VariableNotFoundError extends Error {
-  readonly _tag = 'VariableNotFoundError';
-
-  constructor(public readonly name: string) {
-    super(`Variable not found: ${name}`);
-    this.name = 'VariableNotFoundError';
+export class VariableNotFoundError extends Data.TaggedError(
+  'VariableNotFoundError'
+)<{
+  readonly name: string;
+  readonly scope?: number;
+}> {
+  get displayMessage(): string {
+    const scope = this.scope !== undefined ? ` in scope ${this.scope}` : '';
+    return `Variable '${this.name}' not found${scope}`;
   }
 }
 
@@ -247,7 +254,7 @@ class StateManagerImpl implements StateManager {
       }
 
       if (Option.isNone(found)) {
-        return yield* Effect.fail(new VariableNotFoundError(name));
+        return yield* Effect.fail(new VariableNotFoundError({ name }));
       }
 
       // Update access count
@@ -310,16 +317,25 @@ class StateManagerImpl implements StateManager {
   getPath(name: string, path: string[]): Effect.Effect<unknown, StateError> {
     const self = this;
     return Effect.gen(function* () {
-      let value = yield* self
-        .get(name)
-        .pipe(
-          Effect.mapError(() => new StateError(`Variable ${name} not found`))
-        );
+      let value = yield* self.get(name).pipe(
+        Effect.mapError(
+          () =>
+            new StateError({
+              message: `Variable ${name} not found`,
+              operation: 'getPath',
+              variable: name,
+            })
+        )
+      );
 
       for (const key of path) {
         if (value === null || value === undefined) {
           return yield* Effect.fail(
-            new StateError(`Path ${path.join('.')} not found`)
+            new StateError({
+              message: `Path ${path.join('.')} not found`,
+              operation: 'getPath',
+              variable: name,
+            })
           );
         }
 
@@ -327,7 +343,11 @@ class StateManagerImpl implements StateManager {
           const index = parseInt(key);
           if (isNaN(index) || index < 0 || index >= value.length) {
             return yield* Effect.fail(
-              new StateError(`Invalid array index: ${key}`)
+              new StateError({
+                message: `Invalid array index: ${key}`,
+                operation: 'getPath',
+                variable: name,
+              })
             );
           }
           value = value[index];
@@ -335,12 +355,20 @@ class StateManagerImpl implements StateManager {
           value = (value as Record<string, unknown>)[key];
           if (value === undefined) {
             return yield* Effect.fail(
-              new StateError(`Path ${path.join('.')} not found`)
+              new StateError({
+                message: `Path ${path.join('.')} not found`,
+                operation: 'getPath',
+                variable: name,
+              })
             );
           }
         } else {
           return yield* Effect.fail(
-            new StateError(`Cannot access path on non-object value`)
+            new StateError({
+              message: `Cannot access path on non-object value`,
+              operation: 'getPath',
+              variable: name,
+            })
           );
         }
       }
@@ -391,7 +419,12 @@ class StateManagerImpl implements StateManager {
     const self = this;
     return Effect.gen(function* () {
       if (self.scopes.length === 0) {
-        return yield* Effect.fail(new StateError('No scope to pop'));
+        return yield* Effect.fail(
+          new StateError({
+            message: 'No scope to pop',
+            operation: 'popScope',
+          })
+        );
       }
 
       // Remove variables from this scope from metadata
@@ -490,13 +523,36 @@ class StateManagerImpl implements StateManager {
   fromJSON(json: string): Effect.Effect<void, StateError> {
     const self = this;
     return Effect.gen(function* () {
-      try {
-        const data = JSON.parse(json);
-        if (data.variables) {
-          yield* self.setMany(data.variables);
+      const parseResult = yield* parseJsonSafe(json).pipe(
+        Effect.mapError(
+          (error) =>
+            new StateError({
+              message: error.message,
+              operation: 'fromJSON',
+            })
+        )
+      );
+
+      if (
+        typeof parseResult === 'object' &&
+        parseResult !== null &&
+        !Array.isArray(parseResult)
+      ) {
+        const data = parseResult as Record<string, JsonValue>;
+        if (
+          data.variables &&
+          typeof data.variables === 'object' &&
+          !Array.isArray(data.variables)
+        ) {
+          yield* self.setMany(data.variables as Record<string, unknown>);
         }
-      } catch (error) {
-        return yield* Effect.fail(new StateError(`Invalid JSON: ${error}`));
+      } else {
+        return yield* Effect.fail(
+          new StateError({
+            message: 'JSON must contain an object with variables property',
+            operation: 'fromJSON',
+          })
+        );
       }
     });
   }

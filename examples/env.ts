@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Effect } from 'effect';
 
 // Load environment variables
 config();
@@ -28,7 +29,7 @@ export const exampleConfig = {
 
   // Performance settings
   maxConcurrency: 5,
-  enableMetrics: true
+  enableMetrics: true,
 };
 
 // Validation
@@ -40,8 +41,8 @@ export const validateEnvironment = () => {
   }
 
   if (warnings.length > 0) {
-    console.warn('Environment warnings:');
-    warnings.forEach(warning => console.warn(`  - ${warning}`));
+    Effect.runSync(Effect.log('Environment warnings:'));
+    warnings.forEach((warning) => Effect.runSync(Effect.log(`  - ${warning}`)));
   }
 
   return { valid: true, warnings };
@@ -51,4 +52,3 @@ export const validateEnvironment = () => {
 export function loadEnv() {
   validateEnvironment();
 }
-

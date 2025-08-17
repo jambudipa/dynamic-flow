@@ -41,10 +41,11 @@ const tool1 = {
   description: 'Prepares a concise prompt from a topic',
   inputSchema: Schema.Struct({ topic: Schema.String }),
   outputSchema: Schema.Struct({ prompt: Schema.String }),
-  execute: (input: { topic: string }) => Effect.sync(() => {
-    console.log(`Tool 1: Creating explanatory prompt for "${input.topic}"`);
-    return { prompt: `In one sentence, explain: ${input.topic}` };
-  })
+  execute: (input: { topic: string }) =>
+    Effect.sync(() => {
+      console.log(`Tool 1: Creating explanatory prompt for "${input.topic}"`);
+      return { prompt: `In one sentence, explain: ${input.topic}` };
+    }),
 };
 
 const tool2 = {
@@ -53,10 +54,11 @@ const tool2 = {
   description: 'Summarises a paragraph to a single question',
   inputSchema: Schema.Struct({ topic: Schema.String }),
   outputSchema: Schema.Struct({ prompt: Schema.String }),
-  execute: (input: { topic: string }) => Effect.sync(() => {
-    console.log(`Tool 2: Creating question prompt for "${input.topic}"`);
-    return { prompt: `What is the core question about: ${input.topic}?` };
-  })
+  execute: (input: { topic: string }) =>
+    Effect.sync(() => {
+      console.log(`Tool 2: Creating question prompt for "${input.topic}"`);
+      return { prompt: `What is the core question about: ${input.topic}?` };
+    }),
 };
 
 const tool3 = {
@@ -65,26 +67,30 @@ const tool3 = {
   description: 'Turns a topic into a clarifying instruction',
   inputSchema: Schema.Struct({ topic: Schema.String }),
   outputSchema: Schema.Struct({ prompt: Schema.String }),
-  execute: (input: { topic: string }) => Effect.sync(() => {
-    console.log(`Tool 3: Creating clarification prompt for "${input.topic}"`);
-    return { prompt: `Clarify in plain terms: ${input.topic}` };
-  })
+  execute: (input: { topic: string }) =>
+    Effect.sync(() => {
+      console.log(`Tool 3: Creating clarification prompt for "${input.topic}"`);
+      return { prompt: `Clarify in plain terms: ${input.topic}` };
+    }),
 };
 
-const branch1 = (topic: string) => Effect.sync(() => {
-  console.log(`Executing Route1 → ${topic}`);
-  return { final: `Route1 → ${topic}` };
-});
+const branch1 = (topic: string) =>
+  Effect.sync(() => {
+    console.log(`Executing Route1 → ${topic}`);
+    return { final: `Route1 → ${topic}` };
+  });
 
-const branch2 = (topic: string) => Effect.sync(() => {
-  console.log(`Executing Route2 → ${topic}`);
-  return { final: `Route2 → ${topic}` };
-});
+const branch2 = (topic: string) =>
+  Effect.sync(() => {
+    console.log(`Executing Route2 → ${topic}`);
+    return { final: `Route2 → ${topic}` };
+  });
 
-const branch3 = (topic: string) => Effect.sync(() => {
-  console.log(`Executing Route3 → ${topic}`);
-  return { final: `Route3 → ${topic}` };
-});
+const branch3 = (topic: string) =>
+  Effect.sync(() => {
+    console.log(`Executing Route3 → ${topic}`);
+    return { final: `Route3 → ${topic}` };
+  });
 
 /**
  * Programmatic example runner for testing and integration
@@ -110,7 +116,7 @@ export async function runExample(): Promise<{ final: string }> {
         {
           'prep:prompt1': branch1,
           'prep:prompt2': branch2,
-          'prep:prompt3': branch3
+          'prep:prompt3': branch3,
         },
         { retries: 2 }
       )
@@ -138,17 +144,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 /**
  * Expected Output:
  * ===============
- * 
+ *
  * === Switch Routing Example ===
- * 
+ *
  * Analysing topic for routing: "Please clarify selflessness of persons"
  * 🤖 Using OpenAI SDK for structured output...
  * 📥 SDK response text: {"choice":"prep:prompt3","reason":"The user requests clarification of the concept 'selflessness of persons'; prep:prompt3 converts the topic into a clear instructive prompt to elicit a focused explanation."}
  * Executing Route3 → Please clarify selflessness of persons
  * Final result: { final: 'Route3 → Please clarify selflessness of persons' }
- * 
+ *
  * ✅ Switch routing completed successfully!
- * 
+ *
  * Note: Requires OPENAI_API_KEY environment variable
  * Note: LLM may choose different routes based on reasoning
  */

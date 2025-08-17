@@ -325,7 +325,7 @@ const salesAlertFlow = pipe(
 ## Quick Start
 
 ```bash
-npm install @jambudipa/dynamic-flow effect @effect/schema
+npm install @jambudipa/dynamic-flow effect
 ```
 
 ```typescript
@@ -348,19 +348,18 @@ console.log(result) // "HELLO, WORLD!"
 
 ```typescript
 import { Tools, Flow } from '@jambudipa/dynamic-flow'
-import { Effect, pipe } from 'effect'
-import * as S from 'effect/Schema'
+import { Effect, pipe, Schema } from 'effect'
 
 // Define a weather tool that returns an Effect
 const fetchWeather = Tools.createTool({
   id: 'fetchWeather',
   name: 'Weather Fetcher',
   description: 'Fetch current weather for a city',
-  inputSchema: S.Struct({ city: S.String }),
-  outputSchema: S.Struct({
-    temp: S.Number,
-    conditions: S.String,
-    humidity: S.Number
+  inputSchema: Schema.Struct({ city: Schema.String }),
+  outputSchema: Schema.Struct({
+    temp: Schema.Number,
+    conditions: Schema.String,
+    humidity: Schema.Number
   }),
   execute: (input, context) =>
     Effect.succeed({
@@ -463,7 +462,7 @@ Comprehensive guides and API references are available in the [`/docs`](./docs) d
 
 #### 📚 Comprehensive Guides
 - **[Pipeable Patterns](./docs/guides/pipeable-patterns.md)** - Advanced functional composition patterns
-- **[Dynamic Flows](./docs/guides/dynamic-flows.md)** - AI-generated workflow best practices
+- **[DynamicFlows](./docs/guides/dynamic-flows.md)** - AI-generated workflow best practices
 
 #### ⭐ Key Features
 - **[Runtime Graph Generation](./docs/features/runtime-graph-generation.md)** - How AI creates complete workflows
@@ -514,12 +513,9 @@ This isn't an incremental improvement - it's a fundamentally different approach 
 ## Next Steps
 
 - Performance is an issue (30s to create and execute a dynamic flow).
-- Many type problems (usage of `any`).
 - Add testing (very TDD madam).
-- Effect usage needs tightening!
+- First major feature: persistence of flow state.
 
 ## License
 
 MIT © DynamicFlow Contributors
-
----

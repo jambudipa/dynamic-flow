@@ -1,14 +1,14 @@
 /**
- * Example: Hello World with Dynamic Flow
+ * Example: Hello World with DynamicFlow
  *
  * The simplest possible flow - demonstrates basic pipeable syntax
- * and sequential operations using the current Dynamic Flow API.
+ * and sequential operations using the current DynamicFlow API.
  *
  * Run: npx tsx examples/static/01-hello-world.ts
  */
 
-import { Duration, Effect, Flow, pipe } from '../../src/index';
-import { Stream } from 'effect';
+import { Flow } from '../../src/index';
+import { Duration, Effect, pipe, Stream } from 'effect';
 
 // Create a simple flow that transforms a greeting
 const helloFlow = pipe(
@@ -16,18 +16,20 @@ const helloFlow = pipe(
   Effect.succeed('Hello'),
 
   // Transform it using Flow.andThen
-  Flow.andThen(greeting => Effect.succeed(`${greeting}, World!`)),
+  Flow.andThen((greeting) => Effect.succeed(`${greeting}, World!`)),
 
   // Apply another transformation
-  Flow.map(message => message.toUpperCase()),
+  Flow.map((message) => message.toUpperCase()),
 
   // Add a side effect (logging) without changing the value
-  Flow.tap(message => Effect.sync(() => {
-    console.log('Intermediate value:', message);
-  })),
+  Flow.tap((message) =>
+    Effect.sync(() => {
+      console.log('Intermediate value:', message);
+    })
+  ),
 
   // Final transformation
-  Flow.map(message => `✨ ${message} ✨`)
+  Flow.map((message) => `✨ ${message} ✨`)
 );
 
 /**
@@ -35,21 +37,24 @@ const helloFlow = pipe(
  */
 export const runExample = async () => {
   console.log('🚀 Starting Hello World example...');
-  console.log('📝 This demonstrates basic Flow operations: succeed, andThen, map, tap');
+  console.log(
+    '📝 This demonstrates basic Flow operations: succeed, andThen, map, tap'
+  );
 
   // Non-streaming: collect the final result
   console.log('\n— Non-streaming (collect) —');
-  const collected = await Effect.runPromise(
-    Flow.runCollect(helloFlow)
-  );
+  const collected = await Effect.runPromise(Flow.runCollect(helloFlow));
   console.log('Final result:', collected.output);
-  console.log('Execution time:', Duration.toMillis(collected.metadata.duration), 'ms');
+  console.log(
+    'Execution time:',
+    Duration.toMillis(collected.metadata.duration),
+    'ms'
+  );
 
   // Streaming: get events as the flow executes
   console.log('\n— Streaming (events) —');
-  await Stream.runForEach(
-    Flow.runStream(helloFlow),
-    (event) => Effect.sync(() => {
+  await Stream.runForEach(Flow.runStream(helloFlow), (event) =>
+    Effect.sync(() => {
       if (event.type === 'flow-start') {
         console.log('• flow-start');
       } else if (event.type === 'flow-complete') {
@@ -67,7 +72,7 @@ export const runExample = async () => {
 
 // Run example if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runExample().catch(error => {
+  runExample().catch((error) => {
     console.error('❌ Hello World example failed:', error);
     process.exit(1);
   });
