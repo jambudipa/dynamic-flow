@@ -50,3 +50,6 @@ CLAUDE.md
 .claude
 
 .npm-cache
+conversation-state
+patterns
+fix-all-type-errors-loop.sh

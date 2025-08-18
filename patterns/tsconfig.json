@@ -1,0 +1,26 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
+    "noUnusedLocals": false,
+    "jsx": "react-jsx",
+    "lib": ["es2022", "dom"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "baseUrl": ".",
+    "types": ["react", "react-dom", "node"]
+  },
+  "include": [
+    "./effect-httpapi-tanstack/lib.ts",
+    "./effect-httpapi-tanstack/example.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

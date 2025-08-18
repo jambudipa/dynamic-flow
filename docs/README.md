@@ -30,7 +30,9 @@ const weatherFlow = pipe(
   Flow.map(weather => `Temperature: ${weather.temp}°C`)
 )
 
-const result = await Flow.run(weatherFlow)
+const result = await Effect.runPromise(
+  Flow.run(weatherFlow)
+)
 ```
 
 **Use Cases:**
@@ -42,7 +44,8 @@ const result = await Flow.run(weatherFlow)
 Static flows with real-time event monitoring.
 
 ```typescript
-await Flow.runStream(weatherFlow).pipe(
+await pipe(
+  Flow.runStream(weatherFlow),
   Stream.tap(event => Effect.sync(() => {
     console.log(`Event: ${event.type}`)
   })),
@@ -60,12 +63,13 @@ await Flow.runStream(weatherFlow).pipe(
 AI generates the workflow, executes without streaming.
 
 ```typescript
-const result = await DynamicFlow.execute({
-  prompt: "Check London weather and email summary to user",
-  tools: [weatherTool, emailTool],
-  joins: [],
-  model: OpenAi.completion('gpt-4')
-}).pipe(
+const result = await pipe(
+  DynamicFlow.execute({
+    prompt: "Check London weather and email summary to user",
+    tools: [weatherTool, emailTool],
+    joins: [],
+    model: OpenAi.completion('gpt-4')
+  }),
   Stream.runCollect,
   Effect.runPromise
 )
@@ -80,12 +84,13 @@ const result = await DynamicFlow.execute({
 AI generates the workflow with real-time execution monitoring.
 
 ```typescript
-await DynamicFlow.execute({
-  prompt: "Process customer support ticket with full workflow tracking",
-  tools: supportTools,
-  joins: [],
-  model
-}).pipe(
+await pipe(
+  DynamicFlow.execute({
+    prompt: "Process customer support ticket with full workflow tracking",
+    tools: supportTools,
+    joins: [],
+    model
+  }),
   Stream.tap(event => Effect.sync(() => {
     console.log(`${event.type}: ${event.nodeId || 'flow'}`)
   })),
@@ -121,7 +126,9 @@ const helloFlow = pipe(
   Flow.map(message => message.toUpperCase())
 )
 
-const result = await Flow.run(helloFlow)
+const result = await Effect.runPromise(
+  Flow.run(helloFlow)
+)
 console.log(result) // "HELLO, WORLD!"
 ```
 
@@ -135,18 +142,19 @@ const weatherTool = Tools.createTool({
   id: 'fetchWeather',
   name: 'Weather Fetcher',
   description: 'Get current weather for any city',
-  inputSchema: S.Struct({ city: S.String }),
-  outputSchema: S.Struct({ temp: S.Number, conditions: S.String }),
-  execute: (input, context) => 
+  inputSchema: Schema.Struct({ city: Schema.String }),
+  outputSchema: Schema.Struct({ temp: Schema.Number, conditions: Schema.String }),
+  execute: (input, context) =>
     Effect.succeed({ temp: 22, conditions: 'sunny' })
 })
 
-await DynamicFlow.execute({
-  prompt: "Check the weather in Paris and tell me if it's nice for a walk",
-  tools: [weatherTool],
-  joins: [],
-  model: OpenAi.completion('gpt-4')
-}).pipe(
+await pipe(
+  DynamicFlow.execute({
+    prompt: "Check the weather in Paris and tell me if it's nice for a walk",
+    tools: [weatherTool],
+    joins: [],
+    model: OpenAi.completion('gpt-4')
+  }),
   Stream.tap(event => Effect.sync(() => {
     if (event.type === 'flow-complete') {
       console.log('Result:', event.result)
@@ -165,8 +173,7 @@ Comprehensive API documentation for all components:
 - **[Flow API](./api/flow.md)** - Pipeable operations for functional workflow composition
 - **[Tools API](./api/tools.md)** - Creating and managing typed tools
 - **[DynamicFlow API](./api/dynamic-flow.md)** - AI-powered workflow generation
-- **[Streaming API](./api/streaming.md)** - Real-time event processing
-- **[IR API](./api/ir.md)** - Intermediate representation details
+- **[Persistence API](./api/persistence.md)** - Flow suspension and resumption
 
 ### 📚 Guides
 Step-by-step guides for common scenarios:
@@ -174,27 +181,23 @@ Step-by-step guides for common scenarios:
 - **[Getting Started](./guides/getting-started.md)** - Quick start guide and core concepts
 - **[Pipeable Patterns](./guides/pipeable-patterns.md)** - Advanced functional composition patterns
 - **[Dynamic Flows](./guides/dynamic-flows.md)** - AI-generated workflow best practices
-- **[Error Handling](./guides/error-handling.md)** - Comprehensive error management
-- **[Testing](./guides/testing.md)** - Testing strategies for flows and tools
-- **[Production Deployment](./guides/production.md)** - Production setup and monitoring
 
 ### ⭐ Features
 Deep dives into key capabilities:
 
 - **[Runtime Graph Generation](./features/runtime-graph-generation.md)** - How AI creates workflows
-- **[Effect.js Integration](./features/effect-integration.md)** - Functional programming benefits
-- **[Type Safety](./features/type-safety.md)** - Compile-time and runtime guarantees
-- **[Streaming Events](./features/streaming.md)** - Real-time monitoring and observability
-- **[Tool System](./features/tools.md)** - Extensible tool architecture
-- **[Caching & Performance](./features/performance.md)** - Optimisation strategies
+- **[Effect Integration](./features/effect-integration.md)** - Functional programming benefits
+- **[Persistence](./api/persistence.md)** - Flow suspension and resumption
+- **[LLM Conversation Routing](../src/examples/static/16-conversation-final.ts)** - See working conversation example
+- **[MCP Integration](../src/examples/static/15-mcp-curl.ts)** - Model Context Protocol tools
 
 ### 🎯 Examples
 Working code examples organised by use case:
 
-- **[Basic Examples](../examples/static/)** - Simple flows demonstrating core concepts
-- **[Dynamic Examples](../examples/dynamic/)** - AI-generated workflow examples
-- **[Integration Examples](../examples/integrations/)** - Real-world system integrations
-- **[Advanced Patterns](../examples/advanced/)** - Complex enterprise scenarios
+- **[Static Examples](../src/examples/static/)** - Programmatic flows demonstrating core concepts
+- **[Dynamic Examples](../src/examples/dynamic/)** - AI-generated workflow examples
+- **[Conversation Example](../src/examples/static/16-conversation-final.ts)** - Interactive LLM conversation with persistence
+- **[MCP Integration Example](../src/examples/static/15-mcp-curl.ts)** - Real MCP server integration with type-safe tools
 
 ## Key Concepts
 
@@ -207,14 +210,14 @@ const emailTool = Tools.createTool({
   id: 'sendEmail',
   name: 'Email Sender',
   description: 'Send emails with template support',
-  inputSchema: S.Struct({
-    to: S.String,
-    subject: S.String,
-    body: S.String
+  inputSchema: Schema.Struct({
+    to: Schema.String,
+    subject: Schema.String,
+    body: Schema.String
   }),
-  outputSchema: S.Struct({
-    sent: S.Boolean,
-    messageId: S.String
+  outputSchema: Schema.Struct({
+    sent: Schema.Boolean,
+    messageId: Schema.String
   }),
   execute: (input, context) =>
     Effect.succeed({
@@ -247,7 +250,7 @@ const userOnboardingFlow = pipe(
 AI creates complete workflows from natural language:
 
 ```typescript
-const dynamicWorkflow = await DynamicFlow.generate({
+const dynamicWorkflow = await DynamicFlow.execute({
   prompt: `
     Process a customer refund request:
     1. Validate the request details
@@ -259,7 +262,7 @@ const dynamicWorkflow = await DynamicFlow.generate({
   `,
   tools: [validateTool, checkEligibilityTool, calculateTool, processTool, emailTool, updateTool],
   joins: [],
-  model
+  model: OpenAi.completion('gpt-4')
 })
 ```
 
@@ -281,7 +284,7 @@ const dynamicWorkflow = await DynamicFlow.generate({
 ├─────────────────────────────────────┤
 │ Tool Registry & Management          │
 ├─────────────────────────────────────┤
-│ Effect.js Foundation               │
+│ Effect Foundation               │
 └─────────────────────────────────────┘
 ```
 
@@ -304,7 +307,7 @@ Prompt → LLM → JSON Graph → IR → Execution → Events/Results
 | **Graph Generation** | ✅ Complete | ❌ Static | ❌ Code only | ❌ Static |
 | **Runtime Topology** | ✅ Per-prompt | ❌ Pre-defined | ❌ Linear | ❌ Fixed |
 | **Deterministic Execution** | ✅ Always | ⚠️ Optional | ✅ Yes | ✅ Flows |
-| **Type Safety** | ✅ Full Effect.js | ✅ TypeScript | ⚠️ Python | ⚠️ Python |
+| **Type Safety** | ✅ Full Effect | ✅ TypeScript | ⚠️ Python | ⚠️ Python |
 | **Functional Paradigm** | ✅ Effect-based | ❌ OOP | ❌ Imperative | ❌ OOP |
 | **Real-time Events** | ✅ Built-in | ⚠️ Limited | ❌ No | ⚠️ Limited |
 
@@ -314,17 +317,17 @@ Prompt → LLM → JSON Graph → IR → Execution → Events/Results
 
 - **[GitHub Issues](https://github.com/jambudipa/dynamic-flow/issues)** - Bug reports and feature requests
 - **[GitHub Discussions](https://github.com/jambudipa/dynamic-flow/discussions)** - Questions and community chat
-- **[Examples Repository](../examples/)** - Working code examples
+- **[Examples Repository](../src/examples/)** - Working code examples
 - **[API Documentation](./api/)** - Complete API reference
 
 ### Contributing
 
 We welcome contributions! Please:
 
-1. Read our [Contributing Guide](../CONTRIBUTING.md)
-2. Check existing [Issues](https://github.com/jambudipa/dynamic-flow/issues)
-3. Join [Discussions](https://github.com/jambudipa/dynamic-flow/discussions)
-4. Submit PRs with tests and documentation
+1. Check existing [Issues](https://github.com/jambudipa/dynamic-flow/issues)
+2. Join [Discussions](https://github.com/jambudipa/dynamic-flow/discussions)
+3. Submit PRs with tests and documentation
+4. Follow the code style and conventions in the codebase
 
 ### Roadmap
 
@@ -337,9 +340,9 @@ We welcome contributions! Please:
 ## Next Steps
 
 1. **Start with [Getting Started](./guides/getting-started.md)** - Learn the basics
-2. **Try the [Examples](../examples/)** - See working code
+2. **Try the [Examples](../src/examples/)** - See working code
 3. **Read [Pipeable Patterns](./guides/pipeable-patterns.md)** - Master functional composition
 4. **Explore [Dynamic Flows](./guides/dynamic-flows.md)** - Leverage AI generation
-5. **Build Production Systems** - Use [Production Guide](./guides/production.md)
+5. **Build Production Systems** - See examples and best practices
 
 Ready to build AI workflows that generate their own execution graphs? Start with the [Getting Started Guide](./guides/getting-started.md)!

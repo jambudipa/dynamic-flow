@@ -9,7 +9,7 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: resolve(__dirname, 'src/lib/index.ts'),
       name: 'DynamicFlow',
       formats: ['es'],
       fileName: 'index'
@@ -24,6 +24,7 @@ export default defineConfig({
         'stream',
         'events',
         'crypto',
+        'zlib',
         'os',
         'child_process',
         'node:fs',
@@ -33,12 +34,20 @@ export default defineConfig({
         'node:stream',
         'node:events',
         'node:crypto',
+        'node:zlib',
         'node:os',
         'node:child_process',
         // Optional runtime deps we load dynamically when available
         'openai',
         'openai/helpers/zod',
-        'zod'
+        'zod',
+        // Database dependencies (optional for persistence backends)
+        'redis',
+        'pg',
+        'mongodb',
+        'neo4j-driver',
+        'sqlite3',
+        'mysql2'
       ]
     },
     sourcemap: true,

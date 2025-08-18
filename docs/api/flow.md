@@ -1,10 +1,10 @@
 # Flow API Reference
 
-The `Flow` namespace provides a comprehensive set of pipeable operations for building type-safe, functional workflows with Effect.js integration.
+The `Flow` namespace provides a comprehensive set of pipeable operations for building type-safe, functional workflows with Effect integration.
 
 ## Core Concepts
 
-The Flow API is built on Effect.js principles, providing functional composition through piping operations. All Flow operations return `Effect.Effect<A, E, R>` types for maximum composability and type safety.
+The Flow API is built on Effect principles, providing functional composition through piping operations. All Flow operations return `Effect.Effect<A, E, R>` types for maximum composability and type safety.
 
 ### Basic Pattern
 
@@ -19,7 +19,7 @@ const myFlow = pipe(
   Flow.catchAll(errorHandler)
 )
 
-const result = await Flow.run(myFlow)
+const result = await Effect.runPromise(myFlow)
 ```
 
 ## Sequential Operations
@@ -404,17 +404,20 @@ if (exit._tag === 'Success') {
 
 ## Compilation and Streaming
 
-### `Flow.runStream<A, E>(program, options?)`
+### Streaming Execution
+
+**`Flow.runStream<A, E>(program, options?)`**
 
 Execute a flow with streaming events for real-time monitoring.
 
-**Returns:** `Stream.Stream<FlowEvent, ExecutionError>`
+**Returns:** `Stream.Stream<FlowEvent, FlowError | E>`
 
 **Example:**
 ```typescript
-import { Stream } from 'effect'
+import { Stream, Effect } from 'effect'
 
-await Flow.runStream(myFlow).pipe(
+await pipe(
+  Flow.runStream(myFlow),
   Stream.tap(event => Effect.sync(() => {
     console.log(`Event: ${event.type}`)
   })),
@@ -423,16 +426,17 @@ await Flow.runStream(myFlow).pipe(
 )
 ```
 
-### `Flow.runCollect<A, E>(program, options?)`
+**`Flow.runCollect<A, E>(program, options?)`**
 
-Execute a flow and collect the final result (non-streaming).
+Execute a flow and collect the final result with metadata.
 
 **Example:**
 ```typescript
-const result = await Flow.runCollect(myFlow, { 
-  name: 'My Flow Execution' 
-})
+const result = await Effect.runPromise(
+  Flow.runCollect(myFlow, { name: 'My Flow Execution' })
+)
 console.log('Final output:', result.output)
+console.log('Execution metadata:', result.metadata)
 ```
 
 ## Type-Safe Helpers

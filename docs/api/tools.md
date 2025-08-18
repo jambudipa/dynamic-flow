@@ -87,9 +87,9 @@ interface ToolJoin<From = unknown, To = unknown, R = never> {
 const userToEmailJoin: ToolJoin<User, EmailInput> = {
   fromTool: 'getUser',
   toTool: 'sendEmail',
-  transform: S.transform(
-    S.Struct({ id: S.String, email: S.String, name: S.String }),
-    S.Struct({ to: S.String, subject: S.String }),
+  transform: Schema.transform(
+    Schema.Struct({ id: Schema.String, email: Schema.String, name: Schema.String }),
+    Schema.Struct({ to: Schema.String, subject: Schema.String }),
     {
       strict: true,
       decode: (user) => ({
@@ -205,22 +205,22 @@ const analysisTool = Tools.createLLMTool({
   id: 'analyzeText',
   name: 'Text Analyzer',
   description: 'Analyze text content for sentiment, topics, and key insights',
-  inputSchema: S.Struct({
-    text: S.String,
-    analysisType: S.Union(
-      S.Literal('sentiment'),
-      S.Literal('topics'), 
-      S.Literal('summary')
+  inputSchema: Schema.Struct({
+    text: Schema.String,
+    analysisType: Schema.Union(
+      Schema.Literal('sentiment'),
+      Schema.Literal('topics'), 
+      Schema.Literal('summary')
     )
   }),
-  outputSchema: S.Struct({
-    analysis: S.String,
-    confidence: S.Number,
-    insights: S.Array(S.String)
+  outputSchema: Schema.Struct({
+    analysis: Schema.String,
+    confidence: Schema.Number,
+    insights: Schema.Array(Schema.String)
   }),
   systemPrompt: `You are an expert text analyst. Provide detailed, accurate analysis based on the requested type.`,
   llmConfig: {
-    model: 'gpt-4',
+    model: 'gpt-5',
     temperature: 0.3,
     maxTokens: 1000
   }
@@ -245,11 +245,11 @@ const distanceTool = Tools.wrapFunction(
     id: 'calculateDistance',
     name: 'Distance Calculator',
     description: 'Calculate distance between two locations',
-    inputSchema: S.Struct({
-      from: S.String,
-      to: S.String
+    inputSchema: Schema.Struct({
+      from: Schema.String,
+      to: Schema.String
     }),
-    outputSchema: S.Number
+    outputSchema: Schema.Number
   }
 )
 ```
@@ -543,15 +543,15 @@ const parallelFlow = pipe(
 
 ```typescript
 // ✅ Good: Clear, specific schema
-const inputSchema = S.Struct({
-  userId: S.String.pipe(S.minLength(1)),
-  includePreferences: S.Boolean,
-  format: S.Union(S.Literal('json'), S.Literal('xml'))
+const inputSchema = Schema.Struct({
+  userId: Schema.String.pipe(Schema.minLength(1)),
+  includePreferences: Schema.Boolean,
+  format: Schema.Union(Schema.Literal('json'), Schema.Literal('xml'))
 })
 
 // ❌ Avoid: Vague, unvalidated schema
-const inputSchema = S.Struct({
-  data: S.Unknown
+const inputSchema = Schema.Struct({
+  data: Schema.Unknown
 })
 ```
 

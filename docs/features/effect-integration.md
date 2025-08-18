@@ -1,8 +1,8 @@
-# Effect.js Integration
+# Effect Integration
 
-DynamicFlow is built from the ground up on Effect.js, making it the first AI orchestration framework to leverage Effect's powerful functional programming primitives. This deep integration provides unparalleled type safety, composability, and error handling for AI workflows.
+DynamicFlow is built from the ground up on Effect, making it the first AI orchestration framework to leverage Effect's powerful functional programming primitives. The Flow API provides workflow-specific operations that enhance Effect with AI orchestration capabilities.
 
-## Why Effect.js for AI Orchestration
+## Why Effect for AI Orchestration
 
 ### The Problem with Traditional Approaches
 
@@ -14,9 +14,9 @@ Most AI frameworks use imperative programming patterns that lead to:
 - **Testing challenges** - Side effects make testing complex
 - **Type safety gaps** - Runtime errors from type mismatches
 
-### Effect.js Solutions
+### The DynamicFlow Solution
 
-Effect.js provides a functional foundation that solves these problems:
+DynamicFlow's Flow API builds on Effect to provide workflow-specific operations:
 
 ```typescript
 // Traditional imperative approach
@@ -37,17 +37,18 @@ async function processUser(userId: string): Promise<ProcessedUser> {
   }
 }
 
-// Effect.js functional approach
-const processUserEffect = (userId: string): Effect.Effect<ProcessedUser, UserError, UserService> =>
+// DynamicFlow functional approach using Flow API
+const processUserFlow = (userId: string) =>
   pipe(
-    fetchUserEffect(userId),
-    Effect.flatMap(validateUserEffect),
-    Effect.flatMap(processDataEffect),
-    Effect.tap(processed => logActivityEffect(userId, 'processed')),
-    Effect.catchAll(error => 
+    Effect.succeed(userId),
+    Flow.andThen(fetchUserEffect),
+    Flow.andThen(validateUserEffect),
+    Flow.andThen(processDataEffect),
+    Flow.tap(processed => logActivityEffect(userId, 'processed')),
+    Flow.catchAll(error => 
       pipe(
         logErrorEffect(error),
-        Effect.zipRight(Effect.fail(error))
+        Flow.andThen(() => Effect.fail(error))
       )
     )
   )
@@ -85,41 +86,43 @@ const weatherTool: Tool<WeatherInput, WeatherOutput> = {
 }
 ```
 
-### Composition and Pipeable Operations
+### Flow API: Enhanced Composition
 
-Effect's pipe function enables readable left-to-right composition:
+DynamicFlow's Flow API provides workflow-specific operations built on Effect:
 
 ```typescript
-// Complex workflow composition
+// Complex workflow composition using Flow API
 const userOnboardingFlow = pipe(
   Effect.succeed(registrationData),
   
-  // Sequential operations
-  Effect.flatMap(validateRegistrationData),
-  Effect.flatMap(createUserAccount),
+  // Sequential operations with Flow
+  Flow.andThen(validateRegistrationData),
+  Flow.andThen(createUserAccount),
   
-  // Parallel operations  
-  Effect.flatMap(account => 
-    Effect.all({
+  // Parallel operations with Flow
+  Flow.andThen(account => 
+    Flow.parallel({
       emailSent: sendWelcomeEmail(account.email),
       profileCreated: createUserProfile(account.id),
       preferencesSet: setDefaultPreferences(account.id)
     })
   ),
   
-  // Error handling
-  Effect.catchTag('ValidationError', error =>
-    pipe(
-      logValidationError(error),
-      Effect.zipRight(Effect.succeed({ 
-        success: false, 
-        error: 'Validation failed' 
-      }))
-    )
+  // Error handling with Flow
+  Flow.catchAll(error =>
+    error._tag === 'ValidationError'
+      ? pipe(
+          logValidationError(error),
+          Flow.andThen(() => Effect.succeed({ 
+            success: false, 
+            error: 'Validation failed' 
+          }))
+        )
+      : Effect.fail(error)
   ),
   
-  // Resource management
-  Effect.ensuring(cleanupResources())
+  // Tap for side effects
+  Flow.tap(() => cleanupResources())
 )
 ```
 
@@ -734,4 +737,49 @@ describe('Order Processing Properties', () => {
 })
 ```
 
-Effect.js integration makes DynamicFlow uniquely powerful among AI orchestration frameworks, providing functional programming benefits while maintaining the flexibility needed for dynamic workflow generation. This foundation ensures your AI workflows are reliable, composable, and maintainable at scale.
+## Summary: Flow API vs Raw Effect
+
+### When to Use Flow API (Recommended)
+
+Use DynamicFlow's Flow operations for:
+- **Building AI workflows** - Flow.andThen, Flow.parallel, Flow.map
+- **Tool composition** - Flow.tool, Flow.switchRoute
+- **Error handling in workflows** - Flow.catchAll, Flow.retry
+- **Workflow-specific patterns** - Flow.doIf, Flow.forEach
+
+```typescript
+// ✅ Recommended: Use Flow API for workflows
+const workflowExample = pipe(
+  Effect.succeed(initialData),
+  Flow.andThen(processStep1),
+  Flow.parallel({ 
+    branch1: processBranch1,
+    branch2: processBranch2 
+  }),
+  Flow.catchAll(handleWorkflowError)
+)
+```
+
+### When to Use Raw Effect
+
+Use raw Effect operations for:
+- **Low-level utilities** - Helper functions, pure transformations
+- **Effect library integration** - When using Effect ecosystem libraries
+- **Custom operators** - Building new Flow operations
+- **Performance-critical code** - Direct Effect usage can be more efficient
+
+```typescript
+// ✅ Use raw Effect for utilities and low-level code
+const utilityFunction = (data: Data): Effect.Effect<Result, Error> =>
+  pipe(
+    Effect.try(() => parseData(data)),
+    Effect.flatMap(validate),
+    Effect.map(transform)
+  )
+```
+
+### Key Principle
+
+**Flow API is for workflows, Effect is for utilities.** DynamicFlow's Flow API provides workflow-specific operations that make AI orchestration patterns clearer and more maintainable, while still giving you full access to Effect's power when needed.
+
+Effect integration makes DynamicFlow uniquely powerful among AI orchestration frameworks, providing functional programming benefits while maintaining the flexibility needed for dynamic workflow generation. This foundation ensures your AI workflows are reliable, composable, and maintainable at scale.

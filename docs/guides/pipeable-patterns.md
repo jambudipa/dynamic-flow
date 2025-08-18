@@ -1,6 +1,6 @@
 # Pipeable Patterns Guide
 
-DynamicFlow's pipeable API enables functional composition of workflows using Effect.js. This guide explores advanced patterns and best practices for building robust, maintainable flows.
+DynamicFlow's pipeable API enables functional composition of workflows using Effect. This guide explores advanced patterns and best practices for building robust, maintainable flows.
 
 ## Table of Contents
 

@@ -14,16 +14,6 @@ Most AI frameworks fall into two traps:
 
 You've seen it: An LLM starts with a good plan, but halfway through execution it "reconsiders", loops indefinitely, or simply forgets what it was doing.
 
-## Why Runtime Graph Generation Matters
-
-Other frameworks force you to:
-- **Define all possible nodes at compile time** (LangGraph requires predefined StateGraphs)
-- **Specify graph topology beforehand** (CrewAI, n8n need pre-built workflows)
-- **Generate code snippets rather than workflows** (TaskWeaver produces Python code, not graphs)
-- **Use predefined action sequences** (Plan-and-Execute agents work with fixed action sets)
-
-DynamicFlow breaks these constraints by treating the **graph structure itself as data**, generated fresh for each unique request. This isn't dynamic routing through a static graph - it's dynamic generation of the graph itself.
-
 ## Why DynamicFlow Is Different
 
 ### The Critical Innovation: Complete Graph Generation
@@ -50,197 +40,106 @@ Your LLM analyzes the user's request and generates a complete execution graph as
 - **Parallel execution paths** when appropriate
 - **All topology decisions made upfront**
 
+**Example: "Analyze weather data and send notifications"**
+
+The AI generates this complete workflow graph:
+```json
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "Weather Analysis Workflow",
+    "description": "Check weather in multiple cities and send appropriate notifications",
+    "generated": true,
+    "timestamp": "2024-01-15T10:30:00Z"
+  },
+  "nodes": [
+    {
+      "id": "weather_london",
+      "type": "tool",
+      "toolId": "weather-api",
+      "inputs": {
+        "city": "London",
+        "units": "celsius"
+      }
+    },
+    {
+      "id": "weather_paris",
+      "type": "tool",
+      "toolId": "weather-api",
+      "inputs": {
+        "city": "Paris",
+        "units": "celsius"
+      }
+    },
+    {
+      "id": "weather_tokyo",
+      "type": "tool",
+      "toolId": "weather-api",
+      "inputs": {
+        "city": "Tokyo",
+        "units": "celsius"
+      }
+    },
+    {
+      "id": "analyze_temps",
+      "type": "tool",
+      "toolId": "llm-analyzer",
+      "inputs": {
+        "prompt": "Compare these temperatures and identify any extreme weather: London: ${weather_london}, Paris: ${weather_paris}, Tokyo: ${weather_tokyo}",
+        "max_tokens": 200
+      }
+    },
+    {
+      "id": "format_report",
+      "type": "tool",
+      "toolId": "template-formatter",
+      "inputs": {
+        "template": "Weather Report:\n- London: ${weather_london.temp}°C, ${weather_london.condition}\n- Paris: ${weather_paris.temp}°C, ${weather_paris.condition}\n- Tokyo: ${weather_tokyo.temp}°C, ${weather_tokyo.condition}\n\nAnalysis: ${analyze_temps.summary}"
+      }
+    },
+    {
+      "id": "send_email",
+      "type": "tool",
+      "toolId": "email-service",
+      "inputs": {
+        "to": "team@company.com",
+        "subject": "Daily Weather Report",
+        "body": "${format_report.output}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "START",
+      "to": ["weather_london", "weather_paris", "weather_tokyo"]
+    },
+    {
+      "from": ["weather_london", "weather_paris", "weather_tokyo"],
+      "to": "analyze_temps"
+    },
+    {
+      "from": "analyze_temps",
+      "to": "format_report"
+    },
+    {
+      "from": "format_report",
+      "to": "send_email"
+    },
+    {
+      "from": "send_email",
+      "to": "END"
+    }
+  ]
+}
+```
+
 #### Phase 2: Deterministic Execution
 DynamicFlow's execution engine interprets the JSON graph:
 - **No more LLM calls** during execution
 - **No graph structure changes** mid-execution
 - **Predictable, debuggable behavior**
-- **Full type safety** through Effect.js
+- **Full type safety** through Effect
 - **Guaranteed completion** without infinite loops
-
-### Why This Is Hard (And Why Others Haven't Done It)
-
-1. **Type Safety Challenge**: Dynamic graphs break compile-time type checking
-    - **Our Solution**: Effect.js provides runtime type safety with functional composition
-
-2. **Security Concerns**: Executing dynamic structures is risky
-    - **Our Solution**: JSON intermediate representation prevents code injection
-
-3. **Debugging Complexity**: Dynamic graphs are hard to trace
-    - **Our Solution**: Deterministic execution with full execution traces
-
-4. **Performance Overhead**: Graph generation could be slow
-    - **Our Solution**: Single planning phase, then pure execution
-
-### The Result: True Adaptive AI Workflows
-
-```typescript
-// ❌ LangGraph - Predefined graph, dynamic routing
-const langGraphApproach = new StateGraph({
-  // Must define all nodes upfront
-  nodes: { analyze, decide, execute },
-  // Must specify possible edges
-  edges: [['analyze', 'decide'], ['decide', 'execute']]
-})
-// Can only route through existing structure
-
-// ❌ TaskWeaver - Code generation, not graphs
-const taskWeaverApproach = async (prompt) => {
-  const code = await generatePythonCode(prompt)
-  return eval(code) // Generates code, not workflow structure
-}
-
-// ✅ DynamicFlow - Complete graph generation
-const dynamicFlowApproach = async (prompt) => {
-  // Generate entire graph structure from prompt
-  const instance = await DynamicFlow.generate({
-    prompt,
-    tools: availableTools,
-    joins: [],
-    model: aiModel
-  }).pipe(Effect.runPromise)
-  // Execute the newly created graph deterministically
-  return await instance.runCollect().pipe(Effect.runPromise)
-}
-```
-
-## Powered by Effect.js - A First in AI Orchestration
-
-DynamicFlow is the **first AI orchestration framework built on Effect's functional foundations**:
-
-- **🔄 Compositional**: Build complex flows from simple, typed pieces
-- **🛡️ Type-safe**: Full TypeScript guarantees even with dynamic generation
-- **💪 Resilient**: Built-in error handling, retries, and timeout management
-- **🔍 Observable**: Complete execution traces for debugging
-- **⚡ Performant**: Efficient execution with automatic optimization
-- **🎯 Deterministic**: Same input always produces same output
-
-This isn't just using Effect as a utility - it's architected from the ground up on Effect's principles.
-
-## New: LLM-Guided Switch Routing
-
-You can now route between branches using an LLM to select the best tool id based on descriptions. See docs/guides/flow-switch.md and examples/static/switch-static.ts for usage. Set `OPENAI_API_KEY` to enable real routing.
-
-## See It In Action
-
-Imagine you prompt your AI assistant:
-
-```
-"Fetch the latest sales data, analyze trends, and if revenue dropped more than 10%, 
-email the team with a summary and create a Slack alert"
-```
-
-Your AI planner generates this **complete execution graph as JSON**:
-
-```json
-{
-  "version": "1.0",
-  "metadata": {
-    "name": "Sales Alert Flow",
-    "description": "Monitor sales and alert on revenue drops"
-  },
-  "steps": [
-    {
-      "id": "s1",
-      "type": "tool",
-      "tool": "fetchSalesData",
-      "args": { "period": "last_30_days" }
-    },
-    {
-      "id": "s2",
-      "type": "tool",
-      "tool": "analyzeTrends",
-      "args": { "data": "$s1.output" }
-    },
-    {
-      "id": "s3",
-      "type": "conditional",
-      "condition": "$s2.output.revenueChange < -10",
-      "then": [
-        {
-          "id": "s4",
-          "type": "parallel",
-          "steps": [
-            {
-              "id": "s5",
-              "type": "tool",
-              "tool": "sendEmail",
-              "args": {
-                "to": "team@company.com",
-                "subject": "Revenue Alert",
-                "body": "$s2.output.summary"
-              }
-            },
-            {
-              "id": "s6",
-              "type": "tool",
-              "tool": "postSlack",
-              "args": {
-                "channel": "#alerts",
-                "message": "⚠️ Revenue dropped"
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ],
-  "rootIds": ["s1", "s2", "s3"]
-}
-```
-
-**The magic**: This JSON represents a complete graph structure - not a sequence of actions, not code to execute, but a full directed acyclic graph with conditional branches and parallel execution paths, generated specifically for this prompt.
-
-## DynamicFlow vs. The Competition
-
-### vs. LangGraph
-- **LangGraph**: You define nodes at compile time, LLM chooses paths at runtime
-- **DynamicFlow**: LLM creates the entire graph structure at runtime
-
-```typescript
-// LangGraph: Static structure, dynamic routing
-const graph = new StateGraph({ /* predefined nodes */ })
-
-// DynamicFlow: Dynamic structure generation
-const instance = await DynamicFlow.generate({
-  prompt: userRequest,
-  tools: availableTools,
-  joins: [],
-  model: aiModel
-}).pipe(Effect.runPromise)
-```
-
-### vs. Microsoft TaskWeaver
-- **TaskWeaver**: Generates Python code snippets for data analysis
-- **DynamicFlow**: Generates complete workflow graphs with typed operations
-
-```typescript
-// TaskWeaver: Code generation
-"df = pd.read_csv('data.csv'); df.groupby('category').mean()"
-
-// DynamicFlow: Graph generation
-{ steps: [...], rootIds: [...] }
-```
-
-### vs. Plan-and-Execute Agents (LangChain)
-- **P&E Agents**: Create linear sequences of predefined actions
-- **DynamicFlow**: Create full DAGs with conditionals and parallelism
-
-```typescript
-// Plan-and-Execute: Sequential steps
-["fetch_data", "analyze", "report"]
-
-// DynamicFlow: Complete graph topology
-{ parallel: [...], conditional: [...], sequential: [...] }
-```
-
-### vs. CrewAI
-- **CrewAI**: Autonomous agents with predefined roles and workflows
-- **DynamicFlow**: Dynamic graph generation with deterministic execution
-
-### vs. AutoGen
-- **AutoGen**: Multiple agents generating and executing code iteratively
-- **DynamicFlow**: Single planning phase, then pure deterministic execution
 
 ## Core Features
 
@@ -250,77 +149,206 @@ The only framework that generates complete execution graphs per-prompt - not rou
 ### ⚡ Effect-Based Architecture
 First AI framework built on Effect for robust error handling, dependency injection, and composability.
 
-### 🔄 Pausable & Resumable
-Flows can pause for human input, wait for events, or resume after system restarts.
+### 🔄 Production-Ready Persistence
+Complete state management with multiple backends and human-in-the-loop workflows:
+- Multiple storage backends (Filesystem, PostgreSQL, Redis, MongoDB, Neo4j)
+- Automatic state serialization with encryption
+- Suspension/resumption with branded `SuspensionKey` types
+- Human approval and input workflows
 
-### 🔀 Parallel Execution
-Smart worker pool management with graph-aware parallelization.
+### 🤖 LLM Conversation Routing
+Advanced LLM integration with intelligent routing:
+- `Flow.switchRoute` for LLM-powered decision making
+- Conversation memory and context preservation
+- Real-time terminal interfaces
+- Structured conversation flows with persistence
 
-### 📝 Type-Safe Throughout
-Full TypeScript support with Effect.js guarantees, even for dynamically generated graphs.
+### 🔌 MCP Server Integration (NEW)
+Production-ready Model Context Protocol server discovery and integration:
+- **Real MCP server discovery** with automatic tool generation
+- **Type-safe MCP tools** with proper TypeScript inference
+- **Per-server tool generation** from discovered capabilities
+- **Production MCP connections** (no mocks) with cleanup
 
-### 🔌 Extensible
-Integrate with LangChain, MCP servers, or any tool ecosystem.
+## Featured Examples - Try Them Now!
 
-## The TypeScript + Effect Advantage
+### 🗣️ Interactive LLM Conversation with Persistence
+Experience DynamicFlow's conversation capabilities:
 
-You can also define flows programmatically using Effect's powerful composition:
+```bash
+export OPENAI_API_KEY=your_key_here
+npx tsx src/examples/static/16-conversation-final.ts
+```
+
+**Features demonstrated:**
+- LLM-powered conversation routing using `Flow.switchRoute`
+- Filesystem persistence with automatic state saving
+- Natural terminal conversation interface
+- Real OpenAI integration with memory
+- Proper suspension/resumption handling
+
+### 🔧 MCP Server Integration
+See real MCP server discovery and tool generation:
+
+```bash
+npx tsx src/examples/static/15-mcp-curl.ts
+```
+
+**Features demonstrated:**
+- Real MCP filesystem server connections
+- Type-safe tool generation (`string` returns, not `unknown`)
+- Production MCP protocol integration
+- Automatic cleanup and connection management
+
+**Generate your own MCP tools:**
+```bash
+# Discover MCP servers
+npx tsx src/lib/cli/mcp-discovery.ts discover --source network > servers.json
+
+# Generate typed tools
+npx tsx src/lib/cli/mcp-discovery.ts generate -i servers.json -o src/generated/mcp-tools
+
+# Use in your flows with full type safety!
+```
+
+## Human-in-the-Loop Workflows
+
+DynamicFlow provides powerful persistence capabilities for workflows requiring human interaction:
+
+```typescript
+import { Effect, Schema, Duration } from 'effect'
+import { createPersistenceHub, AwaitInputPresets, BackendFactory } from '@jambudipa/dynamic-flow'
+
+// Setup filesystem storage backend
+const backend = await Effect.runPromise(
+  BackendFactory.create({
+    type: 'filesystem',
+    config: { basePath: './suspended-flows' }
+  })
+)
+
+// Create persistence hub
+const hub = await Effect.runPromise(
+  createPersistenceHub(backend, {
+    enableEncryption: false,
+    enableCompression: true,
+    defaultTimeout: Duration.hours(24)
+  })
+)
+
+// Create approval tool that suspends flow
+const approvalTool = AwaitInputPresets.approval(
+  'manager-approval',
+  'Manager Approval',
+  'Requires manager approval'
+).withTimeout(Duration.hours(4)).build(hub)
+
+// Execute tool directly - this will suspend
+try {
+  const result = await Effect.runPromise(
+    approvalTool.execute(undefined, executionContext)
+  )
+} catch (suspensionSignal) {
+  if (suspensionSignal instanceof FlowSuspensionSignal) {
+    console.log('Flow suspended:', suspensionSignal.suspensionKey)
+    
+    // Later, resume with approval
+    const approval = { approved: true, approvedBy: "manager@company.com" }
+    const resumed = await Effect.runPromise(
+      hub.resume(suspensionSignal.suspensionKey, approval)
+    )
+  }
+}
+```
+
+## LLM Conversation Routing
+
+DynamicFlow treats LLMs as powerful tools with intelligent routing capabilities:
 
 ```typescript
 import { Flow } from '@jambudipa/dynamic-flow'
-import { Effect, pipe, Duration, Layer } from 'effect'
+import { LLMServiceLive } from '@jambudipa/dynamic-flow'
+import { Effect, pipe } from 'effect'
 
-const salesAlertFlow = pipe(
-  // Fetch sales data with Effect
-  Effect.succeed({ period: "last_30_days" }),
-  Flow.andThen(fetchSalesData),
+// Available tools for conversation
+const availableTools = [
+  weatherTool,
+  calculatorTool, 
+  emailTool,
+  fileSearchTool
+]
+
+// Create conversation flow with LLM routing
+const conversationFlow = pipe(
+  Flow.succeed(conversationInput),
   
-  // Analyze trends with timeout
-  Flow.andThen(salesData =>
-    pipe(
-      analyzeTrends(salesData),
-      Effect.timeout(Duration.seconds(30))
-    )
-  ),
-  
-  // Conditional alerting
-  Flow.andThen(trends =>
-    Flow.doIf(
-      () => trends.revenueChange < -10,
-      {
-        onTrue: () => Flow.parallel({
-          email: pipe(
-            sendEmail({
-              to: "team@company.com",
-              subject: "Revenue Alert",
-              body: trends.summary
-            }),
-            Effect.provide(EmailContext)
-          ),
-          slack: postSlack({
-            channel: "#alerts",
-            message: `⚠️ Revenue dropped ${trends.revenueChange}%`
-          })
-        }),
-        onFalse: () => Effect.succeed({ status: "ok" })
-      }
-    )
-  ),
-  
-  // Error handling with Effect
-  Flow.catchAll(error =>
-    pipe(
-      Effect.logError("Sales alert flow failed", error),
-      Effect.zipRight(notifyOps(error))
-    )
-  ),
-  
-  // Provide required contexts
-  Effect.provide(
-    Layer.merge(DatabaseLayer, NotificationLayer)
+  // LLM decides which tool to use based on user input
+  Flow.switchRoute(
+    'Analyze the user request and select the most appropriate tool',
+    availableTools,
+    {
+      weather: (input) => handleWeatherRequest(input),
+      calculator: (input) => handleCalculation(input),
+      email: (input) => handleEmail(input),
+      fileSearch: (input) => handleFileSearch(input)
+    }
+  )
+)
+
+// Execute with OpenAI integration
+const result = await Effect.runPromise(
+  pipe(
+    Flow.run(conversationFlow),
+    Effect.provide(LLMServiceLive)
   )
 )
 ```
+
+**Real Working Example:**
+```bash
+npx tsx src/examples/static/16-conversation-final.ts
+```
+
+## MCP Server Integration
+
+DynamicFlow includes production-ready MCP (Model Context Protocol) integration:
+
+### Discover & Generate Tools
+```bash
+# Discover available MCP servers
+npx tsx src/lib/cli/mcp-discovery.ts discover --source network --output json
+
+# Generate tools from specific server
+npx tsx src/lib/cli/mcp-discovery.ts discover \
+  --source url \
+  --filter "stdio://npx @modelcontextprotocol/server-filesystem /tmp" \
+  > filesystem-server.json
+
+# Generate TypeScript tools with proper typing
+npx tsx src/lib/cli/mcp-discovery.ts generate \
+  -i filesystem-server.json \
+  -o src/generated/filesystem-tools
+```
+
+### Use Generated Tools with Full Type Safety
+```typescript
+// Generated tools have proper TypeScript types
+import { read_text_fileTool, list_directoryTool } from '../generated/filesystem-tools'
+
+// read_text_fileTool returns string (not unknown!)
+const fileContent: string = await read_text_fileTool.execute({ 
+  path: '/path/to/file.txt' 
+})
+
+// list_directoryTool returns Array<{name: string, type: 'file' | 'directory', size?: number}>
+const files = await list_directoryTool.execute({ path: '/path/to/dir' })
+```
+
+**MCP Integration Features:**
+- **Per-server discovery**: Each MCP server gets its own tool file
+- **Smart type inference**: Tool return types inferred from names and capabilities  
+- **Real connections**: Production MCP protocol, not mocks
+- **Automatic cleanup**: Proper connection management and disconnection
 
 ## Quick Start
 
@@ -328,6 +356,7 @@ const salesAlertFlow = pipe(
 npm install @jambudipa/dynamic-flow effect
 ```
 
+### Basic Flow Composition
 ```typescript
 import { Flow } from '@jambudipa/dynamic-flow'
 import { Effect, pipe } from 'effect'
@@ -340,108 +369,41 @@ const myFlow = pipe(
 )
 
 // Run the flow
-const result = await Flow.run(myFlow)
+const result = await Effect.runPromise(
+  Flow.run(myFlow)
+)
 console.log(result) // "HELLO, WORLD!"
 ```
 
-### 1. Create Pipeable Tools
-
+### Create Tools with Schema Validation
 ```typescript
-import { Tools, Flow } from '@jambudipa/dynamic-flow'
-import { Effect, pipe, Schema } from 'effect'
+import { Tools } from '@jambudipa/dynamic-flow'
+import { Schema } from 'effect'
 
-// Define a weather tool that returns an Effect
-const fetchWeather = Tools.createTool({
-  id: 'fetchWeather',
+const weatherTool = Tools.createTool({
+  id: 'weather',
   name: 'Weather Fetcher',
-  description: 'Fetch current weather for a city',
-  inputSchema: Schema.Struct({ city: Schema.String }),
+  description: 'Get current weather for a city',
+  inputSchema: Schema.Struct({
+    city: Schema.String
+  }),
   outputSchema: Schema.Struct({
-    temp: Schema.Number,
+    temperature: Schema.Number,
     conditions: Schema.String,
     humidity: Schema.Number
   }),
-  execute: (input, context) =>
-    Effect.succeed({
-      temp: 72,
-      conditions: 'sunny',
-      humidity: 45
-    })
+  execute: (input, context) => Effect.succeed({
+    temperature: 72,
+    conditions: 'sunny',
+    humidity: 45
+  })
 })
 
-// Use the tool in a pipeable flow
-const weatherFlow = pipe(
-  Effect.succeed({ city: 'San Francisco' }),
-  Flow.andThen(fetchWeather)
-)
-```
-
-### 2. AI-Generated Flow Execution
-
-```typescript
-import { Flow } from '@jambudipa/dynamic-flow'
-import { Effect, pipe } from 'effect'
-
-// Your AI generates a complete execution plan as JSON
-const userRequest = "Check weather in multiple cities and alert if any have storms"
-
-// Use DynamicFlow to generate and execute a workflow from the prompt
-const weatherAnalysisFlow = pipe(
-  Effect.succeed(['San Francisco', 'New York', 'London']),
-  Flow.andThen(cities =>
-    Flow.parallel({
-      weather_data: Effect.all(cities.map(city => fetchWeather({ city }))),
-      storm_alerts: Effect.all(cities.map(city => checkStormAlerts({ city })))
-    })
-  ),
-  Flow.andThen(({ weather_data, storm_alerts }) =>
-    Flow.doIf(
-      () => storm_alerts.some(alert => alert.severity > 7),
-      {
-        onTrue: () => Effect.succeed({ alert: 'Storm detected!', data: weather_data }),
-        onFalse: () => Effect.succeed({ alert: 'All clear', data: weather_data })
-      }
-    )
-  )
-)
-
-const result = await Flow.run(weatherAnalysisFlow)
-```
-
-### 3. Advanced Flow Composition
-
-```typescript
-import { Flow, Tools } from '@jambudipa/dynamic-flow'
-import { Effect, pipe } from 'effect'
-
-// Compose complex flows with conditional logic and parallel processing
-const weatherAnalysisFlow = pipe(
-  Effect.succeed({ cities: ['San Francisco', 'New York', 'London'] }),
-  Flow.andThen(({ cities }) =>
-    Flow.parallel({
-      weather: Effect.all(cities.map(city => fetchWeather({ city }))),
-      populations: Effect.all(cities.map(city => getCityPopulation({ city })))
-    })
-  ),
-  Flow.andThen(({ weather, populations }) =>
-    pipe(
-      Effect.succeed({ weather, populations }),
-      Flow.map(data => ({
-        averageTemp: data.weather.reduce((sum, w) => sum + w.temp, 0) / data.weather.length,
-        totalPopulation: data.populations.reduce((sum, p) => sum + p.count, 0),
-        report: `Analyzed ${data.weather.length} cities`
-      })),
-      Flow.doIf(
-        (analysis) => analysis.averageTemp > 80,
-        {
-          onTrue: (analysis) => 
-            sendHeatwaveAlert(analysis),
-          onFalse: (analysis) => 
-            Effect.succeed({ ...analysis, alert: 'Normal temperatures' })
-        }
-      )
-    )
-  )
+// Use in flows with full type safety
+const weatherFlow = Flow.pipe(
+  Flow.input(CitySchema),
+  Flow.tool(weatherTool),
+  Flow.map(weather => `It's ${weather.temperature}°F and ${weather.conditions}`)
 )
 ```
 
@@ -453,32 +415,23 @@ Comprehensive guides and API references are available in the [`/docs`](./docs) d
 #### 🚀 Getting Started
 - **[Complete Documentation Index](./docs/README.md)** - Overview of all documentation
 - **[Getting Started Guide](./docs/guides/getting-started.md)** - Quick start and core concepts
-- **[Core Execution Scenarios](./docs/README.md#core-execution-scenarios)** - Static vs Dynamic, Sync vs Streaming
 
-#### 📖 API Reference
+#### 📖 API Reference  
 - **[Flow API](./docs/api/flow.md)** - Pipeable operations for functional composition
 - **[Tools API](./docs/api/tools.md)** - Creating and managing typed tools
-- **[DynamicFlow API](./docs/api/dynamic-flow.md)** - AI-powered workflow generation
+- **[Persistence API](./docs/api/persistence.md)** - Flow suspension and resumption
 
-#### 📚 Comprehensive Guides
-- **[Pipeable Patterns](./docs/guides/pipeable-patterns.md)** - Advanced functional composition patterns
-- **[DynamicFlows](./docs/guides/dynamic-flows.md)** - AI-generated workflow best practices
+#### 📚 Guides
+- **[Pipeable Patterns](./docs/guides/pipeable-patterns.md)** - Advanced functional composition
+- **[DynamicFlows](./docs/guides/dynamic-flows.md)** - AI-generated workflows
 
-#### ⭐ Key Features
-- **[Runtime Graph Generation](./docs/features/runtime-graph-generation.md)** - How AI creates complete workflows
-- **[Effect.js Integration](./docs/features/effect-integration.md)** - Functional programming benefits
-
-### 🚀 Examples
-Our examples are being refreshed. For now:
-- See [Core Execution Scenarios](./docs/README.md#core-execution-scenarios)
-- Browse guides like [Pipeable Patterns](./docs/guides/pipeable-patterns.md) and [Dynamic Flows](./docs/guides/dynamic-flows.md)
-- The [`/examples`](./examples) directory will be updated shortly
+### 🚀 More Examples
+- **[All Static Examples](src/examples/static/)** - Complete working examples
+- **[LLM Integration Examples](src/examples/static/06-llm-call.ts)** - OpenAI integration
+- **[Persistence Examples](src/examples/static/)** - Human-in-the-loop workflows
 
 ### 💬 Community
 Join the discussion: [GitHub Issues](https://github.com/jambudipa/dynamic-flow/issues) | [GitHub Discussions](https://github.com/jambudipa/dynamic-flow/discussions)
-
-### 🤝 Contributing
-We welcome contributions! Please open an issue or start a discussion on GitHub. A CONTRIBUTING guide will be added soon.
 
 ## Why Choose DynamicFlow?
 
@@ -487,35 +440,42 @@ We welcome contributions! Please open an issue or start a discussion on GitHub. 
 | **Runtime Graph Generation** | ✅ Complete | ❌ Static | ❌ Code only | ❌ Static | ❌ Code only |
 | **Graph Topology Per-Prompt** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No |
 | **Deterministic Execution** | ✅ Always | ⚠️ Optional | ✅ Yes | ✅ Flows | ⚠️ Varies |
-| **No LLM During Execution** | ✅ Yes | ❌ Often | ⚠️ Sometimes | ⚠️ Mode-dependent | ❌ Multiple calls |
-| **Type Safety** | ✅ Full Effect.js | ✅ TypeScript | ⚠️ Python | ⚠️ Python | ⚠️ Python |
-| **JSON Graph Definition** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No |
-| **Pausable Flows** | ✅ Built-in | ✅ Yes | ⚠️ Stateful | ✅ Yes | ❌ No |
-| **Effect.js Based** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Type Safety** | ✅ Full Effect | ✅ TypeScript | ⚠️ Python | ⚠️ Python | ⚠️ Python |
+| **Persistence** | ✅ Multi-backend | ✅ Yes | ⚠️ Stateful | ✅ Yes | ❌ No |
+| **LLM Conversation** | ✅ Advanced routing | ⚠️ Basic | ❌ No | ⚠️ Basic | ✅ Multi-agent |
+| **MCP Integration** | ✅ Production ready | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Effect Based** | ✅ Yes | ❌ No | ❌ No | ❌ No | ❌ No |
 
 ## The Bottom Line
 
 DynamicFlow is the only framework that:
 1. **Generates complete execution graphs** (not just plans or code) at runtime
-2. **Creates unique graph topologies** for each prompt (not routing through static graphs)
+2. **Creates unique graph topologies** for each prompt (not routing through static graphs)  
 3. **Executes deterministically** without LLM involvement after planning
-4. **Uses Effect.js** for functional, type-safe workflow composition
-5. **Represents graphs as JSON** for safety, debugging, and portability
+4. **Uses Effect** for functional, type-safe workflow composition
+5. **Provides production-ready persistence** with multiple backends and human workflows
+6. **Includes intelligent LLM conversation routing** with memory and context
+7. **Integrates with MCP servers** for real tool discovery and type-safe generation
 
 This isn't an incremental improvement - it's a fundamentally different approach to AI orchestration.
 
-## Status – Early Look
+## Status
 
-- Early alpha: many features are still in development.
-- Orchestration-first: focuses on workflow orchestration, not a general AI/NLP toolkit.
-- Feedback welcome: please share ideas and feature requests via GitHub Issues or Discussions.
+- **Production-ready core**: Flow composition, persistence, and MCP integration are stable
+- **Active development**: Performance optimizations and additional features in progress  
+- **Feedback welcome**: Please share ideas via GitHub Issues or Discussions
 
 ## Next Steps
 
-- Performance is an issue (30s to create and execute a dynamic flow).
-- Add testing (very TDD madam).
-- First major feature: persistence of flow state.
+- Performance optimizations for dynamic flow generation
+- Additional MCP server integrations
+- Enhanced conversation routing capabilities
+- More comprehensive testing suite
 
 ## License
 
 MIT © DynamicFlow Contributors
+
+---
+
+Built with ❤️ by [JAMBUDIPA](https://jambudipa.io)

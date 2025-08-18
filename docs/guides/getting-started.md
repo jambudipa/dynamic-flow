@@ -58,7 +58,9 @@ const helloFlow = pipe(
 )
 
 // Run the flow
-const result = await Flow.run(helloFlow)
+const result = await Effect.runPromise(
+  Flow.run(helloFlow)
+)
 console.log(result) // "HELLO, WORLD!"
 ```
 
@@ -71,7 +73,7 @@ Tools are the building blocks that LLMs can use in generated workflows:
 ```typescript
 // weather-tool.ts
 import { Tools } from '@jambudipa/dynamic-flow'
-import { Effect, Schema} from 'effect'
+import { Effect, Schema } from 'effect'
 
 const weatherTool = Tools.createTool({
   id: 'fetchWeather',
@@ -104,20 +106,21 @@ Now let's create a workflow that's planned by AI:
 ```typescript
 // ai-workflow.ts
 import { DynamicFlow } from '@jambudipa/dynamic-flow'
-import { OpenAi } from '@effect/ai-openai'
-import { Stream, Effect } from 'effect'
+import { OpenAiEffectModel } from '@jambudipa/dynamic-flow'
+import { Stream, Effect, pipe } from 'effect'
 import { weatherTool } from './weather-tool'
 
 // Create AI model
-const model = OpenAi.completion('gpt-4')
+const model = new OpenAiEffectModel()
 
 // Execute AI-planned workflow
-await DynamicFlow.execute({
-  prompt: "Check the weather in London and tell me if it's good for outdoor activities",
-  tools: [weatherTool],
-  joins: [],
-  model
-}).pipe(
+await pipe(
+  DynamicFlow.execute({
+    prompt: "Check the weather in London and tell me if it's good for outdoor activities",
+    tools: [weatherTool],
+    joins: [],
+    model
+  }),
   Stream.tap(event => Effect.sync(() => {
     console.log(`Event: ${event.type}`)
     if (event.type === 'flow-complete') {
@@ -142,7 +145,7 @@ Result: { analysis: "With sunny conditions and 22°C, it's perfect for outdoor a
 
 ### Effects and Pipeable Operations
 
-DynamicFlow is built on Effect.js, providing functional composition through piping:
+DynamicFlow is built on Effect, providing functional composition through piping:
 
 ```typescript
 const dataFlow = pipe(
@@ -168,14 +171,14 @@ const emailTool = Tools.createTool({
   id: 'sendEmail',
   name: 'Email Sender',
   description: 'Send emails to users with subject and body',
-  inputSchema: S.Struct({
-    to: S.String,
-    subject: S.String,
-    body: S.String
+  inputSchema: Schema.Struct({
+    to: Schema.String,
+    subject: Schema.String,
+    body: Schema.String
   }),
-  outputSchema: S.Struct({
-    sent: S.Boolean,
-    messageId: S.String
+  outputSchema: Schema.Struct({
+    sent: Schema.Boolean,
+    messageId: Schema.String
   }),
   execute: (input, context) =>
     Effect.succeed({
@@ -193,23 +196,29 @@ Define workflows explicitly using the Flow API:
 ```typescript
 const staticFlow = pipe(
   Effect.succeed({ city: 'Paris' }),
-  Flow.andThen(weatherTool.execute),
+  Flow.andThen(input => weatherTool.execute(input, executionContext)),
   Flow.map(weather => `Temperature in Paris: ${weather.temperature}°C`)
 )
 
-const result = await Flow.run(staticFlow)
+const result = await Effect.runPromise(
+  Flow.run(staticFlow)
+)
 ```
 
 #### Dynamic Flows (AI-Generated)
 Let AI generate workflows from natural language:
 
 ```typescript
-await DynamicFlow.execute({
-  prompt: "Check Paris weather and email me a summary",
-  tools: [weatherTool, emailTool],
-  joins: [],
-  model
-})
+await pipe(
+  DynamicFlow.execute({
+    prompt: "Check Paris weather and email me a summary",
+    tools: [weatherTool, emailTool],
+    joins: [],
+    model
+  }),
+  Stream.runDrain,
+  Effect.runPromise
+)
 ```
 
 ## Common Patterns
@@ -327,8 +336,10 @@ import { Flow } from '@jambudipa/dynamic-flow'
 
 describe('User Management Flows', () => {
   it('should create user successfully', async () => {
-    const result = await Flow.run(
-      createUserFlow({ email: 'test@example.com', name: 'Test User' })
+    const result = await Effect.runPromise(
+      Flow.run(
+        createUserFlow({ email: 'test@example.com', name: 'Test User' })
+      )
     )
     
     expect(result.created).toBe(true)
@@ -352,10 +363,10 @@ const specificTool = Tools.createTool({
   id: 'calculateShipping',
   name: 'Shipping Calculator',
   description: 'Calculate shipping cost based on weight, distance, and service level',
-  inputSchema: S.Struct({
-    weightKg: S.Number.pipe(S.positive()),
-    distanceKm: S.Number.pipe(S.positive()),
-    serviceLevel: S.Union(S.Literal('standard'), S.Literal('express'), S.Literal('overnight'))
+  inputSchema: Schema.Struct({
+    weightKg: Schema.Number.pipe(Schema.positive()),
+    distanceKm: Schema.Number.pipe(Schema.positive()),
+    serviceLevel: Schema.Union(Schema.Literal('standard'), Schema.Literal('express'), Schema.Literal('overnight'))
   }),
   // ... rest
 })
@@ -365,7 +376,7 @@ const vagueTool = Tools.createTool({
   id: 'doStuff',
   name: 'Do Stuff',
   description: 'Does things',
-  inputSchema: S.Unknown,
+  inputSchema: Schema.Unknown,
   // ... rest  
 })
 ```
@@ -430,8 +441,8 @@ console.log('Available tools:', registry.getAllIds())
 **Schema Validation Error**
 ```typescript
 // Debug schema issues
-const result = S.decodeUnknownEither(schema)(data)
-if (result._tag === 'Left') {
+const result = Schema.decodeUnknownEither(schema)(data)
+if (Either.isLeft(result)) {
   console.log('Validation error:', result.left)
 }
 ```
@@ -473,7 +484,7 @@ const options = {
 
 Now that you've got the basics:
 
-1. **Explore Examples**: Check out the [`/examples`](../examples/) directory for more patterns
+1. **Explore Examples**: Check out the [`/src/examples`](../../src/examples/) directory for more patterns
 2. **Read API Docs**: Deep dive into the [Flow API](../api/flow.md) and [Tools API](../api/tools.md)
 3. **Build Real Tools**: Create tools for your specific domain (databases, APIs, etc.)
 4. **Deploy to Production**: Set up proper error handling, monitoring, and logging
@@ -500,6 +511,6 @@ Now that you've got the basics:
 ## Resources
 
 - **API Reference**: [Flow](../api/flow.md) | [Tools](../api/tools.md) | [DynamicFlow](../api/dynamic-flow.md)
-- **Guides**: [Advanced Patterns](./advanced-patterns.md) | [Error Handling](./error-handling.md)
-- **Examples**: [Basic Examples](../../examples/static/) | [Dynamic Examples](../../examples/dynamic/)
+- **Guides**: [Pipeable Patterns](./pipeable-patterns.md) | [Dynamic Flows](./dynamic-flows.md)
+- **Examples**: [Basic Examples](../../src/examples/static/) | [Dynamic Examples](../../src/examples/dynamic/)
 - **Community**: [GitHub Issues](https://github.com/jambudipa/dynamic-flow/issues) | [Discussions](https://github.com/jambudipa/dynamic-flow/discussions)

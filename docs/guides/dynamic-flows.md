@@ -63,7 +63,7 @@ const instance = await DynamicFlow.generate({
   prompt: "Analyze user feedback and create actionable insights",
   tools: [textAnalysisTool, sentimentTool, reportTool],
   joins: [],
-  model: OpenAi.completion('gpt-4')
+  model: OpenAi.completion('gpt-5')
 })
 
 // Inspect generated plan
@@ -141,7 +141,7 @@ The AI creates a structured workflow definition:
     "name": "User Email Validation and Welcome",
     "description": "Validates user email and sends welcome message",
     "generated": true,
-    "model": "gpt-4",
+    "model": "gpt-5",
     "timestamp": "2024-01-15T10:30:00Z"
   },
   "nodes": [
@@ -876,7 +876,7 @@ Use different AI models for different types of tasks:
 ```typescript
 const multiModelWorkflow = async (complexRequest: unknown) => {
   // Use fast model for planning
-  const planningModel = OpenAi.completion('gpt-3.5-turbo')
+  const planningModel = OpenAi.completion('gpt-5')
   const quickPlan = await DynamicFlow.generate({
     prompt: "Create initial processing plan and identify complex steps",
     tools: planningTools,
@@ -890,7 +890,7 @@ const multiModelWorkflow = async (complexRequest: unknown) => {
 
   // Use advanced model for complex reasoning
   if (plan.output.requiresAdvancedReasoning) {
-    const advancedModel = OpenAi.completion('gpt-4')
+    const advancedModel = OpenAi.completion('gpt-5')
     const advancedWorkflow = await DynamicFlow.generate({
       prompt: `
         Handle complex reasoning task:
@@ -909,7 +909,7 @@ const multiModelWorkflow = async (complexRequest: unknown) => {
   }
 
   // Use standard model for routine processing
-  const standardModel = OpenAi.completion('gpt-3.5-turbo')
+  const standardModel = OpenAi.completion('gpt-5')
   const standardWorkflow = await DynamicFlow.generate({
     prompt: "Execute standard processing workflow",
     tools: standardTools,

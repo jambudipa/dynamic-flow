@@ -50,8 +50,8 @@ const tools = [
     id: 'fetchWeather',
     name: 'Weather Fetcher', 
     description: 'Get current weather for a city',
-    inputSchema: S.Struct({ city: S.String }),
-    outputSchema: S.Struct({ temp: S.Number, conditions: S.String }),
+    inputSchema: Schema.Struct({ city: Schema.String }),
+    outputSchema: Schema.Struct({ temp: Schema.Number, conditions: Schema.String }),
     execute: (input, context) => 
       Effect.succeed({ temp: 22, conditions: 'sunny' })
   }),
@@ -59,28 +59,29 @@ const tools = [
     id: 'sendEmail',
     name: 'Email Sender',
     description: 'Send an email notification',
-    inputSchema: S.Struct({ to: S.String, subject: S.String, body: S.String }),
-    outputSchema: S.Struct({ sent: S.Boolean }),
+    inputSchema: Schema.Struct({ to: Schema.String, subject: Schema.String, body: Schema.String }),
+    outputSchema: Schema.Struct({ sent: Schema.Boolean }),
     execute: (input, context) => 
       Effect.succeed({ sent: true })
   })
 ]
 
 // Create AI model
-const model = OpenAi.completion('gpt-4')
+const model = OpenAi.completion('gpt-5')
 
 // Execute dynamic workflow
-await DynamicFlow.execute({
-  prompt: "Check the weather in London and email me a summary",
-  tools,
-  joins: [],
-  model,
-  options: {
-    maxSteps: 10,
-    timeout: Duration.minutes(5),
-    enableCaching: true
-  }
-}).pipe(
+await pipe(
+  DynamicFlow.execute({
+    prompt: "Check the weather in London and email me a summary",
+    tools,
+    joins: [],
+    model,
+    options: {
+      maxSteps: 10,
+      timeout: Duration.minutes(5),
+      enableCaching: true
+    }
+  }),
   Stream.tap(event => Effect.sync(() => {
     console.log(`Event: ${event.type}`, event)
   })),
@@ -111,7 +112,7 @@ const flowInstance = await DynamicFlow.generate({
   prompt: "Process user registration and send welcome email",
   tools: [registrationTool, emailTool, auditTool],
   joins: [userToEmailJoin],
-  model: OpenAi.completion('gpt-4')
+  model: OpenAi.completion('gpt-5')
 })
 
 // Inspect the generated plan
@@ -363,9 +364,9 @@ For workflows requiring multiple LLM calls, DynamicFlow supports model pools for
 ```typescript
 const modelPool = createModelPool({
   models: [
-    OpenAi.completion('gpt-4'),
-    OpenAi.completion('gpt-3.5-turbo'),
-    OpenAi.completion('gpt-4')
+    OpenAi.completion('gpt-5'),
+    OpenAi.completion('gpt-5'),
+    OpenAi.completion('gpt-5')
   ],
   maxConcurrent: 3,
   queueTimeout: Duration.seconds(30),
@@ -721,7 +722,7 @@ describe('DynamicFlow', () => {
 ```typescript
 describe('DynamicFlow Integration', () => {
   it('should handle real API calls', async () => {
-    const realModel = OpenAi.completion('gpt-3.5-turbo')
+    const realModel = OpenAi.completion('gpt-5')
     
     const result = await DynamicFlow.execute({
       prompt: "Get weather for London and format as JSON",
