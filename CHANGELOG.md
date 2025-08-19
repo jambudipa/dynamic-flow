@@ -4,6 +4,17 @@
 
 ### Patch Changes
 
+- Fix Effect package version compatibility issues
+  - Updated @effect/ai from ^0.25.0 to ^0.26.0
+  - Updated @effect/ai-openai from ^0.28.1 to ^0.29.0
+  - Updated @effect/platform from ^0.95.0 to ^0.90.5
+  - Updated @effect/platform-node from ^0.95.0 to ^0.96.0
+  - Resolved peer dependency conflicts preventing clean npm install
+
+## 0.2.2
+
+### Patch Changes
+
 - Fix logging service issues in examples and update documentation
   - Resolve service dependency issues in dynamic example 05
   - Switch from runCollect() to streaming execution to avoid IR executor service requirements
