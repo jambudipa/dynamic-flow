@@ -1,0 +1,481 @@
+
+> @jambudipa/dynamic-flow@0.2.3 test:coverage
+> vitest run --coverage
+
+[33mTesting types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.[39m
+
+[7m[1m[36m RUN [39m[22m[27m [36mv1.6.1[39m [90m/home/runner/work/dynamic-flow/dynamic-flow[39m
+[2m      Coverage enabled with [22m[33mv8[39m
+
+ [32m✓[39m src/lib/types/guards.test.ts [2m ([22m[2m54 tests[22m[2m)[22m[90m 21[2mms[22m[39m
+ [32m✓[39m src/lib/types/guards.test.ts [2m ([22m[2m54 tests[22m[2m)[22m[90m 34[2mms[22m[39m
+ [32m✓[39m tests/e2e/complete-workflows.test.ts [2m ([22m[2m5 tests[22m[2m)[22m[90m 125[2mms[22m[39m
+ [32m✓[39m src/lib/services/services.test.ts [2m ([22m[2m23 tests[22m[2m)[22m[90m 136[2mms[22m[39m
+ [32m✓[39m src/lib/services/services.test.ts [2m ([22m[2m23 tests[22m[2m)[22m[90m 132[2mms[22m[39m
+ [32m✓[39m tests/integration/flow-execution.test.ts [2m ([22m[2m10 tests[22m[2m)[22m[90m 33[2mms[22m[39m
+ [32m✓[39m src/lib/operators/operators.test.ts [2m ([22m[2m18 tests[22m [2m|[22m [33m8 skipped[39m[2m)[22m[90m 15[2mms[22m[39m
+ [32m✓[39m src/lib/operators/operators.test.ts [2m ([22m[2m18 tests[22m [2m|[22m [33m8 skipped[39m[2m)[22m[90m 18[2mms[22m[39m
+ [32m✓[39m src/lib/compiler/json-to-ir-simple.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[90m 18[2mms[22m[39m
+ [32m✓[39m src/lib/persistence/index.test.ts [2m ([22m[2m22 tests[22m[2m)[22m[33m 713[2mms[22m[39m
+ [32m✓[39m src/lib/compiler/json-to-ir-simple.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[90m 27[2mms[22m[39m
+ [32m✓[39m src/lib/persistence/index.test.ts [2m ([22m[2m22 tests[22m[2m)[22m[33m 562[2mms[22m[39m
+ [32m✓[39m src/lib/utils/index.test.ts [2m ([22m[2m14 tests[22m[2m)[22m[33m 602[2mms[22m[39m
+ [32m✓[39m src/lib/utils/index.test.ts [2m ([22m[2m14 tests[22m[2m)[22m[33m 448[2mms[22m[39m
+ [32m✓[39m src/lib/pipe.test.ts [2m ([22m[2m20 tests[22m[2m)[22m[90m 27[2mms[22m[39m
+ [32m✓[39m src/lib/pipe.test.ts [2m ([22m[2m20 tests[22m[2m)[22m[90m 12[2mms[22m[39m
+ [32m✓[39m src/lib/core/index.test.ts [2m ([22m[2m17 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+ [32m✓[39m src/lib/core/index.test.ts [2m ([22m[2m17 tests[22m[2m)[22m[90m 15[2mms[22m[39m
+ [32m✓[39m src/lib/flow/flow.test.ts [2m ([22m[2m13 tests[22m[2m)[22m[90m 197[2mms[22m[39m
+[90mstdout[2m | src/lib/execution-error-regression.test.ts[2m > [22m[2mDynamic Flow Execution Error Regression[2m > [22m[2mshould not fail with undefined property access in tool execution[22m[39m
+Skipping test - no OPENAI_API_KEY provided
+
+ [32m✓[39m src/lib/flow/flow.test.ts [2m ([22m[2m13 tests[22m[2m)[22m[90m 198[2mms[22m[39m
+ [32m✓[39m src/lib/execution-error-regression.test.ts [2m ([22m[2m2 tests[22m[2m)[22m[90m 5[2mms[22m[39m
+[90mstdout[2m | src/lib/execution-error-regression.test.ts[2m > [22m[2mDynamic Flow Execution Error Regression[2m > [22m[2mshould not fail with undefined property access in tool execution[22m[39m
+Skipping test - no OPENAI_API_KEY provided
+
+ [32m✓[39m src/lib/execution-error-regression.test.ts [2m ([22m[2m2 tests[22m[2m)[22m[90m 4[2mms[22m[39m
+ [32m✓[39m src/lib/generation/index.test.ts [2m ([22m[2m16 tests[22m[2m)[22m[33m 1330[2mms[22m[39m
+ [32m✓[39m src/lib/generation/index.test.ts [2m ([22m[2m16 tests[22m[2m)[22m[33m 1381[2mms[22m[39m
+ [32m✓[39m src/lib/llm/index.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[33m 1126[2mms[22m[39m
+[90mstdout[2m | src/lib/schema-validation-debug.test.ts[2m > [22m[2mSchema Validation Debug[2m > [22m[2mshould validate the complete flat dynamic flow JSON[22m[39m
+Testing complete flat dynamic flow validation...
+Complete JSON is valid according to FlatDynamicFlow schema
+
+[90mstdout[2m | src/lib/schema-validation-debug.test.ts[2m > [22m[2mSchema Validation Debug[2m > [22m[2mshould identify what is wrong with flatToRecursive[22m[39m
+Testing flatToRecursive with captured JSON...
+Transformation succeeded: {
+  version: '1.0',
+  metadata: {
+    name: 'Compare gross vs subtle selflessness of persons',
+    description: 'Search corpus, retrieve relevant book sections and audio, compare descriptions, clarify if unclear/overlapping, summarise distinction, and check for contradictions.',
+    author: 'flow-generator',
+    created: '2025-08-19'
+  },
+  flow: [
+    {
+      id: 's1',
+      output: undefined,
+      timeout: undefined,
+      retry: undefined,
+      description: "Search the library for mentions of 'gross selflessness of persons' and 'subtle selflessness of persons', including related sections and audio.",
+      tool: 'corpus:search',
+      args: {}
+    },
+    {
+      id: 'p1',
+      output: undefined,
+      timeout: undefined,
+      retry: undefined,
+      description: 'In parallel, retrieve top relevant book sections and any related audio transcripts from the search results ($s1.output).',
+      parallel: [Array]
+    },
+    {
+      id: 's5',
+      output: undefined,
+      timeout: undefined,
+      retry: undefined,
+      description: "Compare how 'gross selflessness of persons' and 'subtle selflessness of persons' are described across the retrieved book sections and audio transcript.",
+      tool: 'llm:compare',
+      args: {}
+    }
+  ]
+}
+
+[90mstdout[2m | src/lib/schema-validation-debug.test.ts[2m > [22m[2mSchema Validation Debug[2m > [22m[2mshould validate the flat schema structure[22m[39m
+Testing step 0: s1 (type: tool)
+Step s1 is valid
+Testing step 1: p1 (type: parallel)
+Step p1 is valid
+Testing step 2: s2 (type: tool)
+Step s2 is valid
+Testing step 3: s3 (type: tool)
+Step s3 is valid
+Testing step 4: s4 (type: tool)
+Step s4 is valid
+Testing step 5: s5 (type: tool)
+Step s5 is valid
+
+[90mstdout[2m | src/lib/schema-validation-debug.test.ts[2m > [22m[2mSchema Validation Debug[2m > [22m[2mshould test the specific failing step types[22m[39m
+Parallel operator: exists
+Parallel operator schema: ParallelOperator {
+  name: 'parallel',
+  type: 'parallel',
+  description: 'Executes multiple steps concurrently',
+  recursiveSchema: [Function: TypeLiteralClass] {
+    fields: {
+      id: [Function: String$],
+      output: [PropertySignatureWithFromImpl],
+      timeout: [PropertySignatureWithFromImpl],
+      retry: [PropertySignatureWithFromImpl],
+      description: [PropertySignatureWithFromImpl],
+      parallel: [Function]
+    },
+    records: [],
+    make: [Function: make]
+  },
+  flatSchema: [Function: TypeLiteralClass] {
+    fields: {
+      id: [Function: String$],
+      output: [PropertySignatureWithFromImpl],
+      timeout: [PropertySignatureWithFromImpl],
+      retry: [PropertySignatureWithFromImpl],
+      description: [PropertySignatureWithFromImpl],
+      type: [Function],
+      parallelIds: [Function]
+    },
+    records: [],
+    make: [Function: make]
+  }
+}
+Found parallel step: {
+  id: 'p1',
+  description: 'In parallel, retrieve top relevant book sections and any related audio transcripts from the search results ($s1.output).',
+  type: 'parallel',
+  parallelIds: [ 's2', 's3', 's4' ]
+}
+Parallel transformation result: {
+  id: 'p1',
+  description: 'In parallel, retrieve top relevant book sections and any related audio transcripts from the search results ($s1.output).',
+  parallel: [
+    {
+      id: 's2',
+      description: 'Get a relevant book section discussing gross selflessness of persons from the search results ($s1.output).',
+      type: 'tool',
+      tool: 'book:get-section',
+      args: {}
+    },
+    {
+      id: 's3',
+      description: 'Get a relevant book section discussing subtle selflessness of persons from the search results ($s1.output).',
+      type: 'tool',
+      tool: 'book:get-section',
+      args: {}
+    },
+    {
+      id: 's4',
+      description: 'Get a related audio teaching transcript that discusses gross/subtle selflessness of persons from the search results ($s1.output).',
+      type: 'tool',
+      tool: 'audio:get-transcript',
+      args: {}
+    }
+  ]
+}
+
+ [32m✓[39m src/lib/schema-validation-debug.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[90m 10[2mms[22m[39m
+ [32m✓[39m src/lib/llm/index.test.ts [2m ([22m[2m11 tests[22m[2m)[22m[33m 1143[2mms[22m[39m
+[90mstdout[2m | src/lib/schema-validation-debug.test.ts[2m > [22m[2mSchema Validation Debug[2m > [22m[2mshould validate the complete flat dynamic flow JSON[22m[39m
+Testing complete flat dynamic flow validation...
+Complete JSON is valid according to FlatDynamicFlow schema
+
+[90mstdout[2m | src/lib/schema-validation-debug.test.ts[2m > [22m[2mSchema Validation Debug[2m > [22m[2mshould identify what is wrong with flatToRecursive[22m[39m
+Testing flatToRecursive with captured JSON...
+Transformation succeeded: {
+  version: '1.0',
+  metadata: {
+    name: 'Compare gross vs subtle selflessness of persons',
+    description: 'Search corpus, retrieve relevant book sections and audio, compare descriptions, clarify if unclear/overlapping, summarise distinction, and check for contradictions.',
+    author: 'flow-generator',
+    created: '2025-08-19'
+  },
+  flow: [
+    {
+      id: 's1',
+      output: undefined,
+      timeout: undefined,
+      retry: undefined,
+      description: "Search the library for mentions of 'gross selflessness of persons' and 'subtle selflessness of persons', including related sections and audio.",
+      tool: 'corpus:search',
+      args: {}
+    },
+    {
+      id: 'p1',
+      output: undefined,
+      timeout: undefined,
+      retry: undefined,
+      description: 'In parallel, retrieve top relevant book sections and any related audio transcripts from the search results ($s1.output).',
+      parallel: [Array]
+    },
+    {
+      id: 's5',
+      output: undefined,
+      timeout: undefined,
+      retry: undefined,
+      description: "Compare how 'gross selflessness of persons' and 'subtle selflessness of persons' are described across the retrieved book sections and audio transcript.",
+      tool: 'llm:compare',
+      args: {}
+    }
+  ]
+}
+
+[90mstdout[2m | src/lib/schema-validation-debug.test.ts[2m > [22m[2mSchema Validation Debug[2m > [22m[2mshould validate the flat schema structure[22m[39m
+Testing step 0: s1 (type: tool)
+Step s1 is valid
+Testing step 1: p1 (type: parallel)
+Step p1 is valid
+Testing step 2: s2 (type: tool)
+Step s2 is valid
+Testing step 3: s3 (type: tool)
+Step s3 is valid
+Testing step 4: s4 (type: tool)
+Step s4 is valid
+Testing step 5: s5 (type: tool)
+Step s5 is valid
+
+[90mstdout[2m | src/lib/schema-validation-debug.test.ts[2m > [22m[2mSchema Validation Debug[2m > [22m[2mshould test the specific failing step types[22m[39m
+Parallel operator: exists
+Parallel operator schema: ParallelOperator {
+  name: 'parallel',
+  type: 'parallel',
+  description: 'Executes multiple steps concurrently',
+  recursiveSchema: [Function: TypeLiteralClass] {
+    fields: {
+      id: [Function: String$],
+      output: [PropertySignatureWithFromImpl],
+      timeout: [PropertySignatureWithFromImpl],
+      retry: [PropertySignatureWithFromImpl],
+      description: [PropertySignatureWithFromImpl],
+      parallel: [Function]
+    },
+    records: [],
+    make: [Function: make]
+  },
+  flatSchema: [Function: TypeLiteralClass] {
+    fields: {
+      id: [Function: String$],
+      output: [PropertySignatureWithFromImpl],
+      timeout: [PropertySignatureWithFromImpl],
+      retry: [PropertySignatureWithFromImpl],
+      description: [PropertySignatureWithFromImpl],
+      type: [Function],
+      parallelIds: [Function]
+    },
+    records: [],
+    make: [Function: make]
+  }
+}
+Found parallel step: {
+  id: 'p1',
+  description: 'In parallel, retrieve top relevant book sections and any related audio transcripts from the search results ($s1.output).',
+  type: 'parallel',
+  parallelIds: [ 's2', 's3', 's4' ]
+}
+Parallel transformation result: {
+  id: 'p1',
+  description: 'In parallel, retrieve top relevant book sections and any related audio transcripts from the search results ($s1.output).',
+  parallel: [
+    {
+      id: 's2',
+      description: 'Get a relevant book section discussing gross selflessness of persons from the search results ($s1.output).',
+      type: 'tool',
+      tool: 'book:get-section',
+      args: {}
+    },
+    {
+      id: 's3',
+      description: 'Get a relevant book section discussing subtle selflessness of persons from the search results ($s1.output).',
+      type: 'tool',
+      tool: 'book:get-section',
+      args: {}
+    },
+    {
+      id: 's4',
+      description: 'Get a related audio teaching transcript that discusses gross/subtle selflessness of persons from the search results ($s1.output).',
+      type: 'tool',
+      tool: 'audio:get-transcript',
+      args: {}
+    }
+  ]
+}
+
+ [32m✓[39m src/lib/schema-validation-debug.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[90m 9[2mms[22m[39m
+ [32m✓[39m src/lib/tools/index.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 472[2mms[22m[39m
+ [32m✓[39m src/lib/tools/index.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 497[2mms[22m[39m
+ [32m✓[39m src/lib/state/index.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 514[2mms[22m[39m
+ [32m✓[39m src/lib/state/index.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 520[2mms[22m[39m
+ [32m✓[39m src/lib/types/index.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[90m 7[2mms[22m[39m
+ [32m✓[39m src/lib/layers/index.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 1480[2mms[22m[39m
+ [32m✓[39m src/lib/layers/index.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[33m 1311[2mms[22m[39m
+ [32m✓[39m src/lib/types/index.test.ts [2m ([22m[2m8 tests[22m[2m)[22m[90m 10[2mms[22m[39m
+ [32m✓[39m src/lib/schema/index.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[33m 1007[2mms[22m[39m
+ [32m✓[39m src/lib/schema/index.test.ts [2m ([22m[2m4 tests[22m[2m)[22m[33m 875[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m20 passed[39m[22m[90m (20)[39m
+[2m      Tests [22m [1m[32m265 passed[39m[22m[2m | [22m[33m8 skipped[39m[90m (273)[39m
+[2mType Errors [22m [2mno errors[22m
+[2m   Start at [22m 22:13:05
+[2m   Duration [22m 18.18s[2m (transform 1.49s, setup 1.17s, collect 10.64s, tests 7.35s, environment 10ms, prepare 3.40s)[22m
+
+[34m % [39m[2mCoverage report from [22m[33mv8[39m
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   27.75 |    68.96 |   15.57 |   27.75 |                   
+ lib               |      74 |      100 |    4.16 |      74 |                   
+  errors.ts        |   68.64 |      100 |       0 |   68.64 | ...42-446,452-456 
+  pipe.ts          |     100 |      100 |     100 |     100 |                   
+ lib/cli           |       0 |        0 |       0 |       0 |                   
+  mcp-discovery.ts |       0 |        0 |       0 |       0 | 1-1044            
+ lib/compiler      |   82.05 |    66.66 |   81.81 |   82.05 |                   
+  json-to-ir.ts    |   82.05 |    66.66 |   81.81 |   82.05 | ...20-221,227-234 
+ lib/core/context  |   68.54 |       80 |   26.66 |   68.54 |                   
+  ...on-context.ts |   68.54 |       80 |   26.66 |   68.54 | ...67-671,674-691 
+ lib/errors        |   28.38 |        0 |       0 |   28.38 |                   
+  base.ts          |   85.35 |      100 |       0 |   85.35 | ...40-141,155-156 
+  factory.ts       |       0 |        0 |       0 |       0 | 1-315             
+ lib/flow          |   51.52 |     90.9 |   19.35 |   51.52 |                   
+  flow.ts          |   46.01 |     90.9 |   26.08 |   46.01 | ...43-465,468-498 
+  tools.ts         |   61.18 |      100 |       0 |   61.18 | ...38-247,264-273 
+ lib/generation    |   14.96 |    18.18 |    1.13 |   14.96 |                   
+  ai-types.ts      |   82.69 |      100 |       0 |   82.69 | 75-92             
+  cache-manager.ts |   12.13 |        0 |       0 |   12.13 | ...93-322,328-345 
+  ...c-flow-api.ts |   13.46 |        0 |       0 |   13.46 | ...92-608,615-686 
+  ...r-recovery.ts |   30.91 |      100 |       0 |   30.91 | ...08-220,223-254 
+  flow-builder.ts  |    8.17 |        0 |       0 |    8.17 | ...63-493,499-575 
+  ...-generator.ts |   14.75 |        0 |       0 |   14.75 | 28-183            
+  ...-validator.ts |    9.92 |      100 |       0 |    9.92 | ...64-617,620-644 
+  llm-service.ts   |   13.93 |      100 |       0 |   13.93 | ...12-334,340-401 
+  ...ol-manager.ts |   18.54 |       50 |   16.66 |   18.54 | ...2,55-56,63-243 
+  ...m-executor.ts |    9.91 |      100 |       0 |    9.91 | ...6-992,997-1018 
+  tool-context.ts  |   34.26 |      100 |       0 |   34.26 | ...06-119,125-141 
+  ...w-instance.ts |   14.61 |        0 |       0 |   14.61 | 27-289            
+ lib/ir            |   58.64 |       60 |   23.52 |   58.64 |                   
+  builder.ts       |   38.05 |       60 |   30.76 |   38.05 | ...97-601,604-635 
+  core-types.ts    |    87.3 |      100 |       0 |    87.3 | ...30-433,452-456 
+ lib/layers        |   82.24 |      100 |       0 |   82.24 |                   
+  app.ts           |   97.82 |      100 |       0 |   97.82 | 40                
+  test.ts          |   76.42 |      100 |       0 |   76.42 | ...74,76-79,86-91 
+ lib/llm           |   32.07 |      100 |       0 |   32.07 |                   
+  service.ts       |   33.04 |      100 |       0 |   33.04 | ...39-342,345-351 
+  structured.ts    |   27.39 |      100 |       0 |   27.39 | 20-65,67-73       
+ lib/llm/providers |   28.94 |      100 |       0 |   28.94 |                   
+  ...penai-tool.ts |   27.02 |      100 |       0 |   27.02 | 11-37             
+  openai.ts        |     100 |      100 |     100 |     100 |                   
+ lib/operators     |   55.77 |    66.66 |   44.44 |   55.77 |                   
+  base.ts          |     100 |      100 |     100 |     100 |                   
+  conditional.ts   |   67.48 |       80 |      40 |   67.48 | ...96-103,106-112 
+  filter.ts        |   48.11 |      100 |      20 |   48.11 | ...0,83-85,88-105 
+  ...-validator.ts |   61.73 |    42.85 |    87.5 |   61.73 | ...88-299,311-345 
+  loop.ts          |   30.56 |      100 |      20 |   30.56 | ...42-147,150-192 
+  map.ts           |   51.07 |    66.66 |      40 |   51.07 | ...03-108,114-122 
+  parallel.ts      |   76.38 |    69.23 |      60 |   76.38 | 45-71,74-80       
+  reduce.ts        |   57.31 |    66.66 |      40 |   57.31 | ...28-133,139-147 
+  registry.ts      |   64.84 |    62.06 |   76.92 |   64.84 | ...06-208,246-255 
+  switch.ts        |   38.27 |      100 |    12.5 |   38.27 | ...22-235,238-289 
+  ...nnectivity.ts |   22.48 |      100 |       0 |   22.48 | ...07-226,232-249 
+  tool.ts          |   69.34 |    92.85 |      60 |   69.34 | ...,82-83,102-117 
+  utils.ts         |   21.78 |      100 |       0 |   21.78 | ...0,27-58,65-101 
+ lib/persistence   |   29.37 |      100 |       0 |   29.37 |                   
+  ...nd-factory.ts |   21.02 |      100 |       0 |   21.02 | ...91-294,299-333 
+  encryption.ts    |    24.4 |      100 |       0 |    24.4 | ...21-436,442-454 
+  hub.ts           |   51.59 |      100 |       0 |   51.59 | ...06,212,218-219 
+  key-generator.ts |   44.57 |      100 |       0 |   44.57 | ...33-240,246-258 
+  serializer.ts    |   19.35 |      100 |       0 |   19.35 | ...38-356,362-372 
+ ...tence/backends |   16.59 |      100 |       0 |   16.59 |                   
+  filesystem.ts    |   13.12 |      100 |       0 |   13.12 | 77-611,617        
+  mongodb.ts       |   19.76 |      100 |       0 |   19.76 | ...76-579,585-592 
+  neo4j.ts         |   15.04 |      100 |       0 |   15.04 | ...58-661,667-678 
+  postgres.ts      |   21.51 |      100 |       0 |   21.51 | ...30-633,639-646 
+  redis.ts         |   12.91 |      100 |       0 |   12.91 | ...95-498,504-511 
+ ...ce/integration |   31.95 |      100 |       0 |   31.95 |                   
+  ...on-handler.ts |   31.95 |      100 |       0 |   31.95 | ...21-327,334-338 
+ ...sistence/tools |   18.05 |      100 |       0 |   18.05 |                   
+  await-input.ts   |   22.13 |      100 |       0 |   22.13 | ...45-355,361-384 
+  factory.ts       |   15.49 |      100 |       0 |   15.49 | ...07-604,610-613 
+ lib/schema        |   94.52 |      100 |       0 |   94.52 |                   
+  flow-schema.ts   |   94.52 |      100 |       0 |   94.52 | 32-33,36-37       
+ lib/services      |   35.08 |       65 |   17.24 |   35.08 |                   
+  all-services.ts  |       0 |        0 |       0 |       0 | 1-102             
+  base.ts          |       0 |        0 |       0 |       0 | 1-218             
+  config.ts        |   66.33 |     90.9 |      50 |   66.33 | ...84-387,393-407 
+  encryption.ts    |   36.13 |      100 |    7.14 |   36.13 | ...69-580,586-606 
+  ...on-context.ts |   28.97 |      100 |    8.33 |   28.97 | ...07-615,621-635 
+  flow.ts          |   37.29 |      100 |   11.11 |   37.29 | ...69-672,678-681 
+  ir-executor.ts   |   24.12 |      100 |   14.28 |   24.12 | ...02-907,913-916 
+  key-generator.ts |   31.07 |      100 |    6.66 |   31.07 | ...72-582,588-605 
+  logging.ts       |   53.38 |      100 |    3.57 |   53.38 | ...71-374,380-399 
+  new-index.ts     |       0 |        0 |       0 |       0 | 1-58              
+  persistence.ts   |   35.69 |      100 |   14.28 |   35.69 | ...06-809,815-818 
+  serializer.ts    |      56 |    57.89 |      50 |      56 | ...68-572,578-591 
+  state.ts         |   28.44 |      100 |    12.5 |   28.44 | ...58-673,679-696 
+  tool-registry.ts |    33.4 |      100 |      10 |    33.4 | ...85-488,494-497 
+ ...services/cache |   23.99 |     82.5 |    42.1 |   23.99 |                   
+  distributed.ts   |    7.19 |      100 |       0 |    7.19 | 11-139            
+  in-memory.ts     |   75.75 |    84.61 |   88.88 |   75.75 | ...76,189,209-227 
+  service.ts       |     100 |      100 |     100 |     100 |                   
+  test.ts          |   37.33 |      100 |       0 |   37.33 | 29-75             
+  warmer.ts        |       0 |        0 |       0 |       0 | 1-405             
+  weak.ts          |    7.18 |      100 |     100 |    7.18 | 11-165            
+ ...ervices/config |   32.65 |      100 |     100 |   32.65 |                   
+  service.ts       |   32.65 |      100 |     100 |   32.65 | 11-43             
+ ...ices/execution |       0 |        0 |       0 |       0 |                   
+  adapter.ts       |       0 |        0 |       0 |       0 | 1-480             
+  context-fix.ts   |       0 |        0 |       0 |       0 | 1-18              
+  context.ts       |       0 |        0 |       0 |       0 | 1-574             
+  ...r-recovery.ts |       0 |        0 |       0 |       0 | 1-539             
+  pause-resume.ts  |       0 |        0 |       0 |       0 | 1-391             
+  ...m-executor.ts |       0 |        0 |       0 |       0 | 1-441             
+ ...vices/executor |   11.91 |      100 |     100 |   11.91 |                   
+  ...ementation.ts |    7.39 |      100 |     100 |    7.39 | 37-487            
+  service.ts       |     100 |      100 |     100 |     100 |                   
+ lib/services/flow |    7.48 |        0 |       0 |    7.48 |                   
+  adapter.ts       |       0 |        0 |       0 |       0 | 1-157             
+  generator.ts     |       0 |        0 |       0 |       0 | 1-381             
+  ...ementation.ts |    14.2 |      100 |     100 |    14.2 | 49-338            
+  service.ts       |     100 |      100 |     100 |     100 |                   
+ lib/services/ir   |       0 |        0 |       0 |       0 |                   
+  builder.ts       |       0 |        0 |       0 |       0 | 1-495             
+ lib/services/llm  |       0 |        0 |       0 |       0 |                   
+  service.ts       |       0 |        0 |       0 |       0 | 1-364             
+ ...ces/model-pool |   18.23 |      100 |       0 |   18.23 |                   
+  anthropic.ts     |    9.52 |      100 |     100 |    9.52 | 23-250            
+  openai.ts        |    9.42 |      100 |     100 |    9.42 | 22-242            
+  service.ts       |     100 |      100 |     100 |     100 |                   
+  test.ts          |   59.37 |      100 |       0 |   59.37 | 9-15,22-27        
+ ...ices/operators |       0 |        0 |       0 |       0 |                   
+  adapter.ts       |       0 |        0 |       0 |       0 | 1-79              
+  conditional.ts   |       0 |        0 |       0 |       0 | 1-399             
+  filter.ts        |       0 |        0 |       0 |       0 | 1-368             
+  loop.ts          |       0 |        0 |       0 |       0 | 1-317             
+  map.ts           |       0 |        0 |       0 |       0 | 1-346             
+  reduce.ts        |       0 |        0 |       0 |       0 | 1-235             
+  registry.ts      |       0 |        0 |       0 |       0 | 1-103             
+  switch.ts        |       0 |        0 |       0 |       0 | 1-272             
+  unified.ts       |       0 |        0 |       0 |       0 | 1-470             
+ ...es/persistence |   10.02 |        0 |       0 |   10.02 |                   
+  ...nd-factory.ts |       0 |        0 |       0 |       0 | 1-350             
+  service.ts       |     100 |      100 |     100 |     100 |                   
+ ...services/state |    68.5 |      100 |   36.36 |    68.5 |                   
+  service.ts       |    68.5 |      100 |   36.36 |    68.5 | ...03-114,119-124 
+ ...services/tools |       0 |        0 |       0 |       0 |                   
+  adapter.ts       |       0 |        0 |       0 |       0 | 1-178             
+  builder.ts       |       0 |        0 |       0 |       0 | 1-374             
+  registry.ts      |       0 |        0 |       0 |       0 | 1-125             
+ ...ces/validation |       0 |        0 |       0 |       0 |                   
+  flow-types.ts    |       0 |        0 |       0 |       0 | 1-20              
+  service.ts       |       0 |        0 |       0 |       0 | 1-449             
+ lib/state         |   31.95 |      100 |       0 |   31.95 |                   
+  manager.ts       |   31.95 |      100 |       0 |   31.95 | ...90-591,597-604 
+ lib/tools         |   29.06 |      100 |    5.88 |   29.06 |                   
+  llm-adapter.ts   |   20.75 |      100 |       0 |   20.75 | ...80-528,536-559 
+  registry.ts      |      40 |      100 |    8.33 |      40 | ...85-396,400-425 
+ lib/types         |   60.83 |    83.33 |      25 |   60.83 |                   
+  core.ts          |   83.57 |      100 |   28.57 |   83.57 | ...58-263,269-274 
+  effects.ts       |   78.18 |      100 |       0 |   78.18 | ...11,217,225-231 
+  errors.ts        |   54.24 |      100 |       0 |   54.24 | ...04-509,515-518 
+  flow.ts          |       0 |        0 |       0 |       0 | 1-33              
+  guards.ts        |   84.26 |     84.4 |      75 |   84.26 | ...09-310,326-340 
+  json.ts          |      50 |      100 |       0 |      50 | ...06-225,231-232 
+  layer.ts         |       0 |        0 |       0 |       0 | 1-49              
+  schemas.ts       |   53.59 |      100 |       0 |   53.59 | ...86-392,398-403 
+  type-utils.ts    |   62.17 |      100 |   23.52 |   62.17 | ...38-144,150-156 
+  utilities.ts     |       0 |        0 |       0 |       0 | 1-141             
+ lib/utils         |   34.21 |      100 |    2.32 |   34.21 |                   
+  concurrency.ts   |   19.48 |      100 |       0 |   19.48 | ...68-428,434-462 
+  ...ct-helpers.ts |   42.52 |      100 |       0 |   42.52 | ...21-229,235-261 
+  ...t-patterns.ts |   49.53 |      100 |    8.33 |   49.53 | ...78-387,402-430 
+  logging.ts       |   38.78 |      100 |    4.34 |   38.78 | ...43-459,470-480 
+  resources.ts     |   26.01 |      100 |       0 |   26.01 | ...80-484,490-492 
+  state.ts         |   33.56 |      100 |       0 |   33.56 | ...34-236,250-289 
+-------------------|---------|----------|---------|---------|-------------------
