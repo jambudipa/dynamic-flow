@@ -1,6 +1,6 @@
 {
   "name": "@jambudipa/dynamic-flow",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "A TypeScript library for building dynamic AI-driven workflows with LLM planning and static flow composition using Effect",
   "type": "module",
   "main": "./dist/index.js",
