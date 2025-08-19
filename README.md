@@ -60,7 +60,10 @@ Your LLM analyzes the user's request and generates a complete execution graph as
 - **Parallel execution paths** when appropriate
 - **All topology decisions made upfront**
 
-**Real Example: "Research Buddhist philosophy on selflessness"**
+**Real Example: Complex Multi-Tool Orchestration**
+
+Given the prompt:
+> "Can you find where the books discuss the gross and subtle selflessness of persons? Compare how these two are described. If the descriptions are unclear or overlapping, try to clarify using related sections or audio teachings. Then summarise the distinction in plain language, and let me know if any parts contradict each other."
 
 The AI generates this sophisticated research workflow with conditional logic, parallel processing, and multi-stage analysis:
 

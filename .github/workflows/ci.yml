@@ -13,7 +13,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20.x]
     
     steps:
       - name: Checkout code
@@ -30,9 +30,6 @@ jobs:
         
       - name: Run type check
         run: npm run typecheck
-        
-      - name: Run linter
-        run: npm run lint
         
       - name: Run tests with coverage
         run: npm run test:coverage

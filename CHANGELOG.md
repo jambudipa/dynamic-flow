@@ -1,5 +1,13 @@
 # @jambudipa/dynamic-flow
 
+## 0.2.3
+
+### Patch Changes
+
+- Re-release with corrected Effect package dependencies
+  - Fixed version compatibility issues between Effect packages
+  - Ensures clean npm install without warnings or errors
+
 ## 0.2.2
 
 ### Patch Changes
