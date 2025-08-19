@@ -4,7 +4,9 @@
  * Utilities for constructing and validating IR structures
  */
 
+import { Option, Chunk, HashMap } from 'effect';
 import type { Tool, ToolJoin } from '@/lib/tools/types';
+import { NodeId, ToolId } from './core-types';
 import type {
   ConditionalNode,
   IR,
@@ -85,7 +87,12 @@ export class IRBuilder {
     type: 'expression' | 'variable' | 'literal',
     value: string | boolean
   ): IRCondition {
-    return { type, value };
+    return {
+      type,
+      value,
+      operator: Option.none(),
+      operands: Chunk.empty(),
+    };
   }
 
   /**
@@ -300,15 +307,12 @@ export class IRBuilder {
     condition?: IRCondition,
     label?: string
   ): void {
-    const edge: IREdge = { from, to };
-
-    if (condition !== undefined) {
-      edge.condition = condition;
-    }
-
-    if (label !== undefined) {
-      edge.label = label;
-    }
+    const edge: IREdge = {
+      from: NodeId(from),
+      to: NodeId(to),
+      condition: Option.fromNullable(condition),
+      label: Option.fromNullable(label),
+    };
 
     this.edges.push(edge);
   }
@@ -373,36 +377,52 @@ export class IRBuilder {
   /**
    * Build the final IR structure
    */
-  build(): IR {
-    // Validate before building
-    this.validate();
+  build(options?: { skipValidation?: boolean }): IR {
+    // Validate before building unless explicitly skipped
+    if (!options?.skipValidation) {
+      this.validate();
+    }
 
     const metadata: IRMetadata = {
       source: (this.metadata.source || 'static') as 'static' | 'dynamic',
       created: this.metadata.created || new Date().toISOString(),
+      name:
+        this.metadata.name !== undefined ? this.metadata.name : Option.none(),
+      description:
+        this.metadata.description !== undefined
+          ? this.metadata.description
+          : Option.none(),
+      hash:
+        this.metadata.hash !== undefined ? this.metadata.hash : Option.none(),
     };
 
-    if (this.metadata.name !== undefined) {
-      metadata.name = this.metadata.name;
+    // Convert Map to HashMap for nodes
+    let nodesHashMap = HashMap.empty<NodeId, IRNode>();
+    for (const [id, node] of this.nodes) {
+      nodesHashMap = HashMap.set(nodesHashMap, NodeId(id), node);
     }
 
-    if (this.metadata.description !== undefined) {
-      metadata.description = this.metadata.description;
-    }
-
-    if (this.metadata.hash !== undefined) {
-      metadata.hash = this.metadata.hash;
+    // Convert Map to HashMap for tools
+    let toolsHashMap = HashMap.empty<ToolId, Tool<any, any>>();
+    for (const [id, tool] of this.tools) {
+      toolsHashMap = HashMap.set(toolsHashMap, ToolId(id), tool);
     }
 
     const graph: IRGraph = {
-      nodes: new Map(this.nodes),
-      edges: [...this.edges],
-      entryPoint: this.entryPoint!,
+      nodes: nodesHashMap,
+      edges: Chunk.fromIterable(this.edges),
+      entryPoint: NodeId(this.entryPoint!),
     };
 
+    // Convert Map to HashMap for joins
+    let joinsHashMap = HashMap.empty<ToolId, ToolJoin<any, any>>();
+    for (const [id, join] of this.joins) {
+      joinsHashMap = HashMap.set(joinsHashMap, ToolId(id), join);
+    }
+
     const registry: IRRegistry = {
-      tools: new Map(this.tools),
-      joins: new Map(this.joins),
+      tools: toolsHashMap,
+      joins: joinsHashMap,
     };
 
     return {

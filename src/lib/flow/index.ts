@@ -77,8 +77,8 @@ export class LegacyFlowExecutionError extends Data.TaggedError(
  */
 export interface FlowContextService {
   readonly executionContext: ExecutionContext;
-  readonly variables: Record<string, unknown>;
-  readonly metadata: Record<string, unknown>;
+  readonly variables: ReadonlyMap<string, unknown>;
+  readonly metadata: ReadonlyMap<string, unknown>;
 }
 
 export const FlowContextTag =

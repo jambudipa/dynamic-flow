@@ -122,7 +122,9 @@ export async function runExample(): Promise<{ final: string }> {
       )
     );
 
-    const result = await Flow.run(pipe(program, Effect.provide(LLMServiceLive)));
+    const result = await Flow.run(
+      pipe(program, Effect.provide(LLMServiceLive))
+    );
     console.log('Final result:', result);
 
     console.log('\n✅ Switch routing completed successfully!');

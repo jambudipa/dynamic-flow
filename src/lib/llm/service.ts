@@ -226,14 +226,17 @@ export interface LLMConfig {
 /**
  * LLM errors using tagged errors
  */
-export class LLMError extends Schema.TaggedError<LLMError>()("LLMError", {
+export class LLMError extends Schema.TaggedError<LLMError>()('LLMError', {
   message: Schema.String,
-  cause: Schema.optional(Schema.Unknown)
+  cause: Schema.optional(Schema.Unknown),
 }) {}
 
-export class LLMConfigError extends Schema.TaggedError<LLMConfigError>()("LLMConfigError", {
-  message: Schema.String
-}) {}
+export class LLMConfigError extends Schema.TaggedError<LLMConfigError>()(
+  'LLMConfigError',
+  {
+    message: Schema.String,
+  }
+) {}
 
 /**
  * LLM Service interface with proper error types
@@ -289,7 +292,7 @@ export const LLMLive = Layer.effect(
           Effect.catchAllCause(() =>
             Effect.fail(new LLMError({ message: 'Structured output failed' }))
           )
-        )
+        ),
     } satisfies LLMRuntime;
   })
 );
@@ -302,16 +305,18 @@ export const LLMConfigLive = Layer.effect(
   Effect.gen(function* () {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      yield* Effect.fail(new LLMConfigError({
-        message: 'OPENAI_API_KEY environment variable is required'
-      }));
+      yield* Effect.fail(
+        new LLMConfigError({
+          message: 'OPENAI_API_KEY environment variable is required',
+        })
+      );
     }
 
     return {
       apiKey: apiKey!,
       model: process.env.OPENAI_MODEL || DEFAULT_MODEL,
       timeout: parseInt(process.env.OPENAI_TIMEOUT || '30000'),
-      retries: parseInt(process.env.OPENAI_RETRIES || '3')
+      retries: parseInt(process.env.OPENAI_RETRIES || '3'),
     } satisfies LLMConfig;
   })
 );
@@ -319,9 +324,7 @@ export const LLMConfigLive = Layer.effect(
 /**
  * Complete layer stack
  */
-export const LLMServiceLive = LLMLive.pipe(
-  Layer.provide(LLMConfigLive)
-);
+export const LLMServiceLive = LLMLive.pipe(Layer.provide(LLMConfigLive));
 
 /**
  * Helper functions for working with the service
@@ -336,7 +339,7 @@ export const streamCompletion = (prompt: string) =>
   Effect.gen(function* () {
     const service = yield* LLMService;
     return service.stream(prompt);
-  }).pipe(Effect.map(s => Stream.flatMap(s, (x) => Stream.succeed(x))));
+  }).pipe(Effect.map((s) => Stream.flatMap(s, (x) => Stream.succeed(x))));
 
 export const structuredCompletion = <T>(
   prompt: string,

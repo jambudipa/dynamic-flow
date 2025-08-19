@@ -127,7 +127,7 @@ export class ToolOperator implements UnifiedOperator<ToolConfig> {
       type: 'tool',
       tool: config.tool,
       inputs,
-      outputVar: config.output,
+      outputVar: config.output || (config as any).outputAs,
       config: {
         timeout: config.timeout,
         retries: config.retry,

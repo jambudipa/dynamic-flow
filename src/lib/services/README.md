@@ -5,11 +5,13 @@ This directory contains the service-oriented architecture implementation for Dyn
 ## Migration Status
 
 ### Phase 1: Foundation Services
+
 - [ ] ConfigService - Configuration management
 - [ ] LoggingService - Structured logging
 - [ ] TypeUtilsService - Effect type utilities
 
-### Phase 2: Core Services  
+### Phase 2: Core Services
+
 - [ ] StateService - State management (replaces StateManager)
 - [ ] ExecutionContextService - Execution context (replaces ExecutionContext)
 - [ ] SerializerService - Serialization (replaces Serializer)
@@ -17,6 +19,7 @@ This directory contains the service-oriented architecture implementation for Dyn
 - [ ] ToolRegistryService - Tool registry (replaces ToolRegistry)
 
 ### Phase 3: Persistence Services
+
 - [ ] EncryptionService - Encryption operations (replaces EncryptionService class)
 - [ ] BackendService - Generic backend interface
 - [ ] PostgresBackend - PostgreSQL implementation
@@ -27,10 +30,12 @@ This directory contains the service-oriented architecture implementation for Dyn
 - [ ] PersistenceService - Orchestration (replaces PersistenceHub)
 
 ### Phase 4: Execution Services
+
 - [ ] IRExecutorService - IR execution (replaces IRExecutor)
 - [ ] FlowService - Flow orchestration
 
 ### Phase 5: Feature Services
+
 - [ ] SchemaService - Schema utilities
 - [ ] MCPDiscoveryService - MCP discovery
 
@@ -41,33 +46,34 @@ Each service follows this pattern:
 ```typescript
 // 1. Define interface
 interface MyService {
-  readonly operation: (input: Input) => Effect.Effect<Output, Error>
+  readonly operation: (input: Input) => Effect.Effect<Output, Error>;
 }
 
 // 2. Create Context.Tag
-const MyService = Context.GenericTag<MyService>("@services/MyService")
+const MyService = Context.GenericTag<MyService>('@services/MyService');
 
 // 3. Implement Layer
 const MyServiceLive = Layer.effect(
   MyService,
   Effect.gen(function* () {
     // Dependencies
-    const dep = yield* DependencyService
-    
+    const dep = yield* DependencyService;
+
     // State (if needed)
-    const state = yield* Ref.make(initialState)
-    
+    const state = yield* Ref.make(initialState);
+
     // Return implementation
     return {
-      operation: (input) => Effect.gen(function* () {
-        // Implementation
-      })
-    }
+      operation: (input) =>
+        Effect.gen(function* () {
+          // Implementation
+        }),
+    };
   })
-)
+);
 
 // 4. Export
-export { MyService, MyServiceLive }
+export { MyService, MyServiceLive };
 ```
 
 ## Usage
@@ -75,20 +81,19 @@ export { MyService, MyServiceLive }
 ```typescript
 // Access service in Effect
 const program = Effect.gen(function* () {
-  const myService = yield* MyService
-  const result = yield* myService.operation(input)
-  return result
-})
+  const myService = yield* MyService;
+  const result = yield* myService.operation(input);
+  return result;
+});
 
 // Run with layers
-Effect.runPromise(
-  program.pipe(Effect.provide(MyServiceLive))
-)
+Effect.runPromise(program.pipe(Effect.provide(MyServiceLive)));
 ```
 
 ## Testing
 
 Each service should have:
+
 1. Unit tests with mock dependencies
 2. Integration tests with real dependencies
 3. Property-based tests where applicable

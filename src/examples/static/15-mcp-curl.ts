@@ -35,9 +35,11 @@
  */
 
 import { loadEnv } from '../env';
-import { Effect, pipe, Layer } from 'effect';
+import { Effect, pipe, Layer, Option } from 'effect';
 import { Flow } from '../../lib/index';
-import type { ExecutionContext } from '../generated/mcp-tools/types';
+import type { ExecutionContext as MCPExecutionContext } from '../generated/mcp-tools/types';
+import type { ExecutionContext } from '../../lib/types/core';
+import { FlowId, StepId, SessionId } from '../../lib/types/core';
 import { read_text_fileTool } from '../generated/mcp-tools/stdio_npx_modelcontextprotocol_server_filesystem_tmp_test_mcp';
 import { createOpenAiCompletionTool } from '../../lib/llm/providers/effect-openai-tool';
 import { LLMService, LLMServiceLive } from '../../lib/llm/service';
@@ -67,54 +69,70 @@ export async function runExample(): Promise<{ data: string; summary: string }> {
     );
 
     // Import the MCP client to properly close connections
-    const { stdionpxmodelcontextprotocolserverfilesystemtmptestmcpMCPClient } = await import('../generated/mcp-tools/stdio_npx_modelcontextprotocol_server_filesystem_tmp_test_mcp');
-    const mcpClient = new stdionpxmodelcontextprotocolserverfilesystemtmptestmcpMCPClient();
+    const { stdionpxmodelcontextprotocolserverfilesystemtmptestmcpMCPClient } =
+      await import(
+        '../generated/mcp-tools/stdio_npx_modelcontextprotocol_server_filesystem_tmp_test_mcp'
+      );
+    const mcpClient =
+      new stdionpxmodelcontextprotocolserverfilesystemtmptestmcpMCPClient();
 
     // Create execution context for tools
-    const executionContext: ExecutionContext = {
-      flowId: 'mcp-example-flow',
-      stepId: 'file-read-step',
-      sessionId: 'mcp-example-session',
-      variables: {},
-      metadata: {}
+    const coreContext: ExecutionContext = {
+      flowId: FlowId('mcp-example-flow'),
+      stepId: StepId('file-read-step'),
+      sessionId: SessionId('mcp-example-session'),
+      variables: new Map(),
+      metadata: new Map(),
+      parentContext: Option.none(),
+      currentScope: [],
     };
 
     // Create the flow using real MCP tools with proper cleanup
     const mcpFlow = pipe(
-      read_text_fileTool.execute({ path: testFilePath }, executionContext),
+      read_text_fileTool.execute(
+        { path: testFilePath },
+        {
+          flowId: coreContext.flowId as string,
+          stepId: coreContext.stepId as string,
+          sessionId: coreContext.sessionId as string,
+          variables: Object.fromEntries(coreContext.variables),
+          metadata: Object.fromEntries(coreContext.metadata),
+        }
+      ),
       // read_text_fileTool returns string (not unknown!) due to type inference
       Effect.andThen((fileContent) => {
         console.log('📝 File Content (typed as string):', fileContent);
         console.log('✨ TypeScript knows this is a string, not unknown!');
 
         const summaryPrompt = `Summarize this file content in one sentence:\n\n${fileContent}`;
-        return summaryTool.execute({ prompt: summaryPrompt }, executionContext);
+        // Use the core context directly for the summary tool
+        return summaryTool.execute({ prompt: summaryPrompt }, coreContext);
       }),
       Effect.map((summary: any) => ({
         data: 'Real MCP filesystem data with proper typing',
-        summary: summary.response || summary.text || 'Summary generated via typed MCP tools'
+        summary:
+          summary.response ||
+          summary.text ||
+          'Summary generated via typed MCP tools',
       })),
       Effect.tap(() => mcpClient.disconnect()), // Disconnect when done
       Effect.catchAll((error) => {
         console.error('Flow execution error:', error);
         return Effect.succeed({
           data: 'Error occurred',
-          summary: 'Failed to process file'
+          summary: 'Failed to process file',
         });
       })
     ) as Effect.Effect<{ data: string; summary: string }, never, never>; // TODO: Fix the unknown requirements type propagation issue
 
     // Execute the flow with LLMService provided
     const result = await Effect.runPromise(
-      pipe(
-        mcpFlow,
-        Effect.provide(LLMServiceLive)
-      )
+      pipe(mcpFlow, Effect.provide(LLMServiceLive))
     ).catch((error) => {
       console.error('Flow execution failed:', error);
       return {
         data: 'MCP connection failed',
-        summary: 'Could not connect to filesystem server'
+        summary: 'Could not connect to filesystem server',
       };
     });
 
@@ -127,7 +145,6 @@ export async function runExample(): Promise<{ data: string; summary: string }> {
     setTimeout(() => process.exit(0), 100);
 
     return result as { data: string; summary: string };
-
   } catch (error) {
     console.error('❌ MCP tool integration failed:', error);
     throw error;

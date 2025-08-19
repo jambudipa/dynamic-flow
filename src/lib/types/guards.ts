@@ -79,7 +79,7 @@ export const isCompleteExecutionContext = (
  */
 export const isValidationResult = <T>(
   value: unknown
-): value is ValidationResult<T> => {
+): value is ValidationResult<T, never> => {
   if (!isRecord(value)) {
     return false;
   }
@@ -475,11 +475,13 @@ export const allOf =
 /**
  * Create a type guard that checks any condition
  */
-export const anyOf =
-  <T>(...guards: Array<(value: unknown) => value is T>) =>
-  (value: unknown): value is T => {
+export const anyOf = <T extends readonly unknown[]>(
+  ...guards: { [K in keyof T]: (value: unknown) => value is T[K] }
+) => {
+  return (value: unknown): value is T[number] => {
     return guards.some((guard) => guard(value));
   };
+};
 
 /**
  * Negate a type guard

@@ -89,7 +89,7 @@ export class DynamicFlowOrchestrator {
               condition: step.condition,
               if_true: step.if_true,
               if_false: step.if_false,
-              description: step.description
+              description: step.description,
             };
           } else if (step.parallel) {
             // Parallel node
@@ -97,7 +97,7 @@ export class DynamicFlowOrchestrator {
               id: step.id,
               type: 'parallel' as const,
               parallel: step.parallel,
-              description: step.description
+              description: step.description,
             };
           } else if (step.forEach) {
             // ForEach node
@@ -106,7 +106,7 @@ export class DynamicFlowOrchestrator {
               type: 'forEach' as const,
               over: step.over,
               body: step.body,
-              description: step.description
+              description: step.description,
             };
           } else if (step.map) {
             // Map node
@@ -115,7 +115,7 @@ export class DynamicFlowOrchestrator {
               type: 'map' as const,
               map: step.map,
               with: step.with,
-              description: step.description
+              description: step.description,
             };
           } else if (step.reduce) {
             // Reduce node
@@ -125,7 +125,7 @@ export class DynamicFlowOrchestrator {
               reduce: step.reduce,
               initial: step.initial,
               with: step.with,
-              description: step.description
+              description: step.description,
             };
           } else if (step.flatMap) {
             // FlatMap node
@@ -134,7 +134,7 @@ export class DynamicFlowOrchestrator {
               type: 'flatMap' as const,
               flatMap: step.flatMap,
               with: step.with,
-              description: step.description
+              description: step.description,
             };
           } else if (step.filter) {
             // Filter node
@@ -143,7 +143,7 @@ export class DynamicFlowOrchestrator {
               type: 'filter' as const,
               filter: step.filter,
               condition: step.condition,
-              description: step.description
+              description: step.description,
             };
           } else if (step.sequence) {
             // Sequence node
@@ -151,7 +151,7 @@ export class DynamicFlowOrchestrator {
               id: step.id,
               type: 'sequence' as const,
               steps: step.steps,
-              description: step.description
+              description: step.description,
             };
           } else {
             // Tool node (default)
@@ -160,7 +160,7 @@ export class DynamicFlowOrchestrator {
               type: 'tool' as const,
               toolId: step.tool || step.toolId,
               inputs: step.args || step.inputs || {},
-              description: step.description
+              description: step.description,
             };
           }
         }),
@@ -317,6 +317,8 @@ Rules:
             { model: 'gpt-5' } // Use gpt-5 for flow generation
           )
         );
+
+        // JSON generated successfully from LLM
 
         // Flat flow generated from LLM
 

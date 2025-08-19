@@ -116,9 +116,10 @@ export class ConditionalOperator implements UnifiedOperator<ConditionalConfig> {
     const trueBranch: string[] = [];
     const falseBranch: string[] = [];
 
-    // Get operators for nested steps from registry
-    if (config.if_true) {
-      for (const step of config.if_true) {
+    // Get operators for nested steps from registry (handle both if_true/then)
+    const trueSteps = config.if_true || (config as any).then;
+    if (trueSteps) {
+      for (const step of trueSteps) {
         const operator = OperatorRegistry.getInstance().get(
           step.type || inferType(step)
         );
@@ -130,8 +131,9 @@ export class ConditionalOperator implements UnifiedOperator<ConditionalConfig> {
       }
     }
 
-    if (config.if_false) {
-      for (const step of config.if_false) {
+    const falseSteps = config.if_false || (config as any).else;
+    if (falseSteps) {
+      for (const step of falseSteps) {
         const operator = OperatorRegistry.getInstance().get(
           step.type || inferType(step)
         );

@@ -1,19 +1,38 @@
 /**
  * FlowService - High-level flow orchestration service
- * 
+ *
  * Provides the main API for creating, executing, and managing flows
  * with full Effect integration and service coordination.
  */
 
-import { Effect, Context, Layer, Duration, pipe } from 'effect';
+import {
+  Effect,
+  Context,
+  Layer,
+  Duration,
+  pipe,
+  HashMap,
+  Option,
+  Chunk,
+} from 'effect';
 import { FlowExecutionError, FlowCompilationError } from '../errors';
-import { IRExecutorService, type ExecutionResult, type SuspendedExecutionResult, type IRExecutionOptions } from './ir-executor';
+import {
+  IRExecutorService,
+  type ExecutionResult,
+  type SuspendedExecutionResult,
+  type IRExecutionOptions,
+} from './ir-executor';
 import { StateService } from './state';
-import { PersistenceService, type QueryCriteria, type CleanupCriteria } from './persistence';
+import {
+  PersistenceService,
+  type QueryCriteria,
+  type CleanupCriteria,
+} from './persistence';
 import { LoggingService } from './logging';
 import { ConfigService } from './config';
 import { type SuspensionKey } from './key-generator';
 import type { IR } from '../ir';
+import { NodeId, ToolId } from '../ir/core-types';
 import type { Tool } from '../tools/types';
 
 // ============= Types =============
@@ -46,9 +65,9 @@ export interface FlowExecutionContext {
 /**
  * Flow execution status
  */
-export type FlowExecutionStatus = 
+export type FlowExecutionStatus =
   | 'pending'
-  | 'running' 
+  | 'running'
   | 'suspended'
   | 'completed'
   | 'failed'
@@ -105,7 +124,10 @@ export interface FlowService {
     flow: FlowDefinition | IR,
     context: FlowExecutionContext,
     options?: FlowExecutionOptions
-  ) => Effect.Effect<ExecutionResult | SuspendedExecutionResult, FlowExecutionError>;
+  ) => Effect.Effect<
+    ExecutionResult | SuspendedExecutionResult,
+    FlowExecutionError
+  >;
 
   /**
    * Resume a suspended flow
@@ -119,9 +141,7 @@ export interface FlowService {
   /**
    * Cancel a running or suspended flow
    */
-  readonly cancel: (
-    flowId: string
-  ) => Effect.Effect<void, FlowExecutionError>;
+  readonly cancel: (flowId: string) => Effect.Effect<void, FlowExecutionError>;
 
   /**
    * Get flow execution info
@@ -168,7 +188,15 @@ export const FlowService = Context.GenericTag<FlowService>('@services/Flow');
 
 // ============= Service Implementation =============
 
-const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | ConfigService | IRExecutorService | PersistenceService | StateService> =>
+const makeFlowService = (): Effect.Effect<
+  FlowService,
+  never,
+  | LoggingService
+  | ConfigService
+  | IRExecutorService
+  | PersistenceService
+  | StateService
+> =>
   Effect.gen(function* () {
     const logger = yield* LoggingService;
     const config = yield* ConfigService;
@@ -183,14 +211,20 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
     let totalExecutionTime = 0;
     const executionInfoMap = new Map<string, FlowExecutionInfo>();
 
-    const updateExecutionInfo = (flowId: string, updates: Partial<FlowExecutionInfo>) => {
+    const updateExecutionInfo = (
+      flowId: string,
+      updates: Partial<FlowExecutionInfo>
+    ) => {
       const existing = executionInfoMap.get(flowId);
       if (existing) {
         executionInfoMap.set(flowId, { ...existing, ...updates });
       }
     };
 
-    const compileFlowToIR = (definition: FlowDefinition, options?: FlowCompilationOptions) =>
+    const compileFlowToIR = (
+      definition: FlowDefinition,
+      options?: FlowCompilationOptions
+    ) =>
       Effect.gen(function* () {
         yield* logger.debug('Compiling flow to IR', { flowId: definition.id });
 
@@ -198,44 +232,56 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
         if (definition.ir) {
           if (options?.validate) {
             // TODO: Implement IR validation
-            yield* logger.debug('Validating provided IR', { flowId: definition.id });
+            yield* logger.debug('Validating provided IR', {
+              flowId: definition.id,
+            });
           }
-          
+
           return definition.ir;
         }
 
         // TODO: Implement actual compilation from flow definition to IR
         // For now, create a basic IR structure
-        const ir: IR = {
+        let ir: IR = {
           version: '1.0.0',
           metadata: {
             source: 'dynamic' as const,
             created: new Date().toISOString(),
-            name: definition.name,
-            description: definition.description
+            name: Option.fromNullable(definition.name),
+            description: Option.fromNullable(definition.description),
+            hash: Option.none(),
           },
           graph: {
-            nodes: new Map(),
-            edges: [],
-            entryPoint: 'start'
+            nodes: HashMap.empty(),
+            edges: Chunk.empty(),
+            entryPoint: NodeId('start'),
           },
           registry: {
-            tools: new Map(),
-            joins: new Map()
-          }
+            tools: HashMap.empty(),
+            joins: HashMap.empty(),
+          },
         };
 
         // Add tools to registry if provided
-        if (definition.tools) {
+        if (definition.tools && ir.registry) {
+          let updatedTools = ir.registry.tools;
           for (const tool of definition.tools) {
-            ir.registry!.tools.set(tool.id, tool);
+            updatedTools = HashMap.set(updatedTools, ToolId(tool.id), tool);
           }
+          // Create a new registry with updated tools
+          ir = {
+            ...ir,
+            registry: {
+              ...ir.registry,
+              tools: updatedTools,
+            },
+          };
         }
 
-        yield* logger.info('Flow compiled to IR successfully', { 
+        yield* logger.info('Flow compiled to IR successfully', {
           flowId: definition.id,
-          nodeCount: ir.graph?.nodes?.size || 0,
-          toolCount: ir.registry?.tools?.size || 0
+          nodeCount: ir.graph?.nodes ? HashMap.size(ir.graph.nodes) : 0,
+          toolCount: ir.registry?.tools ? HashMap.size(ir.registry.tools) : 0,
         });
 
         return ir;
@@ -282,16 +328,16 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
 
         return {
           valid: errors.length === 0,
-          errors
+          errors,
         };
       });
 
     return {
       compile: (definition: FlowDefinition, options?: FlowCompilationOptions) =>
         Effect.gen(function* () {
-          yield* logger.info('Starting flow compilation', { 
+          yield* logger.info('Starting flow compilation', {
             flowId: definition.id,
-            options 
+            options,
           });
 
           // Validate definition first
@@ -301,31 +347,36 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
               new FlowCompilationError({
                 path: definition.id,
                 source: 'typescript',
-                cause: `Flow validation failed: ${validation.errors.join(', ')}`
+                cause: `Flow validation failed: ${validation.errors.join(', ')}`,
               })
             );
           }
 
           // Compile to IR
           return yield* compileFlowToIR(definition, options).pipe(
-            Effect.mapError((error) => 
-              new FlowCompilationError({
-                path: definition.id,
-                source: 'typescript',
-                cause: error
-              })
+            Effect.mapError(
+              (error) =>
+                new FlowCompilationError({
+                  path: definition.id,
+                  source: 'typescript',
+                  cause: error,
+                })
             )
           );
         }),
 
-      execute: (flow: FlowDefinition | IR, context: FlowExecutionContext, options?: FlowExecutionOptions) =>
+      execute: (
+        flow: FlowDefinition | IR,
+        context: FlowExecutionContext,
+        options?: FlowExecutionOptions
+      ) =>
         Effect.gen(function* () {
           const startTime = Date.now();
           flowsExecuted++;
 
-          yield* logger.info('Starting flow execution', { 
+          yield* logger.info('Starting flow execution', {
             flowId: context.flowId,
-            sessionId: context.sessionId 
+            sessionId: context.sessionId,
           });
 
           // Create execution info
@@ -334,7 +385,7 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
             sessionId: context.sessionId,
             status: 'running',
             startedAt: new Date(),
-            metadata: context.metadata || {}
+            metadata: context.metadata || {},
           };
           executionInfoMap.set(context.flowId, executionInfo);
 
@@ -348,30 +399,37 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
               return yield* compileFlowToIR(flow as FlowDefinition);
             }
           }).pipe(
-            Effect.mapError((error) =>
-              new FlowExecutionError({
-                nodeId: context.flowId,
-                cause: error
-              })
+            Effect.mapError(
+              (error) =>
+                new FlowExecutionError({
+                  nodeId: context.flowId,
+                  cause: error,
+                })
             )
           );
 
           // Execute with IR executor
-          const result = yield* executor.execute(ir, {
-            input: context.input,
-            flowId: context.flowId,
-            sessionId: context.sessionId,
-            timeout: options?.timeout ? Duration.toMillis(options.timeout) : undefined,
-            trace: options?.trace || context.trace,
-            tools: 'tools' in flow ? (flow as FlowDefinition).tools : undefined
-          }).pipe(
-            Effect.mapError((error) =>
-              new FlowExecutionError({
-                nodeId: context.flowId,
-                cause: error
-              })
-            )
-          );
+          const result = yield* executor
+            .execute(ir, {
+              input: context.input,
+              flowId: context.flowId,
+              sessionId: context.sessionId,
+              timeout: options?.timeout
+                ? Duration.toMillis(options.timeout)
+                : undefined,
+              trace: options?.trace || context.trace,
+              tools:
+                'tools' in flow ? (flow as FlowDefinition).tools : undefined,
+            })
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new FlowExecutionError({
+                    nodeId: context.flowId,
+                    cause: error,
+                  })
+              )
+            );
 
           // Update execution info based on result
           const endTime = Date.now();
@@ -384,43 +442,50 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
             updateExecutionInfo(context.flowId, {
               status: 'suspended',
               suspendedAt: new Date(),
-              suspensionKey: result.suspensionKey as SuspensionKey
+              suspensionKey: result.suspensionKey as SuspensionKey,
             });
 
-            yield* logger.info('Flow execution suspended', { 
+            yield* logger.info('Flow execution suspended', {
               flowId: context.flowId,
               suspensionKey: result.suspensionKey,
-              duration 
+              duration,
             });
           } else {
             // Flow completed
             flowsCompleted++;
             updateExecutionInfo(context.flowId, {
               status: 'completed',
-              completedAt: new Date()
+              completedAt: new Date(),
             });
 
-            yield* logger.info('Flow execution completed', { 
+            yield* logger.info('Flow execution completed', {
               flowId: context.flowId,
-              duration 
+              duration,
             });
           }
 
           return result;
         }),
 
-      resume: (suspensionKey: SuspensionKey, input: unknown, options?: FlowExecutionOptions) =>
+      resume: (
+        suspensionKey: SuspensionKey,
+        input: unknown,
+        options?: FlowExecutionOptions
+      ) =>
         Effect.gen(function* () {
           yield* logger.info('Resuming suspended flow', { suspensionKey });
 
-          const result = yield* executor.resumeExecution(suspensionKey, input).pipe(
-            Effect.mapError((error) =>
-              new FlowExecutionError({
-                nodeId: suspensionKey,
-                cause: error
-              })
-            )
-          );
+          const result = yield* executor
+            .resumeExecution(suspensionKey, input)
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new FlowExecutionError({
+                    nodeId: suspensionKey,
+                    cause: error,
+                  })
+              )
+            );
 
           flowsCompleted++;
           yield* logger.info('Flow resumed and completed', { suspensionKey });
@@ -435,7 +500,7 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
           // Update execution info
           updateExecutionInfo(flowId, {
             status: 'cancelled',
-            completedAt: new Date()
+            completedAt: new Date(),
           });
 
           // If the flow is suspended, cancel the suspension
@@ -443,7 +508,9 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
           if (info?.suspensionKey) {
             yield* persistence.cancel(info.suspensionKey).pipe(
               Effect.catchAll((error) =>
-                logger.warn('Failed to cancel suspension', { error: String(error) })
+                logger.warn('Failed to cancel suspension', {
+                  error: String(error),
+                })
               )
             );
           }
@@ -464,13 +531,13 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
           );
 
           return suspendedFlows.map((flow: any) => ({
-            flowId: flow.metadata.flowId as string || 'unknown',
+            flowId: (flow.metadata.flowId as string) || 'unknown',
             sessionId: flow.metadata.sessionId as string,
             status: 'suspended' as const,
             startedAt: flow.createdAt,
             suspendedAt: flow.createdAt,
             suspensionKey: flow.key,
-            metadata: flow.metadata
+            metadata: flow.metadata,
           }));
         }),
 
@@ -485,21 +552,22 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
 
           // Clean up execution info for deleted flows
           for (const error of result.errors) {
-            const info = Array.from(executionInfoMap.values())
-              .find(info => info.suspensionKey === error.key);
+            const info = Array.from(executionInfoMap.values()).find(
+              (info) => info.suspensionKey === error.key
+            );
             if (info) {
               executionInfoMap.delete(info.flowId);
             }
           }
 
-          yield* logger.info('Flow cleanup completed', { 
+          yield* logger.info('Flow cleanup completed', {
             deletedCount: result.deletedCount,
-            errorCount: result.errors.length 
+            errorCount: result.errors.length,
           });
 
           return {
             deletedCount: result.deletedCount,
-            errors: result.errors.map(e => e.error)
+            errors: result.errors.map((e) => e.error),
           };
         }),
 
@@ -509,7 +577,8 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
             flowsExecuted,
             flowsSuspended,
             flowsCompleted,
-            averageExecutionTime: flowsExecuted > 0 ? totalExecutionTime / flowsExecuted : 0
+            averageExecutionTime:
+              flowsExecuted > 0 ? totalExecutionTime / flowsExecuted : 0,
           };
         }),
 
@@ -522,18 +591,12 @@ const makeFlowService = (): Effect.Effect<FlowService, never, LoggingService | C
 /**
  * Live implementation of FlowService
  */
-export const FlowServiceLive = Layer.effect(
-  FlowService,
-  makeFlowService()
-);
+export const FlowServiceLive = Layer.effect(FlowService, makeFlowService());
 
 /**
  * Test implementation for testing
  */
-export const FlowServiceTest = Layer.effect(
-  FlowService,
-  makeFlowService()
-);
+export const FlowServiceTest = Layer.effect(FlowService, makeFlowService());
 
 // ============= Helper Functions =============
 

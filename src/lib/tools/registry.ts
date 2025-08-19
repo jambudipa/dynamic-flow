@@ -1,6 +1,6 @@
 /**
  * Tool Registry Implementation - DEPRECATED
- * 
+ *
  * @deprecated Use ToolRegistryService from '../services/tool-registry' instead
  * This file is kept for backward compatibility only.
  */

@@ -1,9 +1,9 @@
 /**
  * SerializerService - State serialization service
- * 
+ *
  * Handles complex state serialization for flow persistence including:
  * - Circular reference detection and handling
- * - Compression for large states  
+ * - Compression for large states
  * - Integrity checking with checksums
  * - Versioned serialization formats
  * - Effect-specific object handling
@@ -64,22 +64,30 @@ export interface SerializerService {
   /**
    * Serialize flow state with circular reference handling and versioning
    */
-  readonly serialize: (state: unknown) => Effect.Effect<SerializedState, SerializationError>;
+  readonly serialize: (
+    state: unknown
+  ) => Effect.Effect<SerializedState, SerializationError>;
 
   /**
    * Deserialize flow state with circular reference restoration
    */
-  readonly deserialize: (data: SerializedState) => Effect.Effect<unknown, SerializationError>;
+  readonly deserialize: (
+    data: SerializedState
+  ) => Effect.Effect<unknown, SerializationError>;
 
   /**
    * Compress serialized state using gzip
    */
-  readonly compress: (data: SerializedState) => Effect.Effect<CompressedState, CompressionError>;
+  readonly compress: (
+    data: SerializedState
+  ) => Effect.Effect<CompressedState, CompressionError>;
 
   /**
    * Decompress state back to original format
    */
-  readonly decompress: (data: CompressedState) => Effect.Effect<SerializedState, CompressionError>;
+  readonly decompress: (
+    data: CompressedState
+  ) => Effect.Effect<SerializedState, CompressionError>;
 
   /**
    * Calculate checksum for data integrity
@@ -94,7 +102,9 @@ export interface SerializerService {
 
 // ============= Context Tag =============
 
-export const SerializerService = Context.GenericTag<SerializerService>('@services/Serializer');
+export const SerializerService = Context.GenericTag<SerializerService>(
+  '@services/Serializer'
+);
 
 // ============= Service Implementation =============
 
@@ -132,24 +142,33 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
 
               // Handle Functions (can't be serialized)
               if (typeof value === 'function') {
-                return { _effectType: 'Function', _functionName: value.name || 'anonymous' };
+                return {
+                  _effectType: 'Function',
+                  _functionName: value.name || 'anonymous',
+                };
               }
 
               // Handle Symbol
               if (typeof value === 'symbol') {
-                return { _effectType: 'Symbol', _symbolDescription: (value as any).description };
+                return {
+                  _effectType: 'Symbol',
+                  _symbolDescription: (value as any).description,
+                };
               }
 
               // Handle BigInt
               if (typeof value === 'bigint') {
-                return { _effectType: 'BigInt', _bigIntValue: (value as any).toString() };
+                return {
+                  _effectType: 'BigInt',
+                  _bigIntValue: (value as any).toString(),
+                };
               }
 
               // Handle Map
               if (value instanceof Map) {
                 return {
                   _effectType: 'Map',
-                  _mapEntries: Array.from(value.entries())
+                  _mapEntries: Array.from(value.entries()),
                 };
               }
 
@@ -157,7 +176,7 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
               if (value instanceof Set) {
                 return {
                   _effectType: 'Set',
-                  _setValues: Array.from(value.values())
+                  _setValues: Array.from(value.values()),
                 };
               }
 
@@ -165,7 +184,7 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
               if (value instanceof Date) {
                 return {
                   _effectType: 'Date',
-                  _dateValue: value.toISOString()
+                  _dateValue: value.toISOString(),
                 };
               }
 
@@ -174,7 +193,7 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
                 return {
                   _effectType: 'RegExp',
                   _regexpSource: value.source,
-                  _regexpFlags: value.flags
+                  _regexpFlags: value.flags,
                 };
               }
 
@@ -195,20 +214,26 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
           // Serialize with custom replacer
           const serialized = yield* Effect.try({
             try: () => JSON.stringify(state, replacer, 0), // No indentation for size
-            catch: (error) => new SerializationError({
-              message: `Serialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              operation: 'serialize',
-              cause: error
-            })
+            catch: (error) =>
+              new SerializationError({
+                message: `Serialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                operation: 'serialize',
+                cause: error,
+              }),
           });
 
           // Check size limits
           if (serialized.length > MAX_STATE_SIZE) {
-            return yield* Effect.fail(new SerializationError({
-              message: `State size ${serialized.length} exceeds maximum allowed size ${MAX_STATE_SIZE}`,
-              operation: 'serialize',
-              cause: { actualSize: serialized.length, maxSize: MAX_STATE_SIZE }
-            }));
+            return yield* Effect.fail(
+              new SerializationError({
+                message: `State size ${serialized.length} exceeds maximum allowed size ${MAX_STATE_SIZE}`,
+                operation: 'serialize',
+                cause: {
+                  actualSize: serialized.length,
+                  maxSize: MAX_STATE_SIZE,
+                },
+              })
+            );
           }
 
           // Calculate checksum for integrity verification
@@ -220,34 +245,43 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
             metadata: {
               serializedAt: new Date().toISOString(),
               size: serialized.length,
-              checksum
-            }
+              checksum,
+            },
           };
         }),
 
       deserialize: (data: SerializedState) =>
         Effect.gen(function* () {
           // Verify checksum
-          const calculatedChecksum = yield* service.calculateChecksum(data.data);
+          const calculatedChecksum = yield* service.calculateChecksum(
+            data.data
+          );
           if (calculatedChecksum !== data.metadata.checksum) {
-            return yield* Effect.fail(new SerializationError({
-              message: 'Checksum mismatch - data may be corrupted',
-              operation: 'deserialize',
-              cause: {
-                expected: data.metadata.checksum,
-                calculated: calculatedChecksum
-              }
-            }));
+            return yield* Effect.fail(
+              new SerializationError({
+                message: 'Checksum mismatch - data may be corrupted',
+                operation: 'deserialize',
+                cause: {
+                  expected: data.metadata.checksum,
+                  calculated: calculatedChecksum,
+                },
+              })
+            );
           }
 
           // Check version compatibility
           const isCompatible = yield* service.isVersionCompatible(data.version);
           if (!isCompatible) {
-            return yield* Effect.fail(new SerializationError({
-              message: `Unsupported serialization version: ${data.version}`,
-              operation: 'deserialize',
-              cause: { version: data.version, supportedVersion: SERIALIZATION_VERSION }
-            }));
+            return yield* Effect.fail(
+              new SerializationError({
+                message: `Unsupported serialization version: ${data.version}`,
+                operation: 'deserialize',
+                cause: {
+                  version: data.version,
+                  supportedVersion: SERIALIZATION_VERSION,
+                },
+              })
+            );
           }
 
           // Store circular reference objects for resolution
@@ -258,7 +292,10 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
               const obj = value as Record<string, unknown>;
 
               // Handle circular references
-              if ('_circularRef' in obj && typeof obj._circularRef === 'string') {
+              if (
+                '_circularRef' in obj &&
+                typeof obj._circularRef === 'string'
+              ) {
                 const refId = obj._circularRef;
                 if (circularRefs.has(refId)) {
                   return circularRefs.get(refId);
@@ -274,7 +311,10 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
                     return new Date(obj._dateValue as string);
 
                   case 'RegExp':
-                    return new RegExp(obj._regexpSource as string, obj._regexpFlags as string);
+                    return new RegExp(
+                      obj._regexpSource as string,
+                      obj._regexpFlags as string
+                    );
 
                   case 'Map':
                     return new Map(obj._mapEntries as [unknown, unknown][]);
@@ -291,7 +331,9 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
                   case 'Function':
                     // Functions can't be restored, return a placeholder
                     return function restoredFunction() {
-                      throw new Error(`Cannot execute restored function: ${obj._functionName}`);
+                      throw new Error(
+                        `Cannot execute restored function: ${obj._functionName}`
+                      );
                     };
 
                   case 'Fiber':
@@ -314,27 +356,38 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
           // First pass: deserialize with reviver
           const deserialized = yield* Effect.try({
             try: () => JSON.parse(data.data, reviver),
-            catch: (error) => new SerializationError({
-              message: `Deserialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              operation: 'deserialize',
-              cause: error
-            })
+            catch: (error) =>
+              new SerializationError({
+                message: `Deserialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                operation: 'deserialize',
+                cause: error,
+              }),
           });
 
           // Second pass: resolve any remaining circular references
-          const resolveCircularRefs = (obj: unknown, visited = new WeakSet()): unknown => {
-            if (obj === null || typeof obj !== 'object' || visited.has(obj as object)) {
+          const resolveCircularRefs = (
+            obj: unknown,
+            visited = new WeakSet()
+          ): unknown => {
+            if (
+              obj === null ||
+              typeof obj !== 'object' ||
+              visited.has(obj as object)
+            ) {
               return obj;
             }
 
             visited.add(obj as object);
 
             if (Array.isArray(obj)) {
-              return obj.map(item => resolveCircularRefs(item, visited));
+              return obj.map((item) => resolveCircularRefs(item, visited));
             }
 
             const objRecord = obj as Record<string, unknown>;
-            if ('_circularRef' in objRecord && typeof objRecord._circularRef === 'string') {
+            if (
+              '_circularRef' in objRecord &&
+              typeof objRecord._circularRef === 'string'
+            ) {
               const refId = objRecord._circularRef;
               return circularRefs.get(refId) || objRecord;
             }
@@ -358,17 +411,18 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
               ...data,
               compressed: true,
               originalSize: data.data.length,
-              compressedSize: data.data.length
+              compressedSize: data.data.length,
             } as CompressedState;
           }
 
           const compressed = yield* Effect.tryPromise({
             try: () => gzipAsync(Buffer.from(data.data, 'utf8')),
-            catch: (error) => new CompressionError({
-              message: `Compression failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              operation: 'compress',
-              cause: error
-            })
+            catch: (error) =>
+              new CompressionError({
+                message: `Compression failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                operation: 'compress',
+                cause: error,
+              }),
           });
 
           const compressedData = compressed.toString('base64');
@@ -378,7 +432,7 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
             data: compressedData,
             compressed: true,
             originalSize: data.data.length,
-            compressedSize: compressedData.length
+            compressedSize: compressedData.length,
           } as CompressedState;
         }),
 
@@ -386,13 +440,23 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
         Effect.gen(function* () {
           if (!data.compressed) {
             // Return as-is if not compressed
-            const { compressed, originalSize, compressedSize, ...serializedData } = data;
+            const {
+              compressed,
+              originalSize,
+              compressedSize,
+              ...serializedData
+            } = data;
             return serializedData;
           }
 
           // If size is below threshold, data wasn't actually compressed
           if (data.originalSize < COMPRESSION_THRESHOLD) {
-            const { compressed, originalSize, compressedSize, ...serializedData } = data;
+            const {
+              compressed,
+              originalSize,
+              compressedSize,
+              ...serializedData
+            } = data;
             return serializedData;
           }
 
@@ -400,18 +464,24 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
 
           const decompressed = yield* Effect.tryPromise({
             try: () => gunzipAsync(compressedBuffer),
-            catch: (error) => new CompressionError({
-              message: `Decompression failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              operation: 'decompress',
-              cause: error
-            })
+            catch: (error) =>
+              new CompressionError({
+                message: `Decompression failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                operation: 'decompress',
+                cause: error,
+              }),
           });
 
-          const { compressed, originalSize, compressedSize, ...serializedData } = data;
+          const {
+            compressed,
+            originalSize,
+            compressedSize,
+            ...serializedData
+          } = data;
 
           return {
             ...serializedData,
-            data: decompressed.toString('utf8')
+            data: decompressed.toString('utf8'),
           };
         }),
 
@@ -427,7 +497,7 @@ const makeSerializerService = (): Effect.Effect<SerializerService> =>
           return supportedVersions.includes(version);
         }),
     };
-    
+
     return service;
   });
 
@@ -516,6 +586,6 @@ export const getSerializationStats = (state: unknown) =>
       compressionRatio: compressed.originalSize / compressed.compressedSize,
       checksum: serialized.metadata.checksum,
       version: serialized.version,
-      serializedAt: serialized.metadata.serializedAt
+      serializedAt: serialized.metadata.serializedAt,
     };
   });

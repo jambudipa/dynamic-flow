@@ -1,5 +1,17 @@
 # @jambudipa/dynamic-flow
 
+## 0.2.2
+
+### Patch Changes
+
+- Fix logging service issues in examples and update documentation
+  - Resolve service dependency issues in dynamic example 05
+  - Switch from runCollect() to streaming execution to avoid IR executor service requirements
+  - Add defensive error handling for undefined inputs in LLM tools
+  - Update README with actual working output from selflessness analysis example
+  - Fix JSON syntax errors in code comments
+    EOF < /dev/null
+
 ## 0.2.1
 
 ### Patch Changes

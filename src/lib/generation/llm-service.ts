@@ -276,7 +276,8 @@ Requirements:
                   v !== undefined &&
                   typeof v === 'object' &&
                   'source' in v &&
-                  typeof (v as { source?: unknown | undefined }).source === 'string'
+                  typeof (v as { source?: unknown | undefined }).source ===
+                    'string'
                 ) {
                   const src = (v as { source: string }).source;
                   const base = src.split('.')[0] ?? src;

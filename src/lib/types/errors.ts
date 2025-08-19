@@ -8,7 +8,7 @@
  * @see https://effect.website/docs/data-types/data/#taggederror
  */
 
-import { Data, Effect } from 'effect';
+import { Data, Effect, Option } from 'effect';
 import type { SourceLocation } from './core';
 
 // ============= Base Error Classes =============
@@ -412,7 +412,11 @@ export const createFlowTypeError = (
   };
 
   if (location !== undefined) {
-    props.location = location;
+    props.location = {
+      line: Option.getOrUndefined(location.line),
+      column: Option.getOrUndefined(location.column),
+      file: Option.getOrUndefined(location.file),
+    };
   }
 
   return new FlowTypeError(props);

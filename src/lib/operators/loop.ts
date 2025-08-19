@@ -161,24 +161,32 @@ export class LoopOperator implements UnifiedOperator<LoopConfig> {
       }
     }
 
+    // Determine loop type (while if condition is present)
+    const loopType =
+      config.loop || ((config as any).condition ? 'while' : 'for');
+
     return {
       id: config.id || ctx.nodeIdGenerator(),
       type: 'loop',
-      loopType: config.loop,
+      loopType,
       collection:
-        config.loop === 'for'
+        loopType === 'for'
           ? { type: 'variable', name: config.over || 'input' }
           : undefined,
       condition:
-        config.loop === 'while'
-          ? { type: 'expression', value: config.condition || 'false' }
+        loopType === 'while'
+          ? {
+              type: 'expression',
+              value: (config as any).condition || config.condition || 'false',
+            }
           : undefined,
-      iteratorVar: config.loop === 'for' ? 'item' : undefined,
+      iteratorVar: loopType === 'for' ? 'item' : undefined,
       body: bodyNodes,
       outputVar: config.output,
       config: {
         timeout: config.timeout,
         retries: config.retry,
+        maxIterations: (config as any).maxIterations,
       },
     } as IRNode;
   }

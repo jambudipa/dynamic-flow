@@ -65,7 +65,8 @@ Instructions:
 4. Ensure all imports are correct
 5. Fix all Effect type mismatches
 6. Do NOT stop until all errors are resolved
-7. Run 'npx tsc --noEmit' to verify zero errors before finishing"
+7. You must not violate idiomatic Effect usage
+8. Run 'npx tsc --noEmit' to verify zero errors before finishing"
 
     echo -e "${YELLOW}Invoking Claude Code to fix errors...${NC}\n"
 
@@ -97,7 +98,8 @@ REQUIRED ACTIONS:
 4. Fix import statements
 5. Add type assertions where needed
 6. Modify tsconfig.json if absolutely necessary
-7. DO NOT STOP until 'npx tsc --noEmit' shows ZERO errors"
+7. You must not violate idiomatic Effect usage
+8. DO NOT STOP until 'npx tsc --noEmit' shows ZERO errors"
 
         claude --print --dangerously-skip-permissions "$PROMPT" || true
         sleep 2

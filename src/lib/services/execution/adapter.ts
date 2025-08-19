@@ -1,91 +1,91 @@
-import { Effect, Runtime, Layer, Option, ManagedRuntime } from 'effect'
-import { ExecutionContextService } from './context'
-import type { 
-  EnhancedExecutionContext, 
-  VariableScope, 
-  WorkerPool, 
-  PauseResumeManager, 
-  FlowControlManager 
-} from '../../core/context/execution-context'
-import { v4 as uuidv4 } from 'uuid'
+import { Effect, Runtime, Layer, Option, ManagedRuntime } from 'effect';
+import { ExecutionContextService } from './context';
+import type {
+  EnhancedExecutionContext,
+  VariableScope,
+  WorkerPool,
+  PauseResumeManager,
+  FlowControlManager,
+} from '../../core/context/execution-context';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Variable Scope Adapter
  */
 class VariableScopeAdapter implements VariableScope {
   constructor(private runtime: Runtime.Runtime<ExecutionContextService>) {}
-  
+
   get<T>(key: string): Option.Option<T> {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        const value = yield* service.getVariable(key).pipe(
-          Effect.catchAll(() => Effect.succeed(undefined))
-        )
-        return value !== undefined ? Option.some(value as T) : Option.none()
+        const service = yield* ExecutionContextService;
+        const value = yield* service
+          .getVariable(key)
+          .pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+        return value !== undefined ? Option.some(value as T) : Option.none();
       })
-    )
+    );
   }
-  
+
   set<T>(key: string, value: T): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.setVariable(key, value)
+        const service = yield* ExecutionContextService;
+        yield* service.setVariable(key, value);
       })
-    )
+    );
   }
-  
+
   has(key: string): boolean {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.hasVariable(key)
+        const service = yield* ExecutionContextService;
+        return yield* service.hasVariable(key);
       })
-    )
+    );
   }
-  
+
   delete(key: string): boolean {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.deleteVariable(key)
-        return true
+        const service = yield* ExecutionContextService;
+        yield* service.deleteVariable(key);
+        return true;
       })
-    )
+    );
   }
-  
+
   createScope(): VariableScope {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.createChildContext()
+        const service = yield* ExecutionContextService;
+        yield* service.createChildContext();
       })
-    )
-    return new VariableScopeAdapter(this.runtime)
+    );
+    return new VariableScopeAdapter(this.runtime);
   }
-  
+
   getParentScope(): Option.Option<VariableScope> {
     // Parent scope management is handled internally by the service
-    return Option.none()
+    return Option.none();
   }
-  
+
   getKeys(): string[] {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.listVariables()
+        const service = yield* ExecutionContextService;
+        return yield* service.listVariables();
       })
-    )
+    );
   }
-  
+
   clear(): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.clearVariables()
+        const service = yield* ExecutionContextService;
+        yield* service.clearVariables();
       })
-    )
+    );
   }
 }
 
@@ -94,63 +94,69 @@ class VariableScopeAdapter implements VariableScope {
  */
 class WorkerPoolAdapter implements WorkerPool {
   constructor(private runtime: Runtime.Runtime<ExecutionContextService>) {}
-  
+
   execute<T>(task: () => Promise<T>): Effect.Effect<T, unknown> {
     return Runtime.runPromise(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* (ExecutionContextService)
-        return yield* (service.submitTask(task))
+        const service = yield* ExecutionContextService;
+        return yield* service.submitTask(task);
       })
-    ).then(result => Effect.succeed(result)).catch(error => Effect.fail(error)) as any
+    )
+      .then((result) => Effect.succeed(result))
+      .catch((error) => Effect.fail(error)) as any;
   }
-  
-  executeParallel<T>(tasks: Array<() => Promise<T>>): Effect.Effect<T[], unknown> {
+
+  executeParallel<T>(
+    tasks: Array<() => Promise<T>>
+  ): Effect.Effect<T[], unknown> {
     return Runtime.runPromise(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* (ExecutionContextService)
-        return yield* (service.submitParallelTasks(tasks))
+        const service = yield* ExecutionContextService;
+        return yield* service.submitParallelTasks(tasks);
       })
-    ).then(result => Effect.succeed(result)).catch(error => Effect.fail(error)) as any
+    )
+      .then((result) => Effect.succeed(result))
+      .catch((error) => Effect.fail(error)) as any;
   }
-  
+
   getAvailableWorkers(): number {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        const stats = yield* service.getWorkerStats()
-        return stats.available
+        const service = yield* ExecutionContextService;
+        const stats = yield* service.getWorkerStats();
+        return stats.available;
       })
-    )
+    );
   }
-  
+
   getMaxWorkers(): number {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        const stats = yield* service.getWorkerStats()
-        return stats.total
+        const service = yield* ExecutionContextService;
+        const stats = yield* service.getWorkerStats();
+        return stats.total;
       })
-    )
+    );
   }
-  
+
   setMaxWorkers(count: number): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.setMaxWorkers(count)
+        const service = yield* ExecutionContextService;
+        yield* service.setMaxWorkers(count);
       })
-    )
+    );
   }
-  
+
   shutdown(): Effect.Effect<void, never> {
-    return Effect.promise(() => 
+    return Effect.promise(() =>
       Runtime.runPromise(this.runtime)(
         Effect.gen(function* () {
-          const service = yield* (ExecutionContextService)
-          yield* (service.dispose())
+          const service = yield* ExecutionContextService;
+          yield* service.dispose();
         })
       )
-    )
+    );
   }
 }
 
@@ -159,52 +165,52 @@ class WorkerPoolAdapter implements WorkerPool {
  */
 class PauseResumeManagerAdapter implements PauseResumeManager {
   constructor(private runtime: Runtime.Runtime<ExecutionContextService>) {}
-  
+
   pause<T>(prompt: string): Effect.Effect<T, never> {
     return Effect.promise(() =>
       Runtime.runPromise(this.runtime)(
         Effect.gen(function* () {
-          const service = yield* (ExecutionContextService)
-          return yield* (service.pause<T>(prompt))
+          const service = yield* ExecutionContextService;
+          return yield* service.pause<T>(prompt);
         })
       )
-    ) as Effect.Effect<T, never>
+    ) as Effect.Effect<T, never>;
   }
-  
+
   resume<T>(value: T): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.resume(value)
+        const service = yield* ExecutionContextService;
+        yield* service.resume(value);
       })
-    )
+    );
   }
-  
+
   isPaused(): boolean {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.isPaused()
+        const service = yield* ExecutionContextService;
+        return yield* service.isPaused();
       })
-    )
+    );
   }
-  
+
   getCurrentPrompt(): Option.Option<string> {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.getPausePrompt()
+        const service = yield* ExecutionContextService;
+        return yield* service.getPausePrompt();
       })
-    )
+    );
   }
-  
+
   cancel(): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.cancelPause()
+        const service = yield* ExecutionContextService;
+        yield* service.cancelPause();
       })
-    )
+    );
   }
 }
 
@@ -213,90 +219,90 @@ class PauseResumeManagerAdapter implements PauseResumeManager {
  */
 class FlowControlManagerAdapter implements FlowControlManager {
   constructor(private runtime: Runtime.Runtime<ExecutionContextService>) {}
-  
+
   get isParallelContext(): boolean {
     // This would need to track state, simplified for now
-    return false
+    return false;
   }
-  
+
   get canBreak(): boolean {
-    return !this.isParallelContext
+    return !this.isParallelContext;
   }
-  
+
   get canContinue(): boolean {
-    return !this.isParallelContext
+    return !this.isParallelContext;
   }
-  
+
   break(): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.signalBreak()
+        const service = yield* ExecutionContextService;
+        yield* service.signalBreak();
       })
-    )
+    );
   }
-  
+
   continue(): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.signalContinue()
+        const service = yield* ExecutionContextService;
+        yield* service.signalContinue();
       })
-    )
+    );
   }
-  
+
   enterSequentialContext(): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.enterSequentialContext()
+        const service = yield* ExecutionContextService;
+        yield* service.enterSequentialContext();
       })
-    )
+    );
   }
-  
+
   enterParallelContext(): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.enterParallelContext()
+        const service = yield* ExecutionContextService;
+        yield* service.enterParallelContext();
       })
-    )
+    );
   }
-  
+
   exitContext(): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.exitContext()
+        const service = yield* ExecutionContextService;
+        yield* service.exitContext();
       })
-    )
+    );
   }
-  
+
   shouldBreak(): boolean {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.checkBreak()
+        const service = yield* ExecutionContextService;
+        return yield* service.checkBreak();
       })
-    )
+    );
   }
-  
+
   shouldContinue(): boolean {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.checkContinue()
+        const service = yield* ExecutionContextService;
+        return yield* service.checkContinue();
       })
-    )
+    );
   }
-  
+
   reset(): void {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.resetFlowControl()
+        const service = yield* ExecutionContextService;
+        yield* service.resetFlowControl();
       })
-    )
+    );
   }
 }
 
@@ -305,122 +311,127 @@ class FlowControlManagerAdapter implements FlowControlManager {
  * Maintains the original class-based API
  */
 export class ExecutionContextImpl implements EnhancedExecutionContext {
-  private runtime: Runtime.Runtime<ExecutionContextService>
-  public readonly variableScope: VariableScope
-  public readonly workers: WorkerPool
-  public readonly pauseResume: PauseResumeManager
-  public readonly flowControl: FlowControlManager
-  
-  constructor(options: {
-    flowId?: string
-    stepId?: string
-    sessionId?: string
-    variables?: VariableScope
-    workers?: WorkerPool
-    pauseResume?: PauseResumeManager
-    flowControl?: FlowControlManager
-    metadata?: Record<string, unknown>
-  } = {}) {
+  private runtime: Runtime.Runtime<ExecutionContextService>;
+  public readonly variableScope: VariableScope;
+  public readonly workers: WorkerPool;
+  public readonly pauseResume: PauseResumeManager;
+  public readonly flowControl: FlowControlManager;
+
+  constructor(
+    options: {
+      flowId?: string;
+      stepId?: string;
+      sessionId?: string;
+      variables?: VariableScope;
+      workers?: WorkerPool;
+      pauseResume?: PauseResumeManager;
+      flowControl?: FlowControlManager;
+      metadata?: Record<string, unknown>;
+    } = {}
+  ) {
     // Create runtime with the ExecutionContextService layer
     this.runtime = Layer.toRuntime(ExecutionContextService.Default).pipe(
       Effect.scoped,
       Effect.runSync
-    )
-    
+    );
+
     // Initialize service with options
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        if (options.flowId) yield* service.setFlowId(options.flowId)
-        if (options.stepId) yield* service.setStepId(options.stepId)
-        if (options.sessionId) yield* service.setSessionId(options.sessionId)
-        
+        const service = yield* ExecutionContextService;
+        if (options.flowId) yield* service.setFlowId(options.flowId);
+        if (options.stepId) yield* service.setStepId(options.stepId);
+        if (options.sessionId) yield* service.setSessionId(options.sessionId);
+
         if (options.metadata) {
           for (const [key, value] of Object.entries(options.metadata)) {
-            yield* service.setMetadata(key, value)
+            yield* service.setMetadata(key, value);
           }
         }
       })
-    )
-    
+    );
+
     // Create adapters
-    this.variableScope = options.variables || new VariableScopeAdapter(this.runtime)
-    this.workers = options.workers || new WorkerPoolAdapter(this.runtime)
-    this.pauseResume = options.pauseResume || new PauseResumeManagerAdapter(this.runtime)
-    this.flowControl = options.flowControl || new FlowControlManagerAdapter(this.runtime)
+    this.variableScope =
+      options.variables || new VariableScopeAdapter(this.runtime);
+    this.workers = options.workers || new WorkerPoolAdapter(this.runtime);
+    this.pauseResume =
+      options.pauseResume || new PauseResumeManagerAdapter(this.runtime);
+    this.flowControl =
+      options.flowControl || new FlowControlManagerAdapter(this.runtime);
   }
-  
+
   get flowId(): string {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.getFlowId()
+        const service = yield* ExecutionContextService;
+        return yield* service.getFlowId();
       })
-    )
+    );
   }
-  
+
   get stepId(): string {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.getStepId()
+        const service = yield* ExecutionContextService;
+        return yield* service.getStepId();
       })
-    )
+    );
   }
-  
+
   get sessionId(): string {
     return Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        return yield* service.getSessionId()
+        const service = yield* ExecutionContextService;
+        return yield* service.getSessionId();
       })
-    )
+    );
   }
-  
+
   get variables(): Record<string, unknown> {
-    const keys = this.variableScope.getKeys()
-    const result: Record<string, unknown> = {}
-    
+    const keys = this.variableScope.getKeys();
+    const result: Record<string, unknown> = {};
+
     for (const key of keys) {
-      const value = this.variableScope.get(key)
+      const value = this.variableScope.get(key);
       if (Option.isSome(value)) {
-        result[key] = value.value
+        result[key] = value.value;
       }
     }
-    
-    return result
+
+    return result;
   }
-  
+
   get metadata(): Record<string, unknown> {
     // Simplified - would need to track all metadata keys
-    return {}
+    return {};
   }
-  
+
   createChildContext(scope?: Partial<VariableScope>): EnhancedExecutionContext {
     Runtime.runSync(this.runtime)(
       Effect.gen(function* () {
-        const service = yield* ExecutionContextService
-        yield* service.createChildContext()
+        const service = yield* ExecutionContextService;
+        yield* service.createChildContext();
       })
-    )
-    
+    );
+
     return new ExecutionContextImpl({
       flowId: this.flowId,
       stepId: this.stepId,
       sessionId: this.sessionId,
-      variables: this.variableScope.createScope()
-    })
+      variables: this.variableScope.createScope(),
+    });
   }
-  
+
   dispose(): Effect.Effect<void, never, never> {
     return Effect.promise(() =>
       Runtime.runPromise(this.runtime)(
         Effect.gen(function* () {
-          const service = yield* ExecutionContextService
-          yield* service.dispose()
+          const service = yield* ExecutionContextService;
+          yield* service.dispose();
         })
       )
-    )
+    );
   }
 }
 
@@ -432,8 +443,8 @@ export class VariableScopeImpl extends VariableScopeAdapter {
     const runtime = Layer.toRuntime(ExecutionContextService.Default).pipe(
       Effect.scoped,
       Effect.runSync
-    )
-    super(runtime)
+    );
+    super(runtime);
   }
 }
 
@@ -442,9 +453,9 @@ export class WorkerPoolImpl extends WorkerPoolAdapter {
     const runtime = Layer.toRuntime(ExecutionContextService.Default).pipe(
       Effect.scoped,
       Effect.runSync
-    )
-    super(runtime)
-    this.setMaxWorkers(maxWorkers)
+    );
+    super(runtime);
+    this.setMaxWorkers(maxWorkers);
   }
 }
 
@@ -453,8 +464,8 @@ export class PauseResumeManagerImpl extends PauseResumeManagerAdapter {
     const runtime = Layer.toRuntime(ExecutionContextService.Default).pipe(
       Effect.scoped,
       Effect.runSync
-    )
-    super(runtime)
+    );
+    super(runtime);
   }
 }
 
@@ -463,7 +474,7 @@ export class FlowControlManagerImpl extends FlowControlManagerAdapter {
     const runtime = Layer.toRuntime(ExecutionContextService.Default).pipe(
       Effect.scoped,
       Effect.runSync
-    )
-    super(runtime)
+    );
+    super(runtime);
   }
 }

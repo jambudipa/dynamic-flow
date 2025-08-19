@@ -14,62 +14,72 @@
  * Run: npx tsx examples/static/25-conversation-final.ts
  */
 
-import { Effect, pipe, Schema, Duration, Context } from 'effect'
-import { Flow, LLMServiceLive } from '../../lib/index'
-import { createOpenAiCompletionTool } from '../../lib/llm/providers/effect-openai-tool'
-import { createDefaultPersistenceHub, PersistenceHubService } from '../../lib/persistence/hub'
-import { BackendFactory } from '../../lib/persistence/backend-factory'
-import { FilesystemStorageBackendLive, FilesystemStorageBackend } from '../../lib/persistence/backends/filesystem'
-import { type SuspensionKey } from '../../lib/persistence/types'
-import { loadEnv } from '../env'
-import * as readline from 'readline'
-import * as path from 'path'
+import { Effect, pipe, Schema, Duration, Context } from 'effect';
+import { Flow, LLMServiceLive } from '../../lib/index';
+import { createOpenAiCompletionTool } from '../../lib/llm/providers/effect-openai-tool';
+import {
+  createDefaultPersistenceHub,
+  PersistenceHubService,
+} from '../../lib/persistence/hub';
+import { BackendFactory } from '../../lib/persistence/backend-factory';
+import {
+  FilesystemStorageBackendLive,
+  FilesystemStorageBackend,
+} from '../../lib/persistence/backends/filesystem';
+import { type SuspensionKey } from '../../lib/persistence/types';
+import { loadEnv } from '../env';
+import * as readline from 'readline';
+import * as path from 'path';
 
 // ============= Types =============
 
 interface ConversationState {
-  id: string
-  messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
-  isActive: boolean
+  id: string;
+  messages: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+  }>;
+  isActive: boolean;
 }
 
 interface ConversationResult {
-  shouldContinue: boolean
-  response: string
+  shouldContinue: boolean;
+  response: string;
 }
 
 // ============= Terminal Interface =============
 
 class TerminalInterface {
-  private rl: readline.Interface
+  private rl: readline.Interface;
 
   constructor() {
     this.rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
-    })
+      output: process.stdout,
+    });
   }
 
   async getUserInput(prompt: string = '👤 You: '): Promise<string> {
     return new Promise((resolve) => {
       this.rl.question(prompt, (answer) => {
-        resolve(answer.trim())
-      })
-    })
+        resolve(answer.trim());
+      });
+    });
   }
 
   displayMessage(message: string, sender: 'user' | 'assistant' = 'assistant') {
-    const icon = sender === 'user' ? '👤' : '🤖'
-    const label = sender === 'user' ? 'You' : 'Assistant'
-    console.log(`${icon} ${label}: ${message}`)
+    const icon = sender === 'user' ? '👤' : '🤖';
+    const label = sender === 'user' ? 'You' : 'Assistant';
+    console.log(`${icon} ${label}: ${message}`);
   }
 
   displayInfo(message: string) {
-    console.log(`ℹ️  ${message}`)
+    console.log(`ℹ️  ${message}`);
   }
 
   close() {
-    this.rl.close()
+    this.rl.close();
   }
 }
 
@@ -83,7 +93,7 @@ function createConversationFlow() {
     'conversation-response',
     'Conversation Response',
     'Generates conversation responses'
-  )
+  );
 
   // Tool definitions for routing options (required by Flow.switchRoute)
   const continueConversationTool = {
@@ -92,8 +102,8 @@ function createConversationFlow() {
     description: 'Continue with a helpful response',
     inputSchema: Schema.String,
     outputSchema: Schema.Unknown,
-    execute: (input: string, context: any) => Effect.succeed({})
-  }
+    execute: (input: string, context: any) => Effect.succeed({}),
+  };
 
   const endConversationTool = {
     id: 'end',
@@ -101,8 +111,8 @@ function createConversationFlow() {
     description: 'End the conversation gracefully',
     inputSchema: Schema.String,
     outputSchema: Schema.Unknown,
-    execute: (input: string, context: any) => Effect.succeed({})
-  }
+    execute: (input: string, context: any) => Effect.succeed({}),
+  };
 
   return Flow.switchRoute(
     (input: { userMessage: string; conversationHistory: string }) =>
@@ -122,7 +132,7 @@ Be decisive - look for clear ending signals.`,
     [continueConversationTool, endConversationTool],
 
     {
-      'continue': (input: { userMessage: string; conversationHistory: string }) =>
+      continue: (input: { userMessage: string; conversationHistory: string }) =>
         pipe(
           Effect.succeed({
             prompt: `You are a helpful AI assistant. Here's the conversation so far:
@@ -131,16 +141,21 @@ ${input.conversationHistory}
 
 User: ${input.userMessage}
 
-Respond naturally and helpfully, using the conversation context to maintain continuity and remember what was discussed.`
+Respond naturally and helpfully, using the conversation context to maintain continuity and remember what was discussed.`,
           }),
-          Effect.flatMap((promptInput) => responseTool.execute(promptInput, {} as any)),
-          Effect.map((response: any) => ({
-            shouldContinue: true,
-            response: response.response
-          } as ConversationResult))
+          Effect.flatMap((promptInput) =>
+            responseTool.execute(promptInput, {} as any)
+          ),
+          Effect.map(
+            (response: any) =>
+              ({
+                shouldContinue: true,
+                response: response.response,
+              }) as ConversationResult
+          )
         ),
 
-      'end': (input: { userMessage: string; conversationHistory: string }) =>
+      end: (input: { userMessage: string; conversationHistory: string }) =>
         pipe(
           Effect.succeed({
             prompt: `The user wants to end the conversation with: "${input.userMessage}". 
@@ -148,18 +163,23 @@ Respond naturally and helpfully, using the conversation context to maintain cont
 Conversation context:
 ${input.conversationHistory}
 
-Provide a warm, friendly goodbye message that acknowledges the conversation.`
+Provide a warm, friendly goodbye message that acknowledges the conversation.`,
           }),
-          Effect.flatMap((promptInput) => responseTool.execute(promptInput, {} as any)),
-          Effect.map((response: any) => ({
-            shouldContinue: false,
-            response: response.response
-          } as ConversationResult))
-        )
+          Effect.flatMap((promptInput) =>
+            responseTool.execute(promptInput, {} as any)
+          ),
+          Effect.map(
+            (response: any) =>
+              ({
+                shouldContinue: false,
+                response: response.response,
+              }) as ConversationResult
+          )
+        ),
     },
 
     { retries: 2 }
-  )
+  );
 }
 
 // ============= Persistence Management =============
@@ -167,27 +187,27 @@ Provide a warm, friendly goodbye message that acknowledges the conversation.`
 async function createConversationPersistence() {
   // Create filesystem backend using Layer
   const filesystemLayer = FilesystemStorageBackendLive({
-    basePath: path.join(process.cwd(), 'conversation-state')
-  })
+    basePath: path.join(process.cwd(), 'conversation-state'),
+  });
 
   // Get backend from layer
   const backend = await Effect.runPromise(
     Effect.gen(function* (_) {
-      return yield* _(FilesystemStorageBackend)
+      return yield* _(FilesystemStorageBackend);
     }).pipe(Effect.provide(filesystemLayer))
-  )
+  );
 
   const hubLayer = createDefaultPersistenceHub({
     enableEncryption: false,
     enableCompression: true,
-    defaultTimeout: Duration.hours(24)
-  })
-  
+    defaultTimeout: Duration.hours(24),
+  });
+
   const hub = await Effect.runPromise(
     Effect.gen(function* (_) {
-      return yield* _(PersistenceHubService)
+      return yield* _(PersistenceHubService);
     }).pipe(Effect.provide(hubLayer))
-  )
+  );
 
   // Return both the hub and a simple storage interface
   return {
@@ -201,75 +221,84 @@ async function createConversationPersistence() {
         metadata: {
           serializedAt: new Date().toISOString(),
           size: JSON.stringify(data).length,
-          checksum: 'simple'
-        }
-      }
+          checksum: 'simple',
+        },
+      };
 
       // Cast string to SuspensionKey (following library pattern)
-      const suspensionKey = id as SuspensionKey
-      await Effect.runPromise(backend.store(suspensionKey, serializedState))
+      const suspensionKey = id as SuspensionKey;
+      await Effect.runPromise(backend.store(suspensionKey, serializedState));
     },
 
     retrieve: async (id: string): Promise<ConversationState | null> => {
       try {
         // Cast string to SuspensionKey (following library pattern)
-        const suspensionKey = id as SuspensionKey
-        const result = await Effect.runPromise(backend.retrieve(suspensionKey))
+        const suspensionKey = id as SuspensionKey;
+        const result = await Effect.runPromise(backend.retrieve(suspensionKey));
         if (result._tag === 'Some') {
-          return JSON.parse(result.value.data)
+          return JSON.parse(result.value.data);
         }
-        return null
+        return null;
       } catch {
-        return null
+        return null;
       }
-    }
-  }
+    },
+  };
 }
 
 function createNewConversation(): ConversationState {
   return {
     id: `conv_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
     messages: [],
-    isActive: true
-  }
+    isActive: true,
+  };
 }
 
-function addMessage(state: ConversationState, role: 'user' | 'assistant', content: string): ConversationState {
+function addMessage(
+  state: ConversationState,
+  role: 'user' | 'assistant',
+  content: string
+): ConversationState {
   return {
     ...state,
-    messages: [...state.messages, {
-      role,
-      content,
-      timestamp: new Date().toISOString()
-    }]
-  }
+    messages: [
+      ...state.messages,
+      {
+        role,
+        content,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  };
 }
 
 function formatConversationHistory(state: ConversationState): string {
   if (state.messages.length === 0) {
-    return "This is the start of a new conversation."
+    return 'This is the start of a new conversation.';
   }
 
   return state.messages
-    .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-    .join('\n')
+    .map(
+      (msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+    )
+    .join('\n');
 }
 
 async function saveConversation(storage: any, state: ConversationState) {
   try {
-    await storage.store(state.id, state)
+    await storage.store(state.id, state);
   } catch (error) {
-    console.warn('Failed to save conversation:', error)
+    console.warn('Failed to save conversation:', error);
   }
 }
 
 // ============= Main Conversation Runner =============
 
 export async function runConversationWithLLMRouting(): Promise<void> {
-  loadEnv()
+  loadEnv();
 
   if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is required for LLM routing')
+    throw new Error('OPENAI_API_KEY is required for LLM routing');
   }
 
   console.log(`
@@ -289,153 +318,168 @@ export async function runConversationWithLLMRouting(): Promise<void> {
 ║                                                           ║
 ║  Storage: ./conversation-state/                           ║
 ╚═══════════════════════════════════════════════════════════╝
-`)
+`);
 
-  const terminal = new TerminalInterface()
+  const terminal = new TerminalInterface();
 
   try {
     // Setup
-    terminal.displayInfo('Setting up conversation with LLM routing...')
-    const persistenceStorage = await createConversationPersistence()
-    let conversationState = createNewConversation()
-    const conversationFlow = createConversationFlow()
+    terminal.displayInfo('Setting up conversation with LLM routing...');
+    const persistenceStorage = await createConversationPersistence();
+    let conversationState = createNewConversation();
+    const conversationFlow = createConversationFlow();
 
-    terminal.displayInfo(`Started conversation: ${conversationState.id}`)
+    terminal.displayInfo(`Started conversation: ${conversationState.id}`);
 
     // Welcome
-    terminal.displayMessage("Hello! I'm here to help. What would you like to talk about?")
+    terminal.displayMessage(
+      "Hello! I'm here to help. What would you like to talk about?"
+    );
 
     // Main conversation loop
     while (conversationState.isActive) {
       try {
         // Get user input
-        const userMessage = await terminal.getUserInput()
+        const userMessage = await terminal.getUserInput();
 
         if (!userMessage) {
-          terminal.displayInfo('Please enter a message.')
-          continue
+          terminal.displayInfo('Please enter a message.');
+          continue;
         }
 
         // Add to conversation
-        conversationState = addMessage(conversationState, 'user', userMessage)
+        conversationState = addMessage(conversationState, 'user', userMessage);
 
         // Process with LLM routing via Flow.switchRoute
-        terminal.displayInfo('Processing with LLM routing...')
+        terminal.displayInfo('Processing with LLM routing...');
 
-        const result = await Flow.run(
+        const result = (await Flow.run(
           pipe(
             Flow.succeed({
               userMessage,
-              conversationHistory: formatConversationHistory(conversationState)
+              conversationHistory: formatConversationHistory(conversationState),
             }),
             conversationFlow,
             Effect.provide(LLMServiceLive)
           )
-        ) as ConversationResult
+        )) as ConversationResult;
 
         // Display response
-        terminal.displayMessage(result.response)
+        terminal.displayMessage(result.response);
 
         // Add to conversation
-        conversationState = addMessage(conversationState, 'assistant', result.response)
+        conversationState = addMessage(
+          conversationState,
+          'assistant',
+          result.response
+        );
 
         // Check if should continue
         if (!result.shouldContinue) {
-          conversationState.isActive = false
-          terminal.displayInfo('Conversation ended by LLM routing decision.')
+          conversationState.isActive = false;
+          terminal.displayInfo('Conversation ended by LLM routing decision.');
         }
 
         // Save state
-        await saveConversation(persistenceStorage, conversationState)
-
+        await saveConversation(persistenceStorage, conversationState);
       } catch (error) {
-        terminal.displayInfo(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
-        terminal.displayInfo('You can continue or say "quit" to exit.')
+        terminal.displayInfo(
+          `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+        terminal.displayInfo('You can continue or say "quit" to exit.');
       }
     }
 
     // Final save
-    await saveConversation(persistenceStorage, conversationState)
-    terminal.displayInfo(`Conversation saved with ${conversationState.messages.length} messages.`)
-
+    await saveConversation(persistenceStorage, conversationState);
+    terminal.displayInfo(
+      `Conversation saved with ${conversationState.messages.length} messages.`
+    );
   } catch (error) {
-    console.error(`Failed to start conversation: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    throw error
+    console.error(
+      `Failed to start conversation: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+    throw error;
   } finally {
-    terminal.close()
+    terminal.close();
     // Force process exit since readline may keep it alive
-    process.exit(0)
+    process.exit(0);
   }
 }
 
 // ============= Example Runner for Testing =============
 
 export async function runExample(): Promise<{ messageCount: number }> {
-  console.log('=== Conversation with LLM Routing & Persistence Example ===\n')
+  console.log('=== Conversation with LLM Routing & Persistence Example ===\n');
 
-  loadEnv()
+  loadEnv();
 
   if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is required for this example')
+    throw new Error('OPENAI_API_KEY is required for this example');
   }
 
   try {
-    const persistenceStorage = await createConversationPersistence()
-    let conversationState = createNewConversation()
-    const conversationFlow = createConversationFlow()
+    const persistenceStorage = await createConversationPersistence();
+    let conversationState = createNewConversation();
+    const conversationFlow = createConversationFlow();
 
-    console.log('Testing conversation flow with LLM routing...')
+    console.log('Testing conversation flow with LLM routing...');
 
     // Simulate conversation with clear ending
-    const testMessages = ["Hello!", "Tell me about the weather", "goodbye"]
+    const testMessages = ['Hello!', 'Tell me about the weather', 'goodbye'];
 
     for (const userMessage of testMessages) {
-      console.log(`\nUser: ${userMessage}`)
+      console.log(`\nUser: ${userMessage}`);
 
-      conversationState = addMessage(conversationState, 'user', userMessage)
+      conversationState = addMessage(conversationState, 'user', userMessage);
 
-      const result = await Flow.run(
+      const result = (await Flow.run(
         pipe(
           Flow.succeed({
             userMessage,
-            conversationHistory: formatConversationHistory(conversationState)
+            conversationHistory: formatConversationHistory(conversationState),
           }),
           conversationFlow,
           Effect.provide(LLMServiceLive)
         )
-      ) as ConversationResult
+      )) as ConversationResult;
 
-      console.log(`Assistant: ${result.response}`)
-      console.log(`Should continue: ${result.shouldContinue}`)
+      console.log(`Assistant: ${result.response}`);
+      console.log(`Should continue: ${result.shouldContinue}`);
 
-      conversationState = addMessage(conversationState, 'assistant', result.response)
+      conversationState = addMessage(
+        conversationState,
+        'assistant',
+        result.response
+      );
 
       if (!result.shouldContinue) {
-        conversationState.isActive = false
-        console.log('LLM decided to end conversation.')
-        break
+        conversationState.isActive = false;
+        console.log('LLM decided to end conversation.');
+        break;
       }
 
-      await saveConversation(persistenceStorage, conversationState)
+      await saveConversation(persistenceStorage, conversationState);
     }
 
-    console.log(`\n✅ Conversation completed with ${conversationState.messages.length} messages`)
-    console.log('Conversation state saved to filesystem')
+    console.log(
+      `\n✅ Conversation completed with ${conversationState.messages.length} messages`
+    );
+    console.log('Conversation state saved to filesystem');
 
-    return { messageCount: conversationState.messages.length }
-
+    return { messageCount: conversationState.messages.length };
   } catch (error) {
-    console.error('❌ Example failed:', error)
-    throw error
+    console.error('❌ Example failed:', error);
+    throw error;
   }
 }
 
 // Run when executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   runConversationWithLLMRouting().catch((error) => {
-    console.error('Failed to run conversation:', error)
-    process.exit(1)
-  })
+    console.error('Failed to run conversation:', error);
+    process.exit(1);
+  });
 }
 
 /**

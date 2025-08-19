@@ -1,6 +1,6 @@
 /**
  * EncryptionService - AES-256-GCM encryption for flow state data
- * 
+ *
  * Provides secure encryption of sensitive flow state data at rest with:
  * - AES-256-GCM encryption/decryption
  * - Environment-based key management
@@ -61,12 +61,16 @@ export interface EncryptionService {
   /**
    * Encrypt serialized state data
    */
-  readonly encrypt: (data: SerializedState) => Effect.Effect<SerializedState, EncryptionError>;
+  readonly encrypt: (
+    data: SerializedState
+  ) => Effect.Effect<SerializedState, EncryptionError>;
 
   /**
    * Decrypt serialized state data
    */
-  readonly decrypt: (data: SerializedState) => Effect.Effect<SerializedState, EncryptionError>;
+  readonly decrypt: (
+    data: SerializedState
+  ) => Effect.Effect<SerializedState, EncryptionError>;
 
   /**
    * Check if encryption is currently enabled
@@ -81,12 +85,17 @@ export interface EncryptionService {
   /**
    * Update encryption configuration
    */
-  readonly updateConfig: (config: Partial<EncryptionConfig>) => Effect.Effect<void>;
+  readonly updateConfig: (
+    config: Partial<EncryptionConfig>
+  ) => Effect.Effect<void>;
 
   /**
    * Rotate encryption key
    */
-  readonly rotateKey: (newKey: Buffer, newVersion: string) => Effect.Effect<void>;
+  readonly rotateKey: (
+    newKey: Buffer,
+    newVersion: string
+  ) => Effect.Effect<void>;
 
   /**
    * Generate new encryption key
@@ -96,12 +105,16 @@ export interface EncryptionService {
   /**
    * Validate encryption key format
    */
-  readonly validateKey: (key: Buffer) => Effect.Effect<boolean, EncryptionError>;
+  readonly validateKey: (
+    key: Buffer
+  ) => Effect.Effect<boolean, EncryptionError>;
 }
 
 // ============= Context Tag =============
 
-export const EncryptionService = Context.GenericTag<EncryptionService>('@services/Encryption');
+export const EncryptionService = Context.GenericTag<EncryptionService>(
+  '@services/Encryption'
+);
 
 // ============= Constants =============
 
@@ -113,7 +126,7 @@ const DEFAULT_CONFIG: EncryptionConfig = {
   algorithm: 'aes-256-gcm',
   keyDerivationRounds: 100000,
   ivLength: 16,
-  tagLength: 16
+  tagLength: 16,
 };
 
 /**
@@ -122,7 +135,7 @@ const DEFAULT_CONFIG: EncryptionConfig = {
 const ENV_KEYS = {
   ENCRYPTION_KEY: 'DYNAMICFLOW_ENCRYPTION_KEY',
   ENCRYPTION_ENABLED: 'DYNAMICFLOW_ENCRYPTION_ENABLED',
-  ENCRYPTION_KEY_ROTATION: 'DYNAMICFLOW_ENCRYPTION_KEY_ROTATION'
+  ENCRYPTION_KEY_ROTATION: 'DYNAMICFLOW_ENCRYPTION_KEY_ROTATION',
 } as const;
 
 // ============= Helper Functions =============
@@ -136,17 +149,28 @@ const loadMasterKey = (enabled: boolean): Buffer | null => {
   // Try to load from environment
   const envKey = process.env[ENV_KEYS.ENCRYPTION_KEY];
   if (envKey) {
-    // Key should be base64 encoded in environment
+    // Key should be base64 encoded in environment - use safer parsing
     try {
-      return Buffer.from(envKey, 'base64');
+      const keyBuffer = Buffer.from(envKey, 'base64');
+      // Validate key length (256 bits = 32 bytes)
+      if (keyBuffer.length !== 32) {
+        console.warn('Encryption key has invalid length, encryption disabled');
+        return null;
+      }
+      return keyBuffer;
     } catch (error) {
-      console.warn('Invalid encryption key in environment, encryption disabled');
+      console.warn(
+        'Invalid encryption key in environment, encryption disabled'
+      );
       return null;
     }
   }
 
   // In development/test, warn about missing key
-  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+  if (
+    process.env.NODE_ENV === 'development' ||
+    process.env.NODE_ENV === 'test'
+  ) {
     console.warn('No encryption key found, using development key (NOT SECURE)');
     // Generate a consistent key for development
     return createHash('sha256').update('dynamicflow-dev-key').digest();
@@ -157,18 +181,33 @@ const loadMasterKey = (enabled: boolean): Buffer | null => {
   return null;
 };
 
-const determineKeyVersion = (): string => {
-  const rotationInfo = process.env[ENV_KEYS.ENCRYPTION_KEY_ROTATION];
-  if (rotationInfo) {
-    try {
-      const rotation = JSON.parse(rotationInfo);
-      return rotation.version || '1';
-    } catch (error) {
-      console.warn('Invalid key rotation configuration, using default version');
+const determineKeyVersion = (): Effect.Effect<string, never> =>
+  Effect.gen(function* () {
+    const rotationInfo = process.env[ENV_KEYS.ENCRYPTION_KEY_ROTATION];
+    if (rotationInfo) {
+      const rotationResult = yield* Effect.try({
+        try: () => JSON.parse(rotationInfo),
+        catch: (error) =>
+          new EncryptionError({
+            message: 'Invalid key rotation configuration',
+            operation: 'rotate',
+            cause: error,
+          }),
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            console.warn(
+              'Invalid key rotation configuration, using default version'
+            );
+            return { version: '1' };
+          })
+        )
+      );
+
+      return rotationResult.version || '1';
     }
-  }
-  return '1';
-};
+    return '1';
+  });
 
 const isKeyVersionCompatible = (version: string): boolean => {
   // For now, support all versions (backwards compatibility)
@@ -186,19 +225,20 @@ const encryptData = (
     try: () => {
       const crypto = require('crypto');
       const cipher = crypto.createCipherGCM(algorithm, masterKey, iv);
-      
+
       let encrypted = cipher.update(data, 'utf8', 'base64');
       encrypted += cipher.final('base64');
-      
+
       const tag = cipher.getAuthTag().toString('base64');
-      
+
       return { encrypted, tag };
     },
-    catch: (error) => new EncryptionError({
-      message: `Encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      operation: 'encrypt',
-      cause: error
-    })
+    catch: (error) =>
+      new EncryptionError({
+        message: `Encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        operation: 'encrypt',
+        cause: error,
+      }),
   });
 
 const decryptData = (
@@ -212,19 +252,20 @@ const decryptData = (
     try: () => {
       const crypto = require('crypto');
       const decipher = crypto.createDecipherGCM(algorithm, masterKey, iv);
-      
+
       decipher.setAuthTag(Buffer.from(tag, 'base64'));
-      
+
       let decrypted = decipher.update(encryptedData, 'base64', 'utf8');
       decrypted += decipher.final('utf8');
-      
+
       return decrypted;
     },
-    catch: (error) => new EncryptionError({
-      message: `Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      operation: 'decrypt',
-      cause: error
-    })
+    catch: (error) =>
+      new EncryptionError({
+        message: `Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        operation: 'decrypt',
+        cause: error,
+      }),
   });
 
 // ============= Service Implementation =============
@@ -240,8 +281,8 @@ const makeEncryptionService = (
     // Initialize key and version
     const config = yield* Ref.get(configRef);
     const masterKey = loadMasterKey(config.enabled);
-    const keyVersion = determineKeyVersion();
-    
+    const keyVersion = yield* determineKeyVersion();
+
     yield* Ref.set(keyRef, masterKey);
     yield* Ref.set(keyVersionRef, keyVersion);
 
@@ -260,7 +301,12 @@ const makeEncryptionService = (
           const iv = randomBytes(config.ivLength);
 
           // Encrypt the data
-          const encryptedResult = yield* encryptData(data.data, iv, masterKey, config.algorithm);
+          const encryptedResult = yield* encryptData(
+            data.data,
+            iv,
+            masterKey,
+            config.algorithm
+          );
           const keyVersion = yield* Ref.get(keyVersionRef);
 
           // Create encrypted payload
@@ -269,7 +315,7 @@ const makeEncryptionService = (
             iv: iv.toString('base64'),
             tag: encryptedResult.tag,
             algorithm: config.algorithm,
-            keyVersion: keyVersion
+            keyVersion: keyVersion,
           };
 
           // Replace data with encrypted payload
@@ -280,8 +326,8 @@ const makeEncryptionService = (
               ...data.metadata,
               encrypted: true,
               encryptionAlgorithm: config.algorithm,
-              keyVersion: keyVersion
-            }
+              keyVersion: keyVersion,
+            },
           };
         }),
 
@@ -296,40 +342,53 @@ const makeEncryptionService = (
           }
 
           if (!masterKey) {
-            return yield* Effect.fail(new EncryptionError({
-              message: 'No encryption key available for decryption',
-              operation: 'decrypt',
-              cause: 'Master key not loaded'
-            }));
+            return yield* Effect.fail(
+              new EncryptionError({
+                message: 'No encryption key available for decryption',
+                operation: 'decrypt',
+                cause: 'Master key not loaded',
+              })
+            );
           }
 
           // Parse encrypted payload
           const encryptedPayload = yield* Effect.try({
             try: () => JSON.parse(data.data) as EncryptedData,
-            catch: (error) => new EncryptionError({
-              message: 'Failed to parse encrypted payload',
-              operation: 'decrypt',
-              cause: error
-            })
+            catch: (error) =>
+              new EncryptionError({
+                message: 'Failed to parse encrypted payload',
+                operation: 'decrypt',
+                cause: error,
+              }),
           });
 
           // Validate encryption algorithm
           if (encryptedPayload.algorithm !== config.algorithm) {
-            return yield* Effect.fail(new EncryptionError({
-              message: `Unsupported encryption algorithm: ${encryptedPayload.algorithm}`,
-              operation: 'decrypt',
-              cause: { algorithm: encryptedPayload.algorithm, supported: config.algorithm }
-            }));
+            return yield* Effect.fail(
+              new EncryptionError({
+                message: `Unsupported encryption algorithm: ${encryptedPayload.algorithm}`,
+                operation: 'decrypt',
+                cause: {
+                  algorithm: encryptedPayload.algorithm,
+                  supported: config.algorithm,
+                },
+              })
+            );
           }
 
           // Check key version compatibility
           if (!isKeyVersionCompatible(encryptedPayload.keyVersion)) {
             const currentVersion = yield* Ref.get(keyVersionRef);
-            return yield* Effect.fail(new EncryptionError({
-              message: `Incompatible key version: ${encryptedPayload.keyVersion}`,
-              operation: 'decrypt',
-              cause: { keyVersion: encryptedPayload.keyVersion, currentVersion }
-            }));
+            return yield* Effect.fail(
+              new EncryptionError({
+                message: `Incompatible key version: ${encryptedPayload.keyVersion}`,
+                operation: 'decrypt',
+                cause: {
+                  keyVersion: encryptedPayload.keyVersion,
+                  currentVersion,
+                },
+              })
+            );
           }
 
           // Decrypt the data
@@ -343,12 +402,17 @@ const makeEncryptionService = (
           );
 
           // Remove encryption metadata
-          const { encrypted, encryptionAlgorithm, keyVersion, ...cleanMetadata } = data.metadata;
+          const {
+            encrypted,
+            encryptionAlgorithm,
+            keyVersion,
+            ...cleanMetadata
+          } = data.metadata;
 
           return {
             ...data,
             data: decryptedData,
-            metadata: cleanMetadata
+            metadata: cleanMetadata,
           };
         }),
 
@@ -368,7 +432,10 @@ const makeEncryptionService = (
           yield* Ref.set(configRef, updatedConfig);
 
           // If encryption enabled status changed, update master key
-          if (newConfig.enabled !== undefined && newConfig.enabled !== currentConfig.enabled) {
+          if (
+            newConfig.enabled !== undefined &&
+            newConfig.enabled !== currentConfig.enabled
+          ) {
             const newKey = loadMasterKey(updatedConfig.enabled);
             yield* Ref.set(keyRef, newKey);
           }
@@ -388,11 +455,13 @@ const makeEncryptionService = (
       validateKey: (key: Buffer) =>
         Effect.gen(function* () {
           if (key.length !== 32) {
-            return yield* Effect.fail(new EncryptionError({
-              message: 'Encryption key must be exactly 32 bytes (256 bits)',
-              operation: 'decrypt' as const, // Changed from 'validate' to valid operation
-              cause: { actualLength: key.length, expectedLength: 32 }
-            }));
+            return yield* Effect.fail(
+              new EncryptionError({
+                message: 'Encryption key must be exactly 32 bytes (256 bits)',
+                operation: 'decrypt' as const, // Changed from 'validate' to valid operation
+                cause: { actualLength: key.length, expectedLength: 32 },
+              })
+            );
           }
           return true;
         }),
@@ -409,10 +478,11 @@ export const EncryptionServiceLive = Layer.effect(
   Effect.gen(function* () {
     const config = yield* ConfigService;
     const encryptionConfig = yield* config.get('persistence');
-    
+
     return yield* makeEncryptionService({
       enabled: encryptionConfig.encryption.enabled,
-      algorithm: encryptionConfig.encryption.algorithm || DEFAULT_CONFIG.algorithm,
+      algorithm:
+        encryptionConfig.encryption.algorithm || DEFAULT_CONFIG.algorithm,
     });
   })
 );
@@ -454,13 +524,14 @@ export const validateEncryptionKey = (keyString: string) =>
     const service = yield* EncryptionService;
     const key = yield* Effect.try({
       try: () => Buffer.from(keyString, 'base64'),
-      catch: (error) => new EncryptionError({
-        message: 'Invalid encryption key format - must be base64 encoded',
-        operation: 'decrypt' as const, // Changed from 'validate' to valid operation
-        cause: error
-      })
+      catch: (error) =>
+        new EncryptionError({
+          message: 'Invalid encryption key format - must be base64 encoded',
+          operation: 'decrypt' as const, // Changed from 'validate' to valid operation
+          cause: error,
+        }),
     });
-    
+
     return yield* service.validateKey(key);
   });
 
@@ -499,12 +570,12 @@ export const getEncryptionStats = () =>
     const service = yield* EncryptionService;
     const enabled = yield* service.isEncryptionEnabled();
     const keyVersion = yield* service.getCurrentKeyVersion();
-    
+
     return {
       enabled,
       keyVersion,
       algorithm: enabled ? DEFAULT_CONFIG.algorithm : 'none',
-      keyLength: enabled ? 256 : 0
+      keyLength: enabled ? 256 : 0,
     };
   });
 
@@ -514,21 +585,22 @@ export const getEncryptionStats = () =>
 export const testEncryptionRoundTrip = (testData: SerializedState) =>
   Effect.gen(function* () {
     const service = yield* EncryptionService;
-    
+
     // Encrypt the data
     const encrypted = yield* service.encrypt(testData);
-    
+
     // Decrypt it back
     const decrypted = yield* service.decrypt(encrypted);
-    
+
     // Verify integrity
-    const isValid = decrypted.data === testData.data &&
-                   decrypted.version === testData.version;
-    
+    const isValid =
+      decrypted.data === testData.data &&
+      decrypted.version === testData.version;
+
     return {
       success: isValid,
       originalSize: testData.data.length,
       encryptedSize: encrypted.data.length,
-      compressionRatio: encrypted.data.length / testData.data.length
+      compressionRatio: encrypted.data.length / testData.data.length,
     };
   });

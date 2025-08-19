@@ -34,7 +34,7 @@ export { Tools } from './tools';
  *
  * This namespace provides a comprehensive set of combinators that enable you to build
  * complex, type-safe workflows using functional composition patterns. All operations
- * are built on Effect.js and integrate seamlessly with the broader Effect ecosystem.
+ * are built on Effect and integrate seamlessly with the broader Effect ecosystem.
  *
  * @namespace Flow
  * @since 0.1.0
@@ -300,7 +300,10 @@ export namespace Flow {
 
   /** Filter values by predicate, failing with `FlowExecutionError` by default. */
   export const filter =
-    <A>(predicate: (a: A) => boolean, options?: { error?: FlowError | undefined }) =>
+    <A>(
+      predicate: (a: A) => boolean,
+      options?: { error?: FlowError | undefined }
+    ) =>
     <E, R>(
       self: Effect.Effect<A, E, R>
     ): Effect.Effect<A, E | FlowError, R> => {

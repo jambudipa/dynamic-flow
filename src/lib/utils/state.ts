@@ -1,6 +1,6 @@
 /**
  * State Management Utilities
- * 
+ *
  * Ref-based state patterns that eliminate the need for `self = this`
  * in Effect generators. These utilities provide clean, functional
  * alternatives to mutable class state.
@@ -22,13 +22,13 @@ export interface Counter {
 export const createCounter = (initial: number = 0): Effect.Effect<Counter> =>
   Effect.gen(function* () {
     const ref = yield* Ref.make(initial);
-    
+
     return {
       get: Ref.get(ref),
-      increment: Ref.updateAndGet(ref, n => n + 1),
-      decrement: Ref.updateAndGet(ref, n => n - 1),
-      add: (n: number) => Ref.updateAndGet(ref, v => v + n),
-      reset: Ref.set(ref, initial)
+      increment: Ref.updateAndGet(ref, (n) => n + 1),
+      decrement: Ref.updateAndGet(ref, (n) => n - 1),
+      add: (n: number) => Ref.updateAndGet(ref, (v) => v + n),
+      reset: Ref.set(ref, initial),
     };
   });
 
@@ -39,22 +39,25 @@ export interface Toggle {
   readonly get: Effect.Effect<boolean>;
   readonly set: (value: boolean) => Effect.Effect<void>;
   readonly toggle: Effect.Effect<boolean>;
-  readonly when: <A>(onTrue: Effect.Effect<A>, onFalse: Effect.Effect<A>) => Effect.Effect<A>;
+  readonly when: <A>(
+    onTrue: Effect.Effect<A>,
+    onFalse: Effect.Effect<A>
+  ) => Effect.Effect<A>;
 }
 
 export const createToggle = (initial: boolean = false): Effect.Effect<Toggle> =>
   Effect.gen(function* () {
     const ref = yield* Ref.make(initial);
-    
+
     return {
       get: Ref.get(ref),
       set: (value: boolean) => Ref.set(ref, value),
-      toggle: Ref.updateAndGet(ref, v => !v),
+      toggle: Ref.updateAndGet(ref, (v) => !v),
       when: <A>(onTrue: Effect.Effect<A>, onFalse: Effect.Effect<A>) =>
         Effect.gen(function* () {
           const value = yield* Ref.get(ref);
-          return yield* (value ? onTrue : onFalse);
-        })
+          return yield* value ? onTrue : onFalse;
+        }),
     };
   });
 
@@ -72,11 +75,11 @@ export interface Stack<T> {
 export const createStack = <T>(): Effect.Effect<Stack<T>> =>
   Effect.gen(function* () {
     const ref = yield* Ref.make<T[]>([]);
-    
+
     return {
-      push: (value: T) => Ref.update(ref, stack => [...stack, value]),
-      
-      pop: Ref.modify(ref, stack => {
+      push: (value: T) => Ref.update(ref, (stack) => [...stack, value]),
+
+      pop: Ref.modify(ref, (stack) => {
         if (stack.length === 0) {
           return [Option.none(), stack];
         }
@@ -84,16 +87,18 @@ export const createStack = <T>(): Effect.Effect<Stack<T>> =>
         const value = newStack.pop();
         return [Option.some(value!), newStack];
       }),
-      
+
       peek: Ref.get(ref).pipe(
-        Effect.map(stack => 
-          stack.length > 0 ? Option.some(stack[stack.length - 1]!) : Option.none()
+        Effect.map((stack) =>
+          stack.length > 0
+            ? Option.some(stack[stack.length - 1]!)
+            : Option.none()
         )
       ),
-      
-      size: Ref.get(ref).pipe(Effect.map(s => s.length)),
-      
-      clear: Ref.set(ref, [])
+
+      size: Ref.get(ref).pipe(Effect.map((s) => s.length)),
+
+      clear: Ref.set(ref, []),
     };
   });
 
@@ -113,38 +118,39 @@ export interface StateMap<K, V> {
 export const createStateMap = <K, V>(): Effect.Effect<StateMap<K, V>> =>
   Effect.gen(function* () {
     const ref = yield* Ref.make<Map<K, V>>(new Map());
-    
+
     return {
       get: (key: K) =>
         Ref.get(ref).pipe(
-          Effect.map(map => {
+          Effect.map((map) => {
             const value = map.get(key);
             return value !== undefined ? Option.some(value) : Option.none();
           })
         ),
-      
+
       set: (key: K, value: V) =>
-        Ref.update(ref, map => {
+        Ref.update(ref, (map) => {
           const newMap = new Map(map);
           newMap.set(key, value);
           return newMap;
         }),
-      
-      has: (key: K) =>
-        Ref.get(ref).pipe(Effect.map(map => map.has(key))),
-      
+
+      has: (key: K) => Ref.get(ref).pipe(Effect.map((map) => map.has(key))),
+
       delete: (key: K) =>
-        Ref.modify(ref, map => {
+        Ref.modify(ref, (map) => {
           const newMap = new Map(map);
           const existed = newMap.delete(key);
           return [existed, newMap];
         }),
-      
+
       clear: Ref.set(ref, new Map()),
-      
-      size: Ref.get(ref).pipe(Effect.map(map => map.size)),
-      
-      entries: Ref.get(ref).pipe(Effect.map(map => Array.from(map.entries())))
+
+      size: Ref.get(ref).pipe(Effect.map((map) => map.size)),
+
+      entries: Ref.get(ref).pipe(
+        Effect.map((map) => Array.from(map.entries()))
+      ),
     };
   });
 
@@ -168,20 +174,20 @@ export const createHistoryState = <T>(
     const state = yield* Ref.make({
       current: initial,
       history: [] as T[],
-      future: [] as T[]
+      future: [] as T[],
     });
-    
+
     return {
-      current: Ref.get(state).pipe(Effect.map(s => s.current)),
-      
+      current: Ref.get(state).pipe(Effect.map((s) => s.current)),
+
       set: (value: T) =>
-        Ref.update(state, s => ({
+        Ref.update(state, (s) => ({
           current: value,
           history: [...s.history, s.current].slice(-maxHistory),
-          future: []
+          future: [],
         })),
-      
-      undo: Ref.modify(state, s => {
+
+      undo: Ref.modify(state, (s) => {
         if (s.history.length === 0) {
           return [Option.none(), s];
         }
@@ -191,12 +197,12 @@ export const createHistoryState = <T>(
           {
             current: previous,
             history: s.history.slice(0, -1),
-            future: [s.current, ...s.future]
-          }
+            future: [s.current, ...s.future],
+          },
         ];
       }),
-      
-      redo: Ref.modify(state, s => {
+
+      redo: Ref.modify(state, (s) => {
         if (s.future.length === 0) {
           return [Option.none(), s];
         }
@@ -206,18 +212,18 @@ export const createHistoryState = <T>(
           {
             current: next,
             history: [...s.history, s.current].slice(-maxHistory),
-            future: s.future.slice(1)
-          }
+            future: s.future.slice(1),
+          },
         ];
       }),
-      
-      history: Ref.get(state).pipe(Effect.map(s => s.history)),
-      
-      clearHistory: Ref.update(state, s => ({
+
+      history: Ref.get(state).pipe(Effect.map((s) => s.history)),
+
+      clearHistory: Ref.update(state, (s) => ({
         ...s,
         history: [],
-        future: []
-      }))
+        future: [],
+      })),
     };
   });
 
@@ -227,8 +233,7 @@ export const createHistoryState = <T>(
 export const createComputedState = <T, R>(
   source: Effect.Effect<T>,
   compute: (value: T) => R
-): Effect.Effect<R> =>
-  pipe(source, Effect.map(compute));
+): Effect.Effect<R> => pipe(source, Effect.map(compute));
 
 /**
  * State that can be locked for exclusive access
@@ -236,48 +241,49 @@ export const createComputedState = <T, R>(
 export interface LockableState<T> {
   readonly get: Effect.Effect<T>;
   readonly withLock: <R>(f: (value: T) => Effect.Effect<R>) => Effect.Effect<R>;
-  readonly tryWithLock: <R>(f: (value: T) => Effect.Effect<R>) => Effect.Effect<Option.Option<R>>;
+  readonly tryWithLock: <R>(
+    f: (value: T) => Effect.Effect<R>
+  ) => Effect.Effect<Option.Option<R>>;
 }
 
-export const createLockableState = <T>(initial: T): Effect.Effect<LockableState<T>> =>
+export const createLockableState = <T>(
+  initial: T
+): Effect.Effect<LockableState<T>> =>
   Effect.gen(function* () {
     const state = yield* Ref.make(initial);
     const lock = yield* Ref.make(false);
-    
+
     return {
       get: Ref.get(state),
-      
+
       withLock: <R>(f: (value: T) => Effect.Effect<R>) =>
         Effect.gen(function* () {
           // Wait for lock to be available
           while (yield* Ref.get(lock)) {
-            yield* Effect.sleep("10 millis");
+            yield* Effect.sleep('10 millis');
           }
-          
+
           yield* Ref.set(lock, true);
           const value = yield* Ref.get(state);
-          return yield* pipe(
-            f(value),
-            Effect.ensuring(Ref.set(lock, false))
-          );
+          return yield* pipe(f(value), Effect.ensuring(Ref.set(lock, false)));
         }),
-      
+
       tryWithLock: <R>(f: (value: T) => Effect.Effect<R>) =>
         Effect.gen(function* () {
-          const acquired = yield* Ref.modify(lock, isLocked => 
+          const acquired = yield* Ref.modify(lock, (isLocked) =>
             isLocked ? [false, true] : [true, true]
           );
-          
+
           if (!acquired) {
             return Option.none<R>();
           }
-          
+
           const value = yield* Ref.get(state);
           const result = yield* pipe(
             f(value),
             Effect.ensuring(Ref.set(lock, false))
           );
           return Option.some(result) as Option.Option<R>;
-        })
+        }),
     };
   });

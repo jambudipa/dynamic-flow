@@ -35,7 +35,9 @@ export interface FlowContext {
 /**
  * Context Tag for FlowContext - enables proper context access in Effect
  */
-export const FlowContext = Context.GenericTag<FlowContext>('@effect/FlowContext');
+export const FlowContext = Context.GenericTag<FlowContext>(
+  '@effect/FlowContext'
+);
 
 // ============= Tool Effect Types =============
 
@@ -52,7 +54,9 @@ export interface ToolRequirements {
 /**
  * Context Tag for ToolRequirements
  */
-export const ToolRequirements = Context.GenericTag<ToolRequirements>('@effect/ToolRequirements');
+export const ToolRequirements = Context.GenericTag<ToolRequirements>(
+  '@effect/ToolRequirements'
+);
 
 /**
  * Effect type specifically for tool operations
@@ -131,7 +135,9 @@ export const flowMap =
  */
 export const flowFlatMap =
   <A, B, E2, R2>(f: (a: A) => Effect.Effect<B, E2, R2>) =>
-  <E1, R1>(effect: Effect.Effect<A, E1, R1>): Effect.Effect<B, E1 | E2, R1 | R2> => {
+  <E1, R1>(
+    effect: Effect.Effect<A, E1, R1>
+  ): Effect.Effect<B, E1 | E2, R1 | R2> => {
     return Effect.flatMap(effect, f) as Effect.Effect<B, E1 | E2, R1 | R2>;
   };
 
@@ -202,8 +208,7 @@ export const accessServices = FlowContext.pipe(
 export const provideFlowContext = <A, E>(
   effect: Effect.Effect<A, E, FlowContext>,
   context: FlowContext
-): Effect.Effect<A, E> =>
-  Effect.provideService(effect, FlowContext, context);
+): Effect.Effect<A, E> => Effect.provideService(effect, FlowContext, context);
 
 /**
  * Create a Layer that provides FlowContext

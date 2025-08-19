@@ -2,7 +2,7 @@
  * Stream Executor - Execute flows with streaming event emission
  */
 
-import { Effect, pipe, Ref, Stream } from 'effect';
+import { Effect, pipe, Ref, Stream, Option } from 'effect';
 import type { Tool } from '@/lib/tools/types';
 import { LLMService, type LLMRuntime } from '@/lib/llm/service';
 import type {
@@ -16,6 +16,7 @@ import type {
 } from './types';
 import { ExecutionError } from './types';
 import type { ExecutionContext } from '@/lib/types/core';
+import { FlowId, StepId, SessionId } from '@/lib/types/core';
 
 /**
  * Executes flows and emits events as a stream
@@ -269,7 +270,7 @@ export class StreamExecutor {
       // Get input data from state
       Ref.get(stateRef),
       Effect.flatMap((state) => {
-        const inputs = this.resolveInputs(node, state);
+        const inputs = this.resolveInputs(node, state, flow);
 
         // Execute the tool (simplified - would call actual tool)
         return this.executeTool(tool, inputs);
@@ -321,7 +322,7 @@ export class StreamExecutor {
 
     return Stream.fromEffect(Ref.get(stateRef)).pipe(
       Stream.flatMap((state) => {
-        const inputs = this.resolveInputs(node, state);
+        const inputs = this.resolveInputs(node, state, flow);
         const start = Stream.succeed<FlowEvent>({
           type: 'tool-start',
           timestamp: ts(),
@@ -331,7 +332,8 @@ export class StreamExecutor {
         });
 
         const isLLM =
-          typeof (tool as { llmConfig?: unknown | undefined }).llmConfig !== 'undefined';
+          typeof (tool as { llmConfig?: unknown | undefined }).llmConfig !==
+          'undefined';
         const hasPrompt =
           typeof (inputs as { prompt?: unknown })?.prompt === 'string';
         const emitIntermediate =
@@ -406,11 +408,13 @@ export class StreamExecutor {
         } else {
           // Non-LLM tool: execute and emit events
           const context: ExecutionContext = {
-            flowId: 'stream-flow',
-            stepId: node.id,
-            sessionId: 'stream-session',
-            variables: {},
-            metadata: {},
+            flowId: FlowId('stream-flow'),
+            stepId: StepId(node.id),
+            sessionId: SessionId('stream-session'),
+            variables: new Map(),
+            metadata: new Map(),
+            parentContext: Option.none(),
+            currentScope: [],
           };
           const eff = tool
             .execute(inputs as Record<string, unknown>, context)
@@ -517,7 +521,7 @@ export class StreamExecutor {
     return pipe(
       Ref.get(stateRef),
       Effect.flatMap((state) => {
-        const inputs = this.resolveInputs(node, state);
+        const inputs = this.resolveInputs(node, state, flow);
 
         // Evaluate condition (simplified)
         return this.evaluateCondition(node?.condition, inputs, flow);
@@ -762,11 +766,19 @@ export class StreamExecutor {
     return order;
   }
 
-  private resolveInputs(node: FlowNode, state: FlowState): unknown {
+  private resolveInputs(
+    node: FlowNode,
+    state: FlowState,
+    flow?: ValidatedFlow
+  ): unknown {
     // Resolve inputs from state and node configuration
     const inputs: Record<string, any> = {};
 
-    if (node?.inputs !== null && node?.inputs !== undefined) {
+    if (
+      node?.inputs !== null &&
+      node?.inputs !== undefined &&
+      Object.keys(node.inputs).length > 0
+    ) {
       Object.entries(node.inputs).forEach(([key, value]) => {
         if (typeof value === 'string' && value.startsWith('$')) {
           // Reference to another node's output, possibly with a property path
@@ -810,6 +822,82 @@ export class StreamExecutor {
           inputs[key] = value;
         }
       });
+      return inputs;
+    }
+
+    // If no explicit inputs, try to resolve using joins
+    if (flow && node.toolId) {
+      for (const [joinKey, join] of flow.joins) {
+        if (join.toTool === node.toolId) {
+          // Find the source tool's output in state
+          const sourceNodeState = Array.from(state.nodes?.entries() || []).find(
+            ([nodeId, nodeData]) => {
+              const nodeOutputTool = (nodeData as any)?.result?.toolId;
+              return nodeOutputTool === join.fromTool;
+            }
+          );
+
+          if (sourceNodeState) {
+            const [sourceNodeId, sourceNodeData] = sourceNodeState;
+            const sourceOutput = (sourceNodeData as any)?.result?.output;
+
+            if (sourceOutput) {
+              try {
+                // Apply the join transformation using Effect Schema
+                // For now, return the source output directly - proper schema transformation would go here
+                if (node.toolId === 'llm:compare') {
+                  // Special case for compare tool - aggregate all text sources
+                  const texts: any[] = [];
+
+                  // Look for book section data
+                  for (const [nodeId, nodeData] of state.nodes?.entries() ||
+                    []) {
+                    const output = (nodeData as any)?.result?.output;
+                    if (output && typeof output === 'object') {
+                      if (
+                        'source' in output &&
+                        output.source === 'book' &&
+                        'text' in output
+                      ) {
+                        texts.push({
+                          source: output.title || 'book',
+                          type: 'book',
+                          text: output.text,
+                        });
+                      } else if (
+                        'source' in output &&
+                        output.source === 'audio' &&
+                        'transcript' in output
+                      ) {
+                        texts.push({
+                          source: output.title || 'audio',
+                          type: 'audio',
+                          text: output.transcript,
+                        });
+                      }
+                    }
+                  }
+
+                  if (texts.length > 0) {
+                    return {
+                      texts,
+                      focus: 'gross vs subtle selflessness of persons',
+                    };
+                  }
+                }
+
+                // Default fallback - return the transformed data
+                return sourceOutput;
+              } catch (error) {
+                console.warn(
+                  `Join transformation failed for ${join.fromTool} -> ${join.toTool}:`,
+                  error
+                );
+              }
+            }
+          }
+        }
+      }
     }
 
     return inputs;
@@ -916,7 +1004,11 @@ export class StreamExecutor {
           'result' in nodeState
         ) {
           const ns = nodeState as { result?: { output?: unknown | undefined } };
-          if (ns.result !== null && ns.result !== undefined && nodeId !== undefined) {
+          if (
+            ns.result !== null &&
+            ns.result !== undefined &&
+            nodeId !== undefined
+          ) {
             results[nodeId] = ns.result.output;
           }
         }

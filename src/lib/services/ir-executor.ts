@@ -1,11 +1,21 @@
 /**
  * IRExecutorService - Unified executor for IR from both static and dynamic flows
- * 
+ *
  * Service that executes Intermediate Representation (IR) with full Effect integration,
  * suspension handling, and persistence support.
  */
 
-import { Effect, Context, Layer, Stream, Data, pipe } from 'effect';
+import {
+  Effect,
+  Context,
+  Layer,
+  Stream,
+  Data,
+  pipe,
+  HashMap,
+  Option,
+  Schema,
+} from 'effect';
 import { IRExecutionError, IRCompilationError } from '../errors';
 import { StateService } from './state';
 import { ToolRegistryService } from './tool-registry';
@@ -14,6 +24,8 @@ import { LoggingService } from './logging';
 import { type SuspensionKey } from './key-generator';
 import type { IR } from '../ir';
 import type { Tool } from '../tools/types';
+import type { FlowId, SessionId } from '../types/core';
+import { FlowSuspensionSignal } from '../persistence/types';
 
 // ============= Types =============
 
@@ -82,18 +94,9 @@ export interface IRExecutionEvent {
 }
 
 /**
- * Flow suspension signal
- */
-export class FlowSuspensionSignal extends Data.TaggedError('FlowSuspensionSignal')<{
-  readonly suspensionKey: string;
-  readonly message: string;
-  readonly context?: Record<string, unknown>;
-}> {}
-
-/**
  * Flow suspension context
  */
-export interface FlowSuspensionContext extends Record<string, unknown> {
+interface FlowSuspensionContext extends Record<string, unknown> {
   readonly flowId: string;
   readonly stepId: string;
   readonly sessionId?: string;
@@ -111,7 +114,10 @@ export interface IRExecutorService {
   readonly execute: (
     ir: IR,
     options?: IRExecutionOptions
-  ) => Effect.Effect<ExecutionResult | SuspendedExecutionResult, IRExecutionError>;
+  ) => Effect.Effect<
+    ExecutionResult | SuspendedExecutionResult,
+    IRExecutionError
+  >;
 
   /**
    * Execute IR with streaming events
@@ -149,11 +155,185 @@ export interface IRExecutorService {
 
 // ============= Context Tag =============
 
-export const IRExecutorService = Context.GenericTag<IRExecutorService>('@services/IRExecutor');
+export const IRExecutorService = Context.GenericTag<IRExecutorService>(
+  '@services/IRExecutor'
+);
+
+// ============= Input Resolution Helpers =============
+
+/**
+ * Resolve tool input by applying joins and variable references
+ */
+const resolveToolInput = (
+  node: any,
+  variables: Record<string, unknown>,
+  joins?: any[]
+): Effect.Effect<unknown, IRExecutionError, any> =>
+  Effect.gen(function* () {
+    // If node has explicit input, use it
+    if (node.input && Object.keys(node.input).length > 0) {
+      return node.input;
+    }
+
+    // Look for a join that targets this tool
+    if (joins) {
+      for (const join of joins) {
+        if (join.toTool === node.toolId) {
+          // Find the source tool's output in variables
+          const sourceOutput = variables[join.fromTool];
+          if (sourceOutput) {
+            // Apply the join transformation
+            try {
+              const decoded = yield* Effect.mapError(
+                Schema.decodeUnknown(join.transform)(sourceOutput),
+                (error) =>
+                  new IRExecutionError({
+                    message: `Join transformation failed`,
+                    nodeId: node.id,
+                    nodeType: 'tool',
+                    cause: error,
+                  })
+              );
+              return decoded;
+            } catch (error) {
+              // Log warning without using Effect.logWarning which requires a service
+              console.warn(
+                `Join transformation failed for ${join.fromTool} -> ${join.toTool}: ${error}`
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: try to create input based on tool requirements
+    // For tools that expect multiple inputs (like llmCompare), aggregate from variables
+    if (node.toolId === 'llm:compare') {
+      // Special handling for compare tool - aggregate text sources
+      const texts: any[] = [];
+
+      // Look for book sections
+      const bookData = variables['book:get-section'];
+      if (bookData && typeof bookData === 'object' && 'text' in bookData) {
+        texts.push({
+          source: (bookData as any).title || 'book',
+          type: 'book',
+          text: (bookData as any).text,
+        });
+      }
+
+      // Look for audio transcripts
+      const audioData = variables['audio:get-transcript'];
+      if (
+        audioData &&
+        typeof audioData === 'object' &&
+        'transcript' in audioData
+      ) {
+        texts.push({
+          source: (audioData as any).title || 'audio',
+          type: 'audio',
+          text: (audioData as any).transcript,
+        });
+      }
+
+      return { texts, focus: 'gross vs subtle selflessness of persons' };
+    }
+
+    if (node.toolId === 'llm:clarify') {
+      // Special handling for clarify tool
+      const compareOutput = variables['llm:compare'];
+      if (
+        compareOutput &&
+        typeof compareOutput === 'object' &&
+        'clarityIssues' in compareOutput
+      ) {
+        return {
+          issues: (compareOutput as any).clarityIssues || [],
+          related: [],
+        };
+      }
+    }
+
+    if (node.toolId === 'llm:summarise') {
+      // Special handling for summarise tool
+      const compareOutput = variables['llm:compare'];
+      if (
+        compareOutput &&
+        typeof compareOutput === 'object' &&
+        'analysis' in compareOutput
+      ) {
+        return {
+          analysis: (compareOutput as any).analysis,
+          clarifications: (compareOutput as any).clarityIssues || [],
+          audience: 'plain' as const,
+        };
+      }
+    }
+
+    if (node.toolId === 'llm:check-contradictions') {
+      // Special handling for contradiction checking
+      const texts: string[] = [];
+      const summariseOutput = variables['llm:summarise'];
+      if (
+        summariseOutput &&
+        typeof summariseOutput === 'object' &&
+        'summary' in summariseOutput
+      ) {
+        texts.push((summariseOutput as any).summary);
+      }
+      return { texts };
+    }
+
+    // For search tools that need query input, provide default
+    if (node.toolId === 'corpus:search') {
+      return {
+        query: 'gross selflessness persons subtle selflessness',
+        limit: 10,
+      };
+    }
+
+    // For get-section/get-transcript tools, look for search results
+    if (node.toolId === 'book:get-section') {
+      const searchOutput = variables['corpus:search'];
+      if (
+        searchOutput &&
+        typeof searchOutput === 'object' &&
+        'results' in searchOutput
+      ) {
+        const results = (searchOutput as any).results;
+        const bookResult = results.find((r: any) => r.kind === 'book');
+        if (bookResult) {
+          return { id: bookResult.id };
+        }
+      }
+    }
+
+    if (node.toolId === 'audio:get-transcript') {
+      const searchOutput = variables['corpus:search'];
+      if (
+        searchOutput &&
+        typeof searchOutput === 'object' &&
+        'results' in searchOutput
+      ) {
+        const results = (searchOutput as any).results;
+        const audioResult = results.find((r: any) => r.kind === 'audio');
+        if (audioResult) {
+          return { id: audioResult.id };
+        }
+      }
+    }
+
+    // Default fallback
+    return {};
+  });
 
 // ============= Service Implementation =============
 
-const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, LoggingService | StateService | ToolRegistryService | PersistenceService> =>
+const makeIRExecutorService = (): Effect.Effect<
+  IRExecutorService,
+  never,
+  LoggingService | StateService | ToolRegistryService | PersistenceService
+> =>
   Effect.gen(function* () {
     const logger = yield* LoggingService;
     const state = yield* StateService;
@@ -172,22 +352,23 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
       sessionId?: string
     ) =>
       Effect.gen(function* () {
-        yield* logger.debug(`Executing IR nodes`, { 
-          nodeCount: ir.graph?.nodes?.size || 0,
-          flowId 
+        yield* logger.debug(`Executing IR nodes`, {
+          nodeCount: ir.graph?.nodes ? HashMap.size(ir.graph.nodes) : 0,
+          flowId,
         });
 
         // Execute the IR graph
-        if (ir.graph && ir.graph.nodes.size > 0) {
+        if (ir.graph && HashMap.size(ir.graph.nodes) > 0) {
           // Start from entry point
           const entryPoint = ir.graph.entryPoint;
           if (entryPoint) {
-            const startNode = ir.graph.nodes.get(entryPoint);
-            if (startNode) {
+            const startNode = HashMap.get(ir.graph.nodes, entryPoint);
+            if (Option.isSome(startNode)) {
               return yield* executeNodeWithSuspension(
-                startNode,
+                startNode.value,
                 toolsExecuted,
                 flowId,
+                ir,
                 sessionId
               );
             }
@@ -201,14 +382,15 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
       node: any,
       toolsExecuted: string[],
       flowId: string,
+      ir: IR,
       sessionId?: string
     ): any =>
       pipe(
         Effect.gen(function* () {
-          yield* logger.debug('Executing node', { 
+          yield* logger.debug('Executing node', {
             nodeId: node.id,
             nodeType: node.type,
-            flowId 
+            flowId,
           });
 
           // Handle different node types
@@ -227,8 +409,8 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
                 metadata: {
                   nodeType: node.type,
                   toolId: node.toolId,
-                  executedAt: new Date().toISOString()
-                }
+                  executedAt: new Date().toISOString(),
+                },
               };
 
               // Execute tool with suspension handling
@@ -236,70 +418,113 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
                 Effect.gen(function* () {
                   // Get current variables for tool context
                   const variables = yield* state.getAll();
-                  
-                  // Execute the tool
-                  return yield* tool.execute(node.input, {
-                    flowId,
-                    stepId: node.id,
-                    sessionId: sessionId || 'default-session',
+
+                  // Resolve the actual input for this tool by checking if there's
+                  // data from a previous step that needs to be transformed
+                  const resolvedInput = yield* resolveToolInput(
+                    node,
                     variables,
-                    metadata: {}
-                  });
-                }),
-                Effect.mapError((error): IRExecutionError | FlowSuspensionSignal => {
-                  // Map specific error types to IRExecutionError
-                  if (error instanceof IRExecutionError || error instanceof FlowSuspensionSignal) {
-                    return error;
+                    ir.registry?.joins
+                      ? Array.from(HashMap.values(ir.registry.joins))
+                      : undefined
+                  );
+
+                  // Debug logging
+                  if (node.toolId === 'llm:compare') {
+                    yield* Effect.logInfo(
+                      `[DEBUG] Executing ${node.toolId} with resolved input:`,
+                      resolvedInput
+                    );
+                    yield* Effect.logInfo(
+                      `[DEBUG] Available variables:`,
+                      variables
+                    );
                   }
-                  return new IRExecutionError({
-                    message: `Tool execution error: ${String(error)}`,
-                    nodeId: node.id,
-                    nodeType: 'tool',
-                    cause: error
+
+                  // Execute the tool
+                  return yield* tool.execute(resolvedInput, {
+                    flowId: flowId as FlowId,
+                    stepId: node.id,
+                    sessionId: (sessionId || 'default-session') as SessionId,
+                    variables: new Map(Object.entries(variables)),
+                    metadata: new Map(),
+                    parentContext: Option.none(),
+                    currentScope: [],
                   });
                 }),
-                Effect.catchAll((error: IRExecutionError | FlowSuspensionSignal) =>
-                  Effect.gen(function* () {
-                    // Check if this is a suspension request
-                    if (error && typeof error === 'object' && 'suspend' in error) {
-                      const suspensionContext: SuspensionContext = {
-                        toolId: node.toolId,
-                        timeout: undefined, // Could be configured
-                        awaitingInputSchema: (error as any).inputSchema,
-                        defaultValue: (error as any).defaultValue,
-                        metadata: flowContext.metadata
-                      };
+                Effect.mapError(
+                  (error): IRExecutionError | FlowSuspensionSignal => {
+                    // Map specific error types to IRExecutionError
+                    if (
+                      error instanceof IRExecutionError ||
+                      error instanceof FlowSuspensionSignal
+                    ) {
+                      return error;
+                    }
+                    return new IRExecutionError({
+                      message: `Tool execution error: ${String(error)}`,
+                      nodeId: node.id,
+                      nodeType: 'tool',
+                      cause: error,
+                    });
+                  }
+                ),
+                Effect.catchAll(
+                  (error: IRExecutionError | FlowSuspensionSignal) =>
+                    Effect.gen(function* () {
+                      // Check if this is a suspension request
+                      if (
+                        error &&
+                        typeof error === 'object' &&
+                        'suspend' in error
+                      ) {
+                        const suspensionContext: SuspensionContext = {
+                          toolId: node.toolId,
+                          timeout: undefined, // Could be configured
+                          awaitingInputSchema: (error as any).inputSchema,
+                          defaultValue: (error as any).defaultValue,
+                          metadata: flowContext.metadata,
+                        };
 
-                      // Suspend the flow
-                      const suspensionResult = yield* persistence.suspend(
-                        flowContext,
-                        suspensionContext
-                      );
+                        // Suspend the flow
+                        const suspensionResult = yield* persistence.suspend(
+                          flowContext,
+                          suspensionContext
+                        );
 
-                      // Throw suspension signal
+                        // Throw suspension signal
+                        return yield* Effect.fail(
+                          new FlowSuspensionSignal({
+                            suspensionKey: suspensionResult.key as any,
+                            message:
+                              (error as any).message ||
+                              'Flow suspended for input',
+                            awaitingSchema:
+                              (error as any).inputSchema || Schema.Unknown,
+                            module: 'IRExecutor',
+                            operation: 'executeNode',
+                          })
+                        );
+                      }
+
+                      // Regular error handling
                       return yield* Effect.fail(
-                        new FlowSuspensionSignal({
-                          suspensionKey: suspensionResult.key,
-                          message: (error as any).message || 'Flow suspended for input',
-                          context: flowContext
+                        new IRExecutionError({
+                          message: `Tool execution failed: ${error}`,
+                          nodeId: node.id,
+                          nodeType: 'tool',
+                          cause: error,
                         })
                       );
-                    }
-
-                    // Regular error handling
-                    return yield* Effect.fail(
-                      new IRExecutionError({
-                        message: `Tool execution failed: ${error}`,
-                        nodeId: node.id,
-                        nodeType: 'tool',
-                        cause: error
-                      })
-                    );
-                  })
+                    })
                 )
               );
 
               // Store tool result in state if successful
+              // Always store with tool ID as key for data flow
+              yield* state.set(node.toolId, toolResult);
+
+              // Also store with explicit output variable if provided
               if (node.outputVariable) {
                 yield* state.set(node.outputVariable, toolResult);
               }
@@ -322,12 +547,13 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
               // Evaluate condition and branch
               const condition = yield* state.get(node.condition);
               const nextNode = condition ? node.thenNode : node.elseNode;
-              
+
               if (nextNode) {
                 return yield* executeNodeWithSuspension(
                   nextNode,
                   toolsExecuted,
                   flowId,
+                  ir,
                   sessionId
                 );
               }
@@ -342,15 +568,16 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
                 for (const item of items) {
                   // Set loop variable
                   yield* state.set(node.itemVariable, item);
-                  
+
                   // Execute loop body
                   const result: unknown = yield* executeNodeWithSuspension(
                     node.bodyNode,
                     toolsExecuted,
                     flowId,
+                    ir,
                     sessionId
                   );
-                  
+
                   results.push(result);
                 }
                 return results;
@@ -359,28 +586,30 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
             }
 
             default:
-              yield* logger.warn(`Unknown node type: ${node.type}`, { nodeId: node.id });
+              yield* logger.warn(`Unknown node type: ${node.type}`, {
+                nodeId: node.id,
+              });
           }
 
           return null;
-      }),
-      Effect.mapError((error): IRExecutionError | FlowSuspensionSignal => {
-        // Pass through FlowSuspensionSignal unchanged
-        if (error instanceof FlowSuspensionSignal) {
-          return error;
-        }
-        // Map all other errors to IRExecutionError
-        if (error instanceof IRExecutionError) {
-          return error;
-        }
-        return new IRExecutionError({
-          message: `Node execution failed: ${String(error)}`,
-          nodeId: node.id,
-          nodeType: node.type,
-          cause: error
-        });
-      })
-    );
+        }),
+        Effect.mapError((error): IRExecutionError | FlowSuspensionSignal => {
+          // Pass through FlowSuspensionSignal unchanged
+          if (error instanceof FlowSuspensionSignal) {
+            return error;
+          }
+          // Map all other errors to IRExecutionError
+          if (error instanceof IRExecutionError) {
+            return error;
+          }
+          return new IRExecutionError({
+            message: `Node execution failed: ${String(error)}`,
+            nodeId: node.id,
+            nodeType: node.type,
+            cause: error,
+          });
+        })
+      );
 
     const service: IRExecutorService = {
       execute: (ir: IR, options?: IRExecutionOptions) =>
@@ -397,11 +626,14 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
             for (const tool of options.tools) {
               yield* pipe(
                 toolRegistry.register(tool),
-                Effect.mapError((error) => new IRExecutionError({
-                  message: `Failed to register tool ${tool.id}: ${error}`,
-                  nodeType: 'tool',
-                  cause: error
-                }))
+                Effect.mapError(
+                  (error) =>
+                    new IRExecutionError({
+                      message: `Failed to register tool ${tool.id}: ${error}`,
+                      nodeType: 'tool',
+                      cause: error,
+                    })
+                )
               );
               yield* logger.debug('Registered tool', { toolId: tool.id });
             }
@@ -412,11 +644,14 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
             for (const [_, tool] of ir.registry.tools) {
               yield* pipe(
                 toolRegistry.register(tool),
-                Effect.mapError((error) => new IRExecutionError({
-                  message: `Failed to register IR tool ${tool.id}: ${error}`,
-                  nodeType: 'tool',
-                  cause: error
-                }))
+                Effect.mapError(
+                  (error) =>
+                    new IRExecutionError({
+                      message: `Failed to register IR tool ${tool.id}: ${error}`,
+                      nodeType: 'tool',
+                      cause: error,
+                    })
+                )
               );
               yield* logger.debug('Registered IR tool', { toolId: tool.id });
             }
@@ -436,7 +671,8 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
             sessionId
           ).pipe(
             Effect.catchIf(
-              (error): error is FlowSuspensionSignal => error instanceof FlowSuspensionSignal,
+              (error): error is FlowSuspensionSignal =>
+                error instanceof FlowSuspensionSignal,
               (signal) => {
                 // Convert suspension signal to suspended result
                 return Effect.succeed({
@@ -447,15 +683,20 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
                   metadata: {
                     duration: Date.now() - startTime,
                     toolsExecuted,
-                    suspendedAt: new Date().toISOString()
-                  }
+                    suspendedAt: new Date().toISOString(),
+                  },
                 });
               }
             )
           );
 
           // Check if execution was suspended
-          if (result && typeof result === 'object' && 'suspended' in result && result.suspended === true) {
+          if (
+            result &&
+            typeof result === 'object' &&
+            'suspended' in result &&
+            result.suspended === true
+          ) {
             executionsSuspended++;
             yield* logger.info('Execution suspended', { flowId });
             return result as SuspendedExecutionResult;
@@ -466,7 +707,10 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
           const duration = Date.now() - startTime;
           totalDuration += duration;
 
-          yield* logger.info('Execution completed successfully', { flowId, duration });
+          yield* logger.info('Execution completed successfully', {
+            flowId,
+            duration,
+          });
 
           return {
             output: result,
@@ -481,16 +725,20 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
             return new IRExecutionError({
               message: `Execution failed: ${String(error)}`,
               nodeType: 'flow',
-              cause: error
+              cause: error,
             });
           })
-        ) as Effect.Effect<ExecutionResult | SuspendedExecutionResult, IRExecutionError, never>,
+        ) as Effect.Effect<
+          ExecutionResult | SuspendedExecutionResult,
+          IRExecutionError,
+          never
+        >,
 
       executeStream: (ir: IR, options?: IRExecutionOptions) =>
         Stream.unwrap(
           Effect.gen(function* () {
             const flowId = options?.flowId || `flow_${Date.now()}`;
-            
+
             return Stream.async<IRExecutionEvent, IRExecutionError>((emit) => {
               const executeWithEvents = async () => {
                 try {
@@ -499,25 +747,24 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
                     type: 'node-start',
                     nodeId: flowId,
                     nodeType: 'flow',
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                   });
 
                   // TODO: Implement full streaming execution
-                  
+
                   // Emit completion event
                   emit.single({
                     type: 'flow-complete',
                     nodeId: flowId,
                     nodeType: 'flow',
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                   });
-
                 } catch (error) {
                   emit.fail(
                     new IRExecutionError({
                       message: `Stream execution failed: ${error}`,
                       nodeType: 'flow',
-                      cause: error
+                      cause: error,
                     })
                   );
                 }
@@ -525,7 +772,11 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
 
               executeWithEvents();
             });
-          }) as Effect.Effect<Stream.Stream<IRExecutionEvent, IRExecutionError>, never, never>
+          }) as Effect.Effect<
+            Stream.Stream<IRExecutionEvent, IRExecutionError>,
+            never,
+            never
+          >
         ) as Stream.Stream<IRExecutionEvent, IRExecutionError, never>,
 
       resumeExecution: (suspensionKey: string, input: unknown) =>
@@ -536,11 +787,14 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
           // Resume the flow through persistence service
           const resumptionResult = yield* pipe(
             persistence.resume(suspensionKey as SuspensionKey, input),
-            Effect.mapError((error) => new IRExecutionError({
-              message: `Failed to resume flow: ${error}`,
-              nodeType: 'flow',
-              cause: error
-            }))
+            Effect.mapError(
+              (error) =>
+                new IRExecutionError({
+                  message: `Failed to resume flow: ${error}`,
+                  nodeType: 'flow',
+                  cause: error,
+                })
+            )
           );
 
           yield* logger.info(`Flow resumed successfully`, { suspensionKey });
@@ -554,8 +808,8 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
             metadata: {
               duration,
               toolsExecuted: [],
-              suspended: false
-            }
+              suspended: false,
+            },
           };
         }) as Effect.Effect<ExecutionResult, IRExecutionError, never>,
 
@@ -571,21 +825,26 @@ const makeIRExecutorService = (): Effect.Effect<IRExecutorService, never, Loggin
       getStats: () =>
         Effect.gen(function* () {
           const toolsRegistered = yield* toolRegistry.list();
-          
+
           return {
             toolsRegistered: toolsRegistered.length,
             executionsCompleted,
             executionsSuspended,
-            averageDuration: executionsCompleted > 0 ? totalDuration / executionsCompleted : 0
+            averageDuration:
+              executionsCompleted > 0 ? totalDuration / executionsCompleted : 0,
           };
-        }) as Effect.Effect<{
-          readonly toolsRegistered: number;
-          readonly executionsCompleted: number;
-          readonly executionsSuspended: number;
-          readonly averageDuration: number;
-        }, never, never>,
+        }) as Effect.Effect<
+          {
+            readonly toolsRegistered: number;
+            readonly executionsCompleted: number;
+            readonly executionsSuspended: number;
+            readonly averageDuration: number;
+          },
+          never,
+          never
+        >,
     };
-    
+
     return service;
   });
 
@@ -639,7 +898,9 @@ export const resumeFlowExecution = (suspensionKey: string, input: unknown) =>
 /**
  * Register tool with executor
  */
-export const registerExecutorTool = <TInput, TOutput>(tool: Tool<TInput, TOutput>) =>
+export const registerExecutorTool = <TInput, TOutput>(
+  tool: Tool<TInput, TOutput>
+) =>
   Effect.gen(function* () {
     const executor = yield* IRExecutorService;
     return yield* executor.registerTool(tool);

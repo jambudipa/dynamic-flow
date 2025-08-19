@@ -3,10 +3,12 @@
  */
 
 import { Duration, Effect, pipe, Ref, Stream } from 'effect';
+import { AllServicesLive } from '../services';
+import { LoggingServiceDefault } from '../services/logging';
 import { StreamExecutor } from './stream-executor';
-import type { ExecutionError } from './types';
 import {
   type DynamicFlowOptions,
+  ExecutionError,
   type ExecutionOptions,
   type ExecutionResult,
   type FlowEvent,
@@ -71,6 +73,46 @@ export class ValidatedFlowInstance {
     input?: unknown,
     options?: ExecutionOptions
   ): Effect.Effect<ExecutionResult, ExecutionError> {
+    // If this ValidatedFlow has IR, use the IR executor instead of the stream executor
+    if (this.validatedFlow.ir) {
+      const validatedFlow = this.validatedFlow; // Capture reference for closure
+      const effect = Effect.gen(function* () {
+        // Import the IR executor here to avoid circular dependencies
+        const { executeIR } = yield* Effect.promise(
+          () => import('../services/ir-executor')
+        );
+
+        // Execute using the IR executor with the tools and joins from the ValidatedFlow
+        const tools = Array.from(validatedFlow.tools.values());
+        const result = yield* executeIR(validatedFlow.ir, {
+          input,
+          tools,
+          timeout: options?.signal ? undefined : 120000, // 2 minute default
+        });
+
+        return {
+          output: (result as any).output || result,
+          metadata: {
+            duration: Duration.millis((result as any).metadata?.duration || 0),
+            toolsExecuted: (result as any).metadata?.toolsExecuted || [],
+          },
+        };
+      });
+
+      return effect.pipe(
+        // Ensure logging and all services are available during execution
+        Effect.provide(LoggingServiceDefault),
+        Effect.provide(AllServicesLive),
+        Effect.mapError((error) => {
+          if (error instanceof ExecutionError) {
+            return error;
+          }
+          return new ExecutionError(String(error));
+        })
+      ) as Effect.Effect<ExecutionResult, ExecutionError, never>;
+    }
+
+    // Fallback to stream executor for non-IR flows
     const results: unknown[] = [];
     let finalResult: unknown = undefined;
     const startTime = Date.now();

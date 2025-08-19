@@ -1,6 +1,6 @@
 /**
  * Base Service Infrastructure for DynamicFlow
- * 
+ *
  * This module provides the foundational patterns for converting
  * class-based implementations to Effect services, eliminating
  * the need for `self = this` anti-patterns.
@@ -46,34 +46,29 @@ export const createStatefulService = <State, Service extends BaseService>(
 export const createScopedService = <Service extends BaseService, R = never>(
   tag: Context.Tag<Service, Service>,
   acquire: Effect.Effect<Service, never, R | Scope.Scope>
-): Layer.Layer<Service, never, R> =>
-  Layer.scoped(tag, acquire);
+): Layer.Layer<Service, never, R> => Layer.scoped(tag, acquire);
 
 /**
  * State update helper that eliminates the need for self=this
  */
-export const updateState = <State>(
-  stateRef: Ref.Ref<State>
-) => <K extends keyof State>(
-  key: K,
-  updater: (value: State[K]) => State[K]
-): Effect.Effect<void> =>
-  Ref.update(stateRef, state => ({
-    ...state,
-    [key]: updater(state[key])
-  }));
+export const updateState =
+  <State>(stateRef: Ref.Ref<State>) =>
+  <K extends keyof State>(
+    key: K,
+    updater: (value: State[K]) => State[K]
+  ): Effect.Effect<void> =>
+    Ref.update(stateRef, (state) => ({
+      ...state,
+      [key]: updater(state[key]),
+    }));
 
 /**
  * State getter helper
  */
-export const getState = <State>(
-  stateRef: Ref.Ref<State>
-) => <K extends keyof State>(
-  key: K
-): Effect.Effect<State[K]> =>
-  Ref.get(stateRef).pipe(
-    Effect.map(state => state[key])
-  );
+export const getState =
+  <State>(stateRef: Ref.Ref<State>) =>
+  <K extends keyof State>(key: K): Effect.Effect<State[K]> =>
+    Ref.get(stateRef).pipe(Effect.map((state) => state[key]));
 
 /**
  * Async queue implementation for task queues
@@ -99,10 +94,10 @@ export const createAsyncQueue = <T>(): Effect.Effect<AsyncQueue<T>> =>
           const waiters = yield* Ref.get(waiting);
           if (waiters.length > 0) {
             const waiter = waiters[0];
-            yield* Ref.update(waiting, ws => ws.slice(1));
+            yield* Ref.update(waiting, (ws) => ws.slice(1));
             waiter!(value);
           } else {
-            yield* Ref.update(queue, q => [...q, value]);
+            yield* Ref.update(queue, (q) => [...q, value]);
           }
         }),
 
@@ -111,34 +106,40 @@ export const createAsyncQueue = <T>(): Effect.Effect<AsyncQueue<T>> =>
           const items = yield* Ref.get(queue);
           if (items.length > 0) {
             const item = items[0];
-            yield* Ref.update(queue, q => q.slice(1));
+            yield* Ref.update(queue, (q) => q.slice(1));
             resume(Effect.succeed(item!));
           } else {
-            yield* Ref.update(waiting, ws => [
+            yield* Ref.update(waiting, (ws) => [
               ...ws,
-              (value: T) => resume(Effect.succeed(value))
+              (value: T) => resume(Effect.succeed(value)),
             ]);
           }
         }).pipe(Effect.runSync);
       }),
 
-      size: Ref.get(queue).pipe(Effect.map(q => q.length)),
+      size: Ref.get(queue).pipe(Effect.map((q) => q.length)),
 
-      clear: Ref.set(queue, [])
+      clear: Ref.set(queue, []),
     };
   });
 
 /**
  * Service composition helper
  */
-export const composeServices = <Services extends Record<string, Context.Tag<any, any>>>(
+export const composeServices = <
+  Services extends Record<string, Context.Tag<any, any>>,
+>(
   services: Services
 ): Layer.Layer<
-  { [K in keyof Services]: Services[K] extends Context.Tag<any, infer S> ? S : never }[keyof Services],
+  {
+    [K in keyof Services]: Services[K] extends Context.Tag<any, infer S>
+      ? S
+      : never;
+  }[keyof Services],
   never,
   never
 > => {
-  const layers = Object.values(services).map(tag =>
+  const layers = Object.values(services).map((tag) =>
     Layer.succeed(tag as any, {} as any)
   );
   if (layers.length === 0) {
@@ -158,17 +159,22 @@ export const composeServices = <Services extends Record<string, Context.Tag<any,
 /**
  * Helper to convert promise-based APIs to Effect services
  */
-export const fromPromiseAPI = <Methods extends Record<string, (...args: any[]) => Promise<any>>>(
+export const fromPromiseAPI = <
+  Methods extends Record<string, (...args: any[]) => Promise<any>>,
+>(
   api: Methods
 ): {
-  [K in keyof Methods]: (...args: Parameters<Methods[K]>) => Effect.Effect<Awaited<ReturnType<Methods[K]>>, Error>
+  [K in keyof Methods]: (
+    ...args: Parameters<Methods[K]>
+  ) => Effect.Effect<Awaited<ReturnType<Methods[K]>>, Error>;
 } => {
   const result = {} as any;
   for (const [key, method] of Object.entries(api)) {
     result[key] = (...args: any[]) =>
       Effect.tryPromise({
         try: () => method(...args),
-        catch: (error) => error instanceof Error ? error : new Error(String(error))
+        catch: (error) =>
+          error instanceof Error ? error : new Error(String(error)),
       });
   }
   return result;
@@ -187,15 +193,17 @@ export interface MutableState<T> {
 /**
  * Create a mutable state container
  */
-export const createMutableState = <T>(initial: T): Effect.Effect<MutableState<T>> =>
+export const createMutableState = <T>(
+  initial: T
+): Effect.Effect<MutableState<T>> =>
   Effect.gen(function* () {
     const ref = yield* Ref.make(initial);
-    
+
     return {
       get: Ref.get(ref),
       set: (value: T) => Ref.set(ref, value),
       update: (f: (value: T) => T) => Ref.update(ref, f),
-      modify: <B>(f: (value: T) => [B, T]) => Ref.modify(ref, f)
+      modify: <B>(f: (value: T) => [B, T]) => Ref.modify(ref, f),
     };
   });
 
@@ -205,4 +213,6 @@ export const createMutableState = <T>(initial: T): Effect.Effect<MutableState<T>
 export const createOptionalState = <T>(
   initial?: T
 ): Effect.Effect<MutableState<Option.Option<T>>> =>
-  createMutableState(initial !== undefined ? Option.some(initial) : Option.none());
+  createMutableState(
+    initial !== undefined ? Option.some(initial) : Option.none()
+  );

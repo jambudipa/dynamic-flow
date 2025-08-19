@@ -1,6 +1,6 @@
 /**
  * PostgreSQL Storage Backend - Production-ready relational storage
- * 
+ *
  * Features:
  * - Automatic database and table creation
  * - ACID compliance for data integrity
@@ -10,7 +10,7 @@
  * - TTL-based cleanup with background jobs
  */
 
-import { Effect, pipe, Option } from 'effect'
+import { Effect, pipe, Option } from 'effect';
 import {
   type StorageBackend,
   type SerializedState,
@@ -19,29 +19,30 @@ import {
   type CleanupCriteria,
   type BackendHealth,
   StorageError,
-  type SuspensionKey
-} from '../types'
+  type SuspensionKey,
+} from '../types';
 
 /**
  * PostgreSQL configuration
  */
 export interface PostgresConfig {
-  readonly connectionString: string
-  readonly tableName: string
-  readonly maxConnections: number
-  readonly idleTimeoutMillis: number
-  readonly connectionTimeoutMillis: number
-  readonly autoCreateDatabase: boolean
-  readonly autoCreateSchema: boolean
-  readonly enableBackgroundCleanup: boolean
-  readonly cleanupIntervalMs: number
+  readonly connectionString: string;
+  readonly tableName: string;
+  readonly maxConnections: number;
+  readonly idleTimeoutMillis: number;
+  readonly connectionTimeoutMillis: number;
+  readonly autoCreateDatabase: boolean;
+  readonly autoCreateSchema: boolean;
+  readonly enableBackgroundCleanup: boolean;
+  readonly cleanupIntervalMs: number;
 }
 
 /**
  * Default PostgreSQL configuration
  */
 const DEFAULT_CONFIG: PostgresConfig = {
-  connectionString: process.env.POSTGRES_URL || 'postgresql://localhost:5432/dynamicflow',
+  connectionString:
+    process.env.POSTGRES_URL || 'postgresql://localhost:5432/dynamicflow',
   tableName: 'suspended_flows',
   maxConnections: 20,
   idleTimeoutMillis: 30000,
@@ -49,8 +50,8 @@ const DEFAULT_CONFIG: PostgresConfig = {
   autoCreateDatabase: true,
   autoCreateSchema: true,
   enableBackgroundCleanup: true,
-  cleanupIntervalMs: 60 * 60 * 1000 // 1 hour
-}
+  cleanupIntervalMs: 60 * 60 * 1000, // 1 hour
+};
 
 /**
  * Database schema for suspended flows
@@ -106,33 +107,33 @@ BEGIN
   RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql;
-`
+`;
 
 /**
  * Row structure from database
  */
 interface SuspendedFlowRow {
-  key: string
-  state: any // JSONB
-  created_at: Date
-  updated_at: Date
-  expires_at: Date | null
-  metadata: any // JSONB
-  checksum: string | null
-  size_bytes: number | null
+  key: string;
+  state: any; // JSONB
+  created_at: Date;
+  updated_at: Date;
+  expires_at: Date | null;
+  metadata: any; // JSONB
+  checksum: string | null;
+  size_bytes: number | null;
 }
 
 /**
  * PostgreSQL storage backend implementation
  */
 export class PostgresStorageBackend implements StorageBackend {
-  private readonly config: PostgresConfig
-  private pool: any = null // pg.Pool
-  private schemaInitialized = false
-  private cleanupTimer?: NodeJS.Timeout
+  private readonly config: PostgresConfig;
+  private pool: any = null; // pg.Pool
+  private schemaInitialized = false;
+  private cleanupTimer?: NodeJS.Timeout;
 
   constructor(config: Partial<PostgresConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config }
+    this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
   /**
@@ -140,54 +141,52 @@ export class PostgresStorageBackend implements StorageBackend {
    */
   private async initialize(): Promise<void> {
     if (this.pool && this.schemaInitialized) {
-      return
+      return;
     }
 
     try {
       // Import pg dynamically so it's optional
-      const { Pool } = await import('pg')
+      const { Pool } = await import('pg');
 
       // Create connection pool
       this.pool = new Pool({
         connectionString: this.config.connectionString,
         max: this.config.maxConnections,
         idleTimeoutMillis: this.config.idleTimeoutMillis,
-        connectionTimeoutMillis: this.config.connectionTimeoutMillis
-      })
+        connectionTimeoutMillis: this.config.connectionTimeoutMillis,
+      });
 
       // Test connection
-      const client = await this.pool.connect()
-      
+      const client = await this.pool.connect();
+
       try {
         // Auto-create database if it doesn't exist
         if (this.config.autoCreateDatabase) {
-          await this.ensureDatabase(client)
+          await this.ensureDatabase(client);
         }
 
         // Auto-create schema and tables
         if (this.config.autoCreateSchema) {
-          await this.ensureSchema(client)
+          await this.ensureSchema(client);
         }
 
-        this.schemaInitialized = true
+        this.schemaInitialized = true;
 
         // Start background cleanup if enabled
         if (this.config.enableBackgroundCleanup) {
-          this.startBackgroundCleanup()
+          this.startBackgroundCleanup();
         }
-
       } finally {
-        client.release()
+        client.release();
       }
-
     } catch (error) {
       throw new StorageError({
         module: 'persistence',
         operation: 'initialize',
         message: `Failed to initialize PostgreSQL backend: ${error instanceof Error ? error.message : 'Unknown error'}`,
         cause: error,
-        backend: 'postgres'
-      })
+        backend: 'postgres',
+      });
     }
   }
 
@@ -197,42 +196,43 @@ export class PostgresStorageBackend implements StorageBackend {
   private async ensureDatabase(client: any): Promise<void> {
     try {
       // Extract database name from connection string
-      const url = new URL(this.config.connectionString)
-      const dbName = url.pathname.slice(1) // Remove leading slash
+      const url = new URL(this.config.connectionString);
+      const dbName = url.pathname.slice(1); // Remove leading slash
 
       if (!dbName || dbName === 'postgres') {
-        return // Skip auto-creation for default postgres database
+        return; // Skip auto-creation for default postgres database
       }
 
       // Check if database exists
       const result = await client.query(
         'SELECT 1 FROM pg_database WHERE datname = $1',
         [dbName]
-      )
+      );
 
       if (result.rows.length === 0) {
         // Database doesn't exist, create it
         // Note: We need to connect to 'postgres' database to create a new one
-        const { Pool } = await import('pg')
-        const adminUrl = new URL(this.config.connectionString)
-        adminUrl.pathname = '/postgres'
+        const { Pool } = await import('pg');
+        const adminUrl = new URL(this.config.connectionString);
+        adminUrl.pathname = '/postgres';
 
         const adminPool = new Pool({
           connectionString: adminUrl.toString(),
-          max: 1
-        })
+          max: 1,
+        });
 
         try {
           // Use query directly for database creation
-          await adminPool.query(`CREATE DATABASE "${dbName}"`)
-          console.log(`✅ Created database: ${dbName}`)
+          await adminPool.query(`CREATE DATABASE "${dbName}"`);
+          console.log(`✅ Created database: ${dbName}`);
         } finally {
-          await adminPool.end()
+          await adminPool.end();
         }
       }
-
     } catch (error) {
-      console.warn(`Warning: Could not auto-create database: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.warn(
+        `Warning: Could not auto-create database: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       // Don't throw - database might already exist or user might not have permissions
     }
   }
@@ -243,33 +243,40 @@ export class PostgresStorageBackend implements StorageBackend {
   private async ensureSchema(client: any): Promise<void> {
     try {
       // Replace table name placeholder in schema
-      const schemaSQL = SCHEMA_SQL.replace(/{{tableName}}/g, this.config.tableName)
+      const schemaSQL = SCHEMA_SQL.replace(
+        /{{tableName}}/g,
+        this.config.tableName
+      );
 
       // Execute schema creation SQL
-      await client.query(schemaSQL)
+      await client.query(schemaSQL);
 
-      console.log(`✅ Initialized PostgreSQL schema for table: ${this.config.tableName}`)
-
+      console.log(
+        `✅ Initialized PostgreSQL schema for table: ${this.config.tableName}`
+      );
     } catch (error) {
       throw new StorageError({
         module: 'persistence',
         operation: 'ensureSchema',
         message: `Failed to create schema: ${error instanceof Error ? error.message : 'Unknown error'}`,
         cause: error,
-        backend: 'postgres'
-      })
+        backend: 'postgres',
+      });
     }
   }
 
   /**
    * Store serialized state
    */
-  store(key: SuspensionKey, state: SerializedState): Effect.Effect<void, StorageError> {
+  store(
+    key: SuspensionKey,
+    state: SerializedState
+  ): Effect.Effect<void, StorageError> {
     const self = this;
     return Effect.gen(function* () {
       yield* Effect.tryPromise({
         try: async () => {
-          await self.initialize()
+          await self.initialize();
 
           const query = `
             INSERT INTO ${self.config.tableName} 
@@ -278,7 +285,7 @@ export class PostgresStorageBackend implements StorageBackend {
             ON CONFLICT (key) DO UPDATE SET
             state = $2, updated_at = NOW(), expires_at = $3, 
             metadata = $4, checksum = $5, size_bytes = $6
-          `
+          `;
 
           const values = [
             key,
@@ -286,65 +293,69 @@ export class PostgresStorageBackend implements StorageBackend {
             state.expiresAt ? new Date(state.expiresAt) : null,
             state.metadata || {}, // JSONB
             state.metadata?.checksum || null,
-            state.data.length
-          ]
+            state.data.length,
+          ];
 
-          await self.pool.query(query, values)
+          await self.pool.query(query, values);
         },
-        catch: (error) => new StorageError({
-          module: 'persistence',
-          operation: 'store',
-          message: `Failed to store state: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          cause: error,
-          backend: 'postgres',
-          retryable: self.isRetryableError(error)
-        })
-      })
-    })
+        catch: (error) =>
+          new StorageError({
+            module: 'persistence',
+            operation: 'store',
+            message: `Failed to store state: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            cause: error,
+            backend: 'postgres',
+            retryable: self.isRetryableError(error),
+          }),
+      });
+    });
   }
 
   /**
    * Retrieve serialized state
    */
-  retrieve(key: SuspensionKey): Effect.Effect<Option.Option<SerializedState>, StorageError> {
+  retrieve(
+    key: SuspensionKey
+  ): Effect.Effect<Option.Option<SerializedState>, StorageError> {
     const self = this;
     return Effect.gen(function* () {
       const result = yield* Effect.tryPromise({
         try: async () => {
-          await self.initialize()
+          await self.initialize();
 
           const query = `
             SELECT state, created_at, expires_at, metadata, checksum
             FROM ${self.config.tableName}
             WHERE key = $1 AND (expires_at IS NULL OR expires_at > NOW())
-          `
+          `;
 
-          return await self.pool.query(query, [key])
+          return await self.pool.query(query, [key]);
         },
-        catch: (error) => new StorageError({
-          module: 'persistence',
-          operation: 'retrieve',
-          message: `Failed to retrieve state: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          cause: error,
-          backend: 'postgres'
-        })
-      })
+        catch: (error) =>
+          new StorageError({
+            module: 'persistence',
+            operation: 'retrieve',
+            message: `Failed to retrieve state: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            cause: error,
+            backend: 'postgres',
+          }),
+      });
 
       if (result.rows.length === 0) {
-        return Option.none()
+        return Option.none();
       }
 
-      const row: SuspendedFlowRow = result.rows[0]
-      
+      const row: SuspendedFlowRow = result.rows[0];
+
       return Option.some({
         ...row.state,
         metadata: {
           ...row.state.metadata,
           ...row.metadata,
-          retrievedAt: new Date().toISOString()
-        }
-      } as SerializedState)
-    })
+          retrievedAt: new Date().toISOString(),
+        },
+      } as SerializedState);
+    });
   }
 
   /**
@@ -355,20 +366,21 @@ export class PostgresStorageBackend implements StorageBackend {
     return Effect.gen(function* () {
       yield* Effect.tryPromise({
         try: async () => {
-          await self.initialize()
+          await self.initialize();
 
-          const query = `DELETE FROM ${self.config.tableName} WHERE key = $1`
-          await self.pool.query(query, [key])
+          const query = `DELETE FROM ${self.config.tableName} WHERE key = $1`;
+          await self.pool.query(query, [key]);
         },
-        catch: (error) => new StorageError({
-          module: 'persistence',
-          operation: 'delete',
-          message: `Failed to delete state: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          cause: error,
-          backend: 'postgres'
-        })
-      })
-    })
+        catch: (error) =>
+          new StorageError({
+            module: 'persistence',
+            operation: 'delete',
+            message: `Failed to delete state: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            cause: error,
+            backend: 'postgres',
+          }),
+      });
+    });
   }
 
   /**
@@ -379,63 +391,64 @@ export class PostgresStorageBackend implements StorageBackend {
     return Effect.gen(function* () {
       const result = yield* Effect.tryPromise({
         try: async () => {
-          await self.initialize()
+          await self.initialize();
 
           let query = `
             SELECT key, created_at, expires_at, metadata, size_bytes
             FROM ${self.config.tableName}
             WHERE 1=1
-          `
-          const values: any[] = []
-          let paramCount = 0
+          `;
+          const values: any[] = [];
+          let paramCount = 0;
 
           // Add filtering
           if (criteria?.prefix) {
-            paramCount++
-            query += ` AND key LIKE $${paramCount}`
-            values.push(`${criteria.prefix}%`)
+            paramCount++;
+            query += ` AND key LIKE $${paramCount}`;
+            values.push(`${criteria.prefix}%`);
           }
 
           if (criteria?.pattern) {
-            paramCount++
-            query += ` AND key ~ $${paramCount}`
-            values.push(criteria.pattern)
+            paramCount++;
+            query += ` AND key ~ $${paramCount}`;
+            values.push(criteria.pattern);
           }
 
           // Add ordering and pagination
-          query += ` ORDER BY created_at DESC`
+          query += ` ORDER BY created_at DESC`;
 
           if (criteria?.limit) {
-            paramCount++
-            query += ` LIMIT $${paramCount}`
-            values.push(criteria.limit)
+            paramCount++;
+            query += ` LIMIT $${paramCount}`;
+            values.push(criteria.limit);
           }
 
           if (criteria?.offset) {
-            paramCount++
-            query += ` OFFSET $${paramCount}`
-            values.push(criteria.offset)
+            paramCount++;
+            query += ` OFFSET $${paramCount}`;
+            values.push(criteria.offset);
           }
 
-          return await self.pool.query(query, values)
+          return await self.pool.query(query, values);
         },
-        catch: (error) => new StorageError({
-          module: 'persistence',
-          operation: 'list',
-          message: `Failed to list entries: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          cause: error,
-          backend: 'postgres'
-        })
-      })
+        catch: (error) =>
+          new StorageError({
+            module: 'persistence',
+            operation: 'list',
+            message: `Failed to list entries: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            cause: error,
+            backend: 'postgres',
+          }),
+      });
 
       return result.rows.map((row: SuspendedFlowRow) => ({
         key: row.key as SuspensionKey,
         createdAt: row.created_at,
         expiresAt: row.expires_at || undefined,
         size: row.size_bytes || 0,
-        metadata: row.metadata || {}
-      }))
-    })
+        metadata: row.metadata || {},
+      }));
+    });
   }
 
   /**
@@ -444,23 +457,25 @@ export class PostgresStorageBackend implements StorageBackend {
   health(): Effect.Effect<BackendHealth, never> {
     const self = this;
     return Effect.gen(function* () {
-      const startTime = Date.now()
+      const startTime = Date.now();
 
       try {
         yield* Effect.tryPromise({
           try: async () => {
-            await self.initialize()
-            
+            await self.initialize();
+
             // Simple connectivity test
-            const result = await self.pool.query('SELECT 1 as health_check')
+            const result = await self.pool.query('SELECT 1 as health_check');
             if (result.rows[0].health_check !== 1) {
-              throw new Error('Health check query failed')
+              throw new Error('Health check query failed');
             }
           },
-          catch: (error) => { throw error }
-        })
+          catch: (error) => {
+            throw error;
+          },
+        });
 
-        const latency = Date.now() - startTime
+        const latency = Date.now() - startTime;
 
         return {
           backend: 'postgres',
@@ -469,18 +484,17 @@ export class PostgresStorageBackend implements StorageBackend {
           metadata: {
             tableName: self.config.tableName,
             maxConnections: self.config.maxConnections,
-            schemaInitialized: self.schemaInitialized
-          }
-        }
-
+            schemaInitialized: self.schemaInitialized,
+          },
+        };
       } catch (error) {
         return {
           backend: 'postgres',
           healthy: false,
-          error: error instanceof Error ? error.message : 'Health check failed'
-        }
+          error: error instanceof Error ? error.message : 'Health check failed',
+        };
       }
-    })
+    });
   }
 
   /**
@@ -491,62 +505,65 @@ export class PostgresStorageBackend implements StorageBackend {
     return Effect.gen(function* () {
       const deletedCount = yield* Effect.tryPromise({
         try: async () => {
-          await self.initialize()
+          await self.initialize();
 
           if (criteria?.expiredOnly) {
             // Use the stored procedure for efficient cleanup
-            const result = await self.pool.query(`SELECT cleanup_expired_${self.config.tableName}()`)
-            return result.rows[0][`cleanup_expired_${self.config.tableName}`]
+            const result = await self.pool.query(
+              `SELECT cleanup_expired_${self.config.tableName}()`
+            );
+            return result.rows[0][`cleanup_expired_${self.config.tableName}`];
           }
 
           // Manual cleanup with criteria
-          let query = `DELETE FROM ${self.config.tableName} WHERE 1=1`
-          const values: any[] = []
-          let paramCount = 0
+          let query = `DELETE FROM ${self.config.tableName} WHERE 1=1`;
+          const values: any[] = [];
+          let paramCount = 0;
 
           if (criteria?.olderThan) {
-            paramCount++
-            query += ` AND created_at < $${paramCount}`
-            values.push(criteria.olderThan)
+            paramCount++;
+            query += ` AND created_at < $${paramCount}`;
+            values.push(criteria.olderThan);
           }
 
           if (criteria?.toolId) {
-            paramCount++
-            query += ` AND metadata->>'toolId' = $${paramCount}`
-            values.push(criteria.toolId)
+            paramCount++;
+            query += ` AND metadata->>'toolId' = $${paramCount}`;
+            values.push(criteria.toolId);
           }
 
           if (criteria?.limit) {
             // PostgreSQL doesn't support LIMIT in DELETE directly
             query = `DELETE FROM ${self.config.tableName} WHERE key IN (
-              SELECT key FROM ${self.config.tableName} WHERE 1=1`
-            
+              SELECT key FROM ${self.config.tableName} WHERE 1=1`;
+
             if (criteria.olderThan) {
-              query += ` AND created_at < $1`
+              query += ` AND created_at < $1`;
             }
             if (criteria.toolId) {
-              query += ` AND metadata->>'toolId' = $${criteria.olderThan ? 2 : 1}`
+              query += ` AND metadata->>'toolId' = $${criteria.olderThan ? 2 : 1}`;
             }
-            
-            paramCount++
-            query += ` LIMIT $${paramCount})`
-            values.push(criteria.limit)
+
+            paramCount++;
+            query += ` LIMIT $${paramCount})`;
+            values.push(criteria.limit);
           }
 
-          const result = await self.pool.query(query, values)
-          return result.rowCount || 0
+          const result = await self.pool.query(query, values);
+          return result.rowCount || 0;
         },
-        catch: (error) => new StorageError({
-          module: 'persistence',
-          operation: 'cleanup',
-          message: `Failed to cleanup entries: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          cause: error,
-          backend: 'postgres'
-        })
-      })
+        catch: (error) =>
+          new StorageError({
+            module: 'persistence',
+            operation: 'cleanup',
+            message: `Failed to cleanup entries: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            cause: error,
+            backend: 'postgres',
+          }),
+      });
 
-      return deletedCount
-    })
+      return deletedCount;
+    });
   }
 
   /**
@@ -556,18 +573,18 @@ export class PostgresStorageBackend implements StorageBackend {
     const self = this;
     return Effect.gen(function* () {
       if (self.cleanupTimer) {
-        clearInterval(self.cleanupTimer)
-        self.cleanupTimer = undefined
+        clearInterval(self.cleanupTimer);
+        self.cleanupTimer = undefined;
       }
 
       if (self.pool) {
         yield* Effect.tryPromise({
           try: () => self.pool.end(),
-          catch: () => undefined // Ignore cleanup errors
-        }).pipe(Effect.orElse(() => Effect.void))
-        self.pool = null
+          catch: () => undefined, // Ignore cleanup errors
+        }).pipe(Effect.orElse(() => Effect.void));
+        self.pool = null;
       }
-    })
+    });
   }
 
   /**
@@ -575,12 +592,10 @@ export class PostgresStorageBackend implements StorageBackend {
    */
   private startBackgroundCleanup(): void {
     this.cleanupTimer = setInterval(() => {
-      Effect.runPromise(
-        this.cleanup({ expiredOnly: true })
-      ).catch(error => {
-        console.warn('PostgreSQL background cleanup failed:', error)
-      })
-    }, this.config.cleanupIntervalMs)
+      Effect.runPromise(this.cleanup({ expiredOnly: true })).catch((error) => {
+        console.warn('PostgreSQL background cleanup failed:', error);
+      });
+    }, this.config.cleanupIntervalMs);
   }
 
   /**
@@ -588,8 +603,8 @@ export class PostgresStorageBackend implements StorageBackend {
    */
   private isRetryableError(error: unknown): boolean {
     if (error && typeof error === 'object' && 'code' in error) {
-      const pgError = error as { code: string }
-      
+      const pgError = error as { code: string };
+
       // PostgreSQL error codes that indicate retryable errors
       const retryableCodes = [
         '08000', // connection_exception
@@ -599,21 +614,23 @@ export class PostgresStorageBackend implements StorageBackend {
         '08004', // sqlserver_rejected_establishment_of_sqlconnection
         '53300', // too_many_connections
         '57P03', // cannot_connect_now
-      ]
+      ];
 
-      return retryableCodes.includes(pgError.code)
+      return retryableCodes.includes(pgError.code);
     }
 
-    return false
+    return false;
   }
 }
 
 /**
  * Create PostgreSQL storage backend
  */
-export const createPostgresBackend = (config?: Partial<PostgresConfig>): StorageBackend => {
-  return new PostgresStorageBackend(config)
-}
+export const createPostgresBackend = (
+  config?: Partial<PostgresConfig>
+): StorageBackend => {
+  return new PostgresStorageBackend(config);
+};
 
 /**
  * Create PostgreSQL backend from connection string
@@ -624,6 +641,6 @@ export const createPostgresBackendFromUrl = (
 ): StorageBackend => {
   return new PostgresStorageBackend({
     ...options,
-    connectionString
-  })
-}
+    connectionString,
+  });
+};

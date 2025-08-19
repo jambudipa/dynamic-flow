@@ -1,6 +1,6 @@
 /**
  * KeyGeneratorService - Cryptographically secure key generation service
- * 
+ *
  * Provides secure generation and validation of suspension keys with:
  * - Cryptographically secure random generation
  * - URL-safe encoding for web usage
@@ -58,12 +58,16 @@ export interface KeyGeneratorService {
   /**
    * Extract metadata from a suspension key
    */
-  readonly extractMetadata: (key: SuspensionKey) => Effect.Effect<KeyMetadata, KeyError>;
+  readonly extractMetadata: (
+    key: SuspensionKey
+  ) => Effect.Effect<KeyMetadata, KeyError>;
 
   /**
    * Update configuration
    */
-  readonly updateConfig: (config: Partial<KeyGeneratorConfig>) => Effect.Effect<void>;
+  readonly updateConfig: (
+    config: Partial<KeyGeneratorConfig>
+  ) => Effect.Effect<void>;
 
   /**
    * Get current configuration
@@ -73,7 +77,9 @@ export interface KeyGeneratorService {
 
 // ============= Context Tag =============
 
-export const KeyGeneratorService = Context.GenericTag<KeyGeneratorService>('@services/KeyGenerator');
+export const KeyGeneratorService = Context.GenericTag<KeyGeneratorService>(
+  '@services/KeyGenerator'
+);
 
 // ============= Constants =============
 
@@ -85,13 +91,14 @@ const DEFAULT_CONFIG: KeyGeneratorConfig = {
   prefix: 'df_susp',
   includeTimestamp: true,
   includeChecksum: true,
-  encoding: 'base64url'
+  encoding: 'base64url',
 };
 
 /**
  * Base64 URL-safe alphabet (RFC 4648)
  */
-const BASE64URL_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const BASE64URL_ALPHABET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
 /**
  * Base32 alphabet (RFC 4648)
@@ -100,10 +107,14 @@ const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 // ============= Helper Functions =============
 
-const encodeBytes = (buffer: Buffer, encoding: KeyGeneratorConfig['encoding']): string => {
+const encodeBytes = (
+  buffer: Buffer,
+  encoding: KeyGeneratorConfig['encoding']
+): string => {
   switch (encoding) {
     case 'base64url':
-      return buffer.toString('base64')
+      return buffer
+        .toString('base64')
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=/g, '');
@@ -160,36 +171,42 @@ const isValidTimestamp = (timestamp: string): boolean => {
   }
 };
 
-const isValidEncodedData = (data: string, encoding: KeyGeneratorConfig['encoding']): boolean => {
+const isValidEncodedData = (
+  data: string,
+  encoding: KeyGeneratorConfig['encoding']
+): boolean => {
   switch (encoding) {
     case 'base64url':
       return /^[A-Za-z0-9\-_]+$/.test(data);
-    
+
     case 'base32':
       return /^[A-Z2-7]+$/.test(data);
-    
+
     case 'hex':
       return /^[0-9a-fA-F]+$/.test(data);
-    
+
     default:
       return false;
   }
 };
 
-const calculateEntropyBits = (encodedData: string, encoding: KeyGeneratorConfig['encoding']): number => {
+const calculateEntropyBits = (
+  encodedData: string,
+  encoding: KeyGeneratorConfig['encoding']
+): number => {
   switch (encoding) {
     case 'base64url':
       // Each base64 character represents 6 bits
       return Math.floor(encodedData.length * 6);
-    
+
     case 'base32':
       // Each base32 character represents 5 bits
       return Math.floor(encodedData.length * 5);
-    
+
     case 'hex':
       // Each hex character represents 4 bits
       return Math.floor(encodedData.length * 4);
-    
+
     default:
       return 0;
   }
@@ -197,7 +214,9 @@ const calculateEntropyBits = (encodedData: string, encoding: KeyGeneratorConfig[
 
 // ============= Service Implementation =============
 
-const makeKeyGeneratorService = (initialConfig?: Partial<KeyGeneratorConfig>): Effect.Effect<KeyGeneratorService> =>
+const makeKeyGeneratorService = (
+  initialConfig?: Partial<KeyGeneratorConfig>
+): Effect.Effect<KeyGeneratorService> =>
   Effect.gen(function* () {
     const configRef = yield* Ref.make({ ...DEFAULT_CONFIG, ...initialConfig });
 
@@ -246,10 +265,12 @@ const makeKeyGeneratorService = (initialConfig?: Partial<KeyGeneratorConfig>): E
 
           // Basic format validation
           if (!key || typeof key !== 'string') {
-            return yield* Effect.fail(new KeyError({
-              message: 'Key must be a non-empty string',
-              cause: { key, reason: 'invalid_format' }
-            }));
+            return yield* Effect.fail(
+              new KeyError({
+                message: 'Key must be a non-empty string',
+                cause: { key, reason: 'invalid_format' },
+              })
+            );
           }
 
           // Split into components
@@ -257,10 +278,16 @@ const makeKeyGeneratorService = (initialConfig?: Partial<KeyGeneratorConfig>): E
 
           // Check minimum components (at least random data)
           if (components.length < 2) {
-            return yield* Effect.fail(new KeyError({
-              message: 'Key format is invalid - insufficient components',
-              cause: { key, reason: 'insufficient_components', components: components.length }
-            }));
+            return yield* Effect.fail(
+              new KeyError({
+                message: 'Key format is invalid - insufficient components',
+                cause: {
+                  key,
+                  reason: 'insufficient_components',
+                  components: components.length,
+                },
+              })
+            );
           }
 
           let componentIndex = 0;
@@ -268,15 +295,17 @@ const makeKeyGeneratorService = (initialConfig?: Partial<KeyGeneratorConfig>): E
           // Validate prefix if configured
           if (config.prefix) {
             if (components[componentIndex] !== config.prefix) {
-              return yield* Effect.fail(new KeyError({
-                message: `Key prefix mismatch - expected '${config.prefix}'`,
-                  cause: { 
-                  key, 
-                  reason: 'prefix_mismatch', 
-                  expected: config.prefix, 
-                  actual: components[componentIndex] 
-                }
-              }));
+              return yield* Effect.fail(
+                new KeyError({
+                  message: `Key prefix mismatch - expected '${config.prefix}'`,
+                  cause: {
+                    key,
+                    reason: 'prefix_mismatch',
+                    expected: config.prefix,
+                    actual: components[componentIndex],
+                  },
+                })
+              );
             }
             componentIndex++;
           }
@@ -285,47 +314,64 @@ const makeKeyGeneratorService = (initialConfig?: Partial<KeyGeneratorConfig>): E
           if (config.includeTimestamp) {
             const timestampComponent = components[componentIndex];
             if (!timestampComponent || !isValidTimestamp(timestampComponent)) {
-              return yield* Effect.fail(new KeyError({
-                message: 'Invalid timestamp component in key',
-                  cause: { key, reason: 'invalid_timestamp', timestamp: timestampComponent }
-              }));
+              return yield* Effect.fail(
+                new KeyError({
+                  message: 'Invalid timestamp component in key',
+                  cause: {
+                    key,
+                    reason: 'invalid_timestamp',
+                    timestamp: timestampComponent,
+                  },
+                })
+              );
             }
             componentIndex++;
           }
 
           // Validate random component
           const randomComponent = components[componentIndex];
-          if (!randomComponent || !isValidEncodedData(randomComponent, config.encoding)) {
-            return yield* Effect.fail(new KeyError({
-              message: 'Invalid random component in key',
-              cause: { key, reason: 'invalid_random', randomComponent }
-            }));
+          if (
+            !randomComponent ||
+            !isValidEncodedData(randomComponent, config.encoding)
+          ) {
+            return yield* Effect.fail(
+              new KeyError({
+                message: 'Invalid random component in key',
+                cause: { key, reason: 'invalid_random', randomComponent },
+              })
+            );
           }
           componentIndex++;
 
           // Validate checksum if configured
           if (config.includeChecksum) {
             if (componentIndex >= components.length) {
-              return yield* Effect.fail(new KeyError({
-                message: 'Missing checksum component in key',
-                  cause: { key, reason: 'missing_checksum' }
-              }));
+              return yield* Effect.fail(
+                new KeyError({
+                  message: 'Missing checksum component in key',
+                  cause: { key, reason: 'missing_checksum' },
+                })
+              );
             }
 
             const providedChecksum = components[componentIndex];
-            const keyDataForChecksum = components.slice(0, componentIndex).join('_');
+            const keyDataForChecksum = components
+              .slice(0, componentIndex)
+              .join('_');
             const expectedChecksum = calculateChecksum(keyDataForChecksum);
 
             if (providedChecksum !== expectedChecksum) {
-              return yield* Effect.fail(new KeyError({
-                message: 'Key checksum validation failed',
-                  cause: { 
-                  key, 
-                  reason: 'checksum_mismatch', 
-                  expected: expectedChecksum, 
-                  actual: providedChecksum 
-                }
-              }));
+              return yield* Effect.fail(
+                new KeyError({
+                  message: 'Key checksum validation failed',
+                  cause: {
+                    key,
+                    reason: 'checksum_mismatch',
+                    expected: expectedChecksum,
+                    actual: providedChecksum,
+                  },
+                })
+              );
             }
           }
 
@@ -359,7 +405,10 @@ const makeKeyGeneratorService = (initialConfig?: Partial<KeyGeneratorConfig>): E
 
           // Extract entropy length
           const randomComponent = components[componentIndex];
-          metadata.entropyBits = calculateEntropyBits(randomComponent || '', config.encoding);
+          metadata.entropyBits = calculateEntropyBits(
+            randomComponent || '',
+            config.encoding
+          );
           componentIndex++;
 
           // Note checksum presence
@@ -372,12 +421,15 @@ const makeKeyGeneratorService = (initialConfig?: Partial<KeyGeneratorConfig>): E
 
       updateConfig: (newConfig: Partial<KeyGeneratorConfig>) =>
         Effect.gen(function* () {
-          yield* Ref.update(configRef, (current) => ({ ...current, ...newConfig }));
+          yield* Ref.update(configRef, (current) => ({
+            ...current,
+            ...newConfig,
+          }));
         }),
 
       getConfig: () => Ref.get(configRef),
     };
-    
+
     return service;
   });
 
@@ -394,11 +446,9 @@ export const KeyGeneratorServiceLive = Layer.effect(
 /**
  * Secure implementation with custom configuration
  */
-export const KeyGeneratorServiceSecure = (config?: Partial<KeyGeneratorConfig>) =>
-  Layer.effect(
-    KeyGeneratorService,
-    makeKeyGeneratorService(config)
-  );
+export const KeyGeneratorServiceSecure = (
+  config?: Partial<KeyGeneratorConfig>
+) => Layer.effect(KeyGeneratorService, makeKeyGeneratorService(config));
 
 /**
  * Simple implementation for testing
@@ -407,7 +457,7 @@ export const KeyGeneratorServiceTest = Layer.effect(
   KeyGeneratorService,
   Effect.gen(function* () {
     let counter = 0;
-    
+
     return {
       generate: () =>
         Effect.gen(function* () {
@@ -419,10 +469,12 @@ export const KeyGeneratorServiceTest = Layer.effect(
       validate: (key: string) =>
         Effect.gen(function* () {
           if (!key.startsWith('simple_')) {
-            return yield* Effect.fail(new KeyError({
-              message: 'Invalid simple key format',
-              cause: { key }
-            }));
+            return yield* Effect.fail(
+              new KeyError({
+                message: 'Invalid simple key format',
+                cause: { key },
+              })
+            );
           }
           return key as SuspensionKey;
         }),
@@ -431,13 +483,13 @@ export const KeyGeneratorServiceTest = Layer.effect(
         Effect.gen(function* () {
           const parts = key.split('_');
           const timestamp = parseInt(parts[1] || '0');
-          
+
           return {
             prefix: 'simple',
             timestamp,
             generatedAt: new Date(timestamp),
             entropyBits: 64, // Approximation for simple keys
-            hasChecksum: false
+            hasChecksum: false,
           };
         }),
 
@@ -490,7 +542,9 @@ export const recommendMinimumEntropy = (
 ): number => {
   // Solve for entropy: entropy = log2(k²/(-2*ln(1-P)))
   const ln1MinusP = Math.log(1 - maxCollisionProbability);
-  const entropy = Math.log2((expectedKeyCount * expectedKeyCount) / (-2 * ln1MinusP));
+  const entropy = Math.log2(
+    (expectedKeyCount * expectedKeyCount) / (-2 * ln1MinusP)
+  );
   return Math.ceil(entropy);
 };
 
@@ -518,12 +572,12 @@ export const generateKeys = (count: number) =>
   Effect.gen(function* () {
     const generator = yield* KeyGeneratorService;
     const keys: SuspensionKey[] = [];
-    
+
     for (let i = 0; i < count; i++) {
       const key = yield* generator.generate();
       keys.push(key);
     }
-    
+
     return keys;
   });
 
@@ -535,13 +589,17 @@ export const getKeyStatistics = (key: SuspensionKey) =>
     const generator = yield* KeyGeneratorService;
     const metadata = yield* generator.extractMetadata(key);
     const config = yield* generator.getConfig();
-    
+
     return {
       ...metadata,
       encoding: config.encoding,
       length: key.length,
       components: key.split('_').length,
-      estimatedSecurityLevel: metadata.entropyBits > 128 ? 'high' : 
-                             metadata.entropyBits > 64 ? 'medium' : 'low'
+      estimatedSecurityLevel:
+        metadata.entropyBits > 128
+          ? 'high'
+          : metadata.entropyBits > 64
+            ? 'medium'
+            : 'low',
     };
   });

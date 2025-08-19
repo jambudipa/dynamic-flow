@@ -1,6 +1,6 @@
 /**
  * StateService - Centralized variable storage and retrieval
- * 
+ *
  * Purpose: Manages variables during flow execution with scoping, metadata,
  * computed values, and snapshot/restore capabilities.
  */
@@ -62,12 +62,19 @@ export interface StateService {
   /**
    * Get a nested value path under a variable.
    */
-  readonly getPath: (name: string, path: string[]) => Effect.Effect<unknown, StateError>;
+  readonly getPath: (
+    name: string,
+    path: string[]
+  ) => Effect.Effect<unknown, StateError>;
 
   /**
    * Set a nested value path under a variable, creating objects as needed.
    */
-  readonly setPath: (name: string, path: string[], value: unknown) => Effect.Effect<void>;
+  readonly setPath: (
+    name: string,
+    path: string[],
+    value: unknown
+  ) => Effect.Effect<void>;
 
   /**
    * Push a new (empty) scope onto the scope stack.
@@ -112,12 +119,17 @@ export interface StateService {
   /**
    * Read variable metadata (if any).
    */
-  readonly getMetadata: (name: string) => Effect.Effect<VariableMetadata | undefined>;
+  readonly getMetadata: (
+    name: string
+  ) => Effect.Effect<VariableMetadata | undefined>;
 
   /**
    * Register a computed value: resolved lazily when fetched via get().
    */
-  readonly registerComputed: (name: string, compute: () => unknown) => Effect.Effect<void>;
+  readonly registerComputed: (
+    name: string,
+    compute: () => unknown
+  ) => Effect.Effect<void>;
 
   /**
    * Serialize state to JSON string.
@@ -139,7 +151,9 @@ export const StateService = Context.GenericTag<StateService>('@services/State');
 /**
  * Convert a HashMap to a plain object for snapshots.
  */
-const hashMapToObject = <V>(map: HashMap.HashMap<string, V>): Record<string, V> => {
+const hashMapToObject = <V>(
+  map: HashMap.HashMap<string, V>
+): Record<string, V> => {
   const obj: Record<string, V> = {};
   for (const [key, value] of HashMap.entries(map)) {
     obj[key] = value;
@@ -150,7 +164,9 @@ const hashMapToObject = <V>(map: HashMap.HashMap<string, V>): Record<string, V> 
 /**
  * Convert a plain object to a HashMap for state hydration.
  */
-const objectToHashMap = <V>(obj: Record<string, V>): HashMap.HashMap<string, V> => {
+const objectToHashMap = <V>(
+  obj: Record<string, V>
+): HashMap.HashMap<string, V> => {
   let map = HashMap.empty<string, V>();
   for (const [key, value] of Object.entries(obj)) {
     map = HashMap.set(map, key, value);
@@ -163,8 +179,12 @@ const objectToHashMap = <V>(obj: Record<string, V>): HashMap.HashMap<string, V> 
 const makeStateService = (): Effect.Effect<StateService> =>
   Effect.gen(function* () {
     const variablesRef = yield* Ref.make(HashMap.empty<string, unknown>());
-    const scopesRef = yield* Ref.make<Array<HashMap.HashMap<string, unknown>>>([]);
-    const metadataRef = yield* Ref.make(HashMap.empty<string, VariableMetadata>());
+    const scopesRef = yield* Ref.make<Array<HashMap.HashMap<string, unknown>>>(
+      []
+    );
+    const metadataRef = yield* Ref.make(
+      HashMap.empty<string, VariableMetadata>()
+    );
     const computedRef = yield* Ref.make(HashMap.empty<string, () => unknown>());
 
     const updateMetadata = (name: string, isNew: boolean) =>
@@ -187,14 +207,16 @@ const makeStateService = (): Effect.Effect<StateService> =>
           }),
         });
 
-        yield* Ref.update(metadataRef, (current) => HashMap.set(current, name, meta));
+        yield* Ref.update(metadataRef, (current) =>
+          HashMap.set(current, name, meta)
+        );
       });
 
     const incrementAccessCount = (name: string) =>
       Effect.gen(function* () {
         const metadata = yield* Ref.get(metadataRef);
         const meta = HashMap.get(metadata, name);
-        
+
         if (Option.isSome(meta)) {
           yield* Ref.update(metadataRef, (current) =>
             HashMap.set(current, name, {
@@ -211,19 +233,22 @@ const makeStateService = (): Effect.Effect<StateService> =>
           yield* updateMetadata(name, false);
 
           const scopes = yield* Ref.get(scopesRef);
-          
+
           if (scopes.length > 0) {
             // Set in current scope
             yield* Ref.update(scopesRef, (currentScopes) => {
               const newScopes = [...currentScopes];
-              const currentScope = newScopes[newScopes.length - 1] || HashMap.empty();
+              const currentScope =
+                newScopes[newScopes.length - 1] || HashMap.empty();
               const updatedScope = HashMap.set(currentScope, name, value);
               newScopes[newScopes.length - 1] = updatedScope;
               return newScopes;
             });
           } else {
             // Set in global variables
-            yield* Ref.update(variablesRef, (current) => HashMap.set(current, name, value));
+            yield* Ref.update(variablesRef, (current) =>
+              HashMap.set(current, name, value)
+            );
           }
         }),
 
@@ -232,7 +257,7 @@ const makeStateService = (): Effect.Effect<StateService> =>
           // Check if it's a computed value
           const computed = yield* Ref.get(computedRef);
           const computedValue = HashMap.get(computed, name);
-          
+
           if (Option.isSome(computedValue)) {
             return computedValue.value();
           }
@@ -289,22 +314,27 @@ const makeStateService = (): Effect.Effect<StateService> =>
       delete: (name: string) =>
         Effect.gen(function* () {
           // Remove from metadata
-          yield* Ref.update(metadataRef, (current) => HashMap.remove(current, name));
+          yield* Ref.update(metadataRef, (current) =>
+            HashMap.remove(current, name)
+          );
 
           const scopes = yield* Ref.get(scopesRef);
-          
+
           if (scopes.length > 0) {
             // Remove from current scope
             yield* Ref.update(scopesRef, (currentScopes) => {
               const newScopes = [...currentScopes];
-              const currentScope = newScopes[newScopes.length - 1] || HashMap.empty();
+              const currentScope =
+                newScopes[newScopes.length - 1] || HashMap.empty();
               const updatedScope = HashMap.remove(currentScope, name);
               newScopes[newScopes.length - 1] = updatedScope;
               return newScopes;
             });
           } else {
             // Remove from global variables
-            yield* Ref.update(variablesRef, (current) => HashMap.remove(current, name));
+            yield* Ref.update(variablesRef, (current) =>
+              HashMap.remove(current, name)
+            );
           }
         }),
 
@@ -410,13 +440,16 @@ const makeStateService = (): Effect.Effect<StateService> =>
 
       pushScope: () =>
         Effect.gen(function* () {
-          yield* Ref.update(scopesRef, (current) => [...current, HashMap.empty()]);
+          yield* Ref.update(scopesRef, (current) => [
+            ...current,
+            HashMap.empty(),
+          ]);
         }),
 
       popScope: () =>
         Effect.gen(function* () {
           const scopes = yield* Ref.get(scopesRef);
-          
+
           if (scopes.length === 0) {
             return yield* Effect.fail(
               new StateError({
@@ -431,7 +464,9 @@ const makeStateService = (): Effect.Effect<StateService> =>
           const scopeVars = HashMap.keys(scope);
 
           for (const varName of scopeVars) {
-            yield* Ref.update(metadataRef, (current) => HashMap.remove(current, varName));
+            yield* Ref.update(metadataRef, (current) =>
+              HashMap.remove(current, varName)
+            );
           }
 
           yield* Ref.update(scopesRef, (current) => current.slice(0, -1));
@@ -454,16 +489,28 @@ const makeStateService = (): Effect.Effect<StateService> =>
             variables: hashMapToObject(variables),
             scopes: scopes.map((scope) => hashMapToObject(scope)),
             metadata: hashMapToObject(metadata),
-            computed: hashMapToObject(computed) as Record<string, () => unknown>,
+            computed: hashMapToObject(computed) as Record<
+              string,
+              () => unknown
+            >,
           };
         }),
 
       restore: (snapshot: StateSnapshot) =>
         Effect.gen(function* () {
           yield* Ref.set(variablesRef, objectToHashMap(snapshot.variables));
-          yield* Ref.set(scopesRef, snapshot.scopes.map((scope) => objectToHashMap(scope)));
+          yield* Ref.set(
+            scopesRef,
+            snapshot.scopes.map((scope) => objectToHashMap(scope))
+          );
           yield* Ref.set(metadataRef, objectToHashMap(snapshot.metadata));
-          yield* Ref.set(computedRef, objectToHashMap(snapshot.computed) as HashMap.HashMap<string, () => unknown>);
+          yield* Ref.set(
+            computedRef,
+            objectToHashMap(snapshot.computed) as HashMap.HashMap<
+              string,
+              () => unknown
+            >
+          );
         }),
 
       getAll: () =>
@@ -508,7 +555,9 @@ const makeStateService = (): Effect.Effect<StateService> =>
 
       registerComputed: (name: string, compute: () => unknown) =>
         Effect.gen(function* () {
-          yield* Ref.update(computedRef, (current) => HashMap.set(current, name, compute));
+          yield* Ref.update(computedRef, (current) =>
+            HashMap.set(current, name, compute)
+          );
         }),
 
       toJSON: () =>
@@ -553,7 +602,7 @@ const makeStateService = (): Effect.Effect<StateService> =>
           }
         }),
     };
-    
+
     return service;
   });
 
@@ -611,11 +660,11 @@ export const setVariableByPath = (pathString: string, value: unknown) =>
     const parts = pathString.split('.');
     const name = parts[0];
     const path = parts.slice(1);
-    
+
     if (!name) {
       yield* Effect.fail(new VariableNotFoundError({ name: pathString }));
     }
-    
+
     if (path.length === 0) {
       yield* service.set(name!, value);
     } else {
@@ -632,11 +681,13 @@ export const getVariableByPath = (pathString: string) =>
     const parts = pathString.split('.');
     const name = parts[0];
     const path = parts.slice(1);
-    
+
     if (!name) {
-      return yield* Effect.fail(new VariableNotFoundError({ name: pathString }));
+      return yield* Effect.fail(
+        new VariableNotFoundError({ name: pathString })
+      );
     }
-    
+
     if (path.length === 0) {
       return yield* service.get(name!);
     } else {

@@ -25,115 +25,147 @@
  * ```
  */
 
-import { Data } from 'effect';
+import { Data, Option, Either, Chunk, HashMap, Brand } from 'effect';
 import type { Tool, ToolJoin } from '@/lib/tools/types';
+
+// ============= Branded Types =============
+
+/**
+ * Branded type for Node IDs to prevent mixing with other string types
+ */
+export type NodeId = string & Brand.Brand<'NodeId'>;
+export const NodeId = Brand.nominal<NodeId>();
+
+/**
+ * Branded type for Tool IDs to prevent mixing with other string types
+ */
+export type ToolId = string & Brand.Brand<'ToolId'>;
+export const ToolId = Brand.nominal<ToolId>();
 
 // ============= Core IR Structure =============
 
 /**
- * The complete IR structure that represents an executable flow
- *
- * @interface IR
- *
- * @description
- * Top-level structure containing all information needed to execute a flow.
- * This includes the flow graph, metadata, and available tools/joins.
+ * The complete IR structure
  */
 export interface IR {
+  readonly version: string;
+  readonly metadata: IRMetadata;
+  readonly graph: IRGraph;
+  readonly registry: IRRegistry;
+}
+
+export const IR = (params: {
   version: string;
   metadata: IRMetadata;
   graph: IRGraph;
   registry: IRRegistry;
-}
+}): IR => Data.struct(params);
 
 /**
- * Metadata about the IR's origin and creation
- *
- * @interface IRMetadata
- *
- * @description
- * Provides context about how and when the IR was created, useful for
- * debugging, caching, and optimization decisions.
+ * Metadata about the IR's origin using Options for optional fields
  */
 export interface IRMetadata {
+  readonly source: 'static' | 'dynamic';
+  readonly created: string;
+  readonly name: Option.Option<string>;
+  readonly description: Option.Option<string>;
+  readonly hash: Option.Option<string>;
+}
+
+export const IRMetadata = (params: {
   source: 'static' | 'dynamic';
   created: string;
-  name?: string | undefined;
-  description?: string | undefined;
-  hash?: string | undefined;
-}
+  name?: string;
+  description?: string;
+  hash?: string;
+}): IRMetadata =>
+  Data.struct({
+    source: params.source,
+    created: params.created,
+    name: params.name ? Option.some(params.name) : Option.none(),
+    description: params.description
+      ? Option.some(params.description)
+      : Option.none(),
+    hash: params.hash ? Option.some(params.hash) : Option.none(),
+  });
 
 /**
- * The flow graph structure with nodes and edges
- *
- * @interface IRGraph
- *
- * @description
- * Represents the flow as a directed graph where nodes are operations
- * and edges define the execution flow between them.
+ * Flow graph using HashMap for efficient node lookups and Chunk for edges
  */
 export interface IRGraph {
-  nodes: Map<string, IRNode>;
-  edges: IREdge[];
-  entryPoint: string;
+  readonly nodes: HashMap.HashMap<NodeId, IRNode>;
+  readonly edges: Chunk.Chunk<IREdge>;
+  readonly entryPoint: NodeId;
 }
 
+export const IRGraph = (params: {
+  nodes: HashMap.HashMap<NodeId, IRNode>;
+  edges: Chunk.Chunk<IREdge>;
+  entryPoint: NodeId;
+}): IRGraph => Data.struct(params);
+
 /**
- * Registry of tools and joins available to the flow
- *
- * @interface IRRegistry
- *
- * @description
- * Contains all tools and joins that can be referenced by nodes in the graph.
- * Used for validation and runtime tool resolution.
+ * Registry using HashMap for efficient tool/join lookups
  */
 export interface IRRegistry {
-  tools: Map<string, Tool<any, any>>;
-  joins: Map<string, ToolJoin<any, any>>;
+  readonly tools: HashMap.HashMap<ToolId, Tool<any, any>>;
+  readonly joins: HashMap.HashMap<ToolId, ToolJoin<any, any>>;
 }
+
+export const IRRegistry = (params: {
+  tools: HashMap.HashMap<ToolId, Tool<any, any>>;
+  joins: HashMap.HashMap<ToolId, ToolJoin<any, any>>;
+}): IRRegistry => Data.struct(params);
 
 // ============= Graph Components =============
 
 /**
- * Edge connecting two nodes in the flow graph
- *
- * @interface IREdge
- *
- * @description
- * Defines a directed connection from one node to another, optionally
- * with a condition that must be met for the edge to be traversed.
+ * Edge connecting two nodes with Options for optional fields
  */
 export interface IREdge {
-  from: string;
-  to: string;
-  condition?: IRCondition | undefined;
-  label?: string | undefined;
+  readonly from: NodeId;
+  readonly to: NodeId;
+  readonly condition: Option.Option<IRCondition>;
+  readonly label: Option.Option<string>;
 }
 
+export const IREdge = (params: {
+  from: NodeId;
+  to: NodeId;
+  condition?: IRCondition;
+  label?: string;
+}): IREdge =>
+  Data.struct({
+    from: params.from,
+    to: params.to,
+    condition: params.condition ? Option.some(params.condition) : Option.none(),
+    label: params.label ? Option.some(params.label) : Option.none(),
+  });
+
 /**
- * Condition for conditional edges or nodes
- *
- * @interface IRCondition
- *
- * @description
- * Represents a boolean condition that can be evaluated at runtime
- * to determine control flow.
+ * Condition with proper discriminated union types
  */
 export interface IRCondition {
+  readonly type: 'expression' | 'variable' | 'literal';
+  readonly value: string | boolean;
+  readonly operator: Option.Option<
+    'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'not-in'
+  >;
+  readonly operands: Chunk.Chunk<IRValue>;
+}
+
+export const IRCondition = (params: {
   type: 'expression' | 'variable' | 'literal';
   value: string | boolean;
-  operator?:
-    | 'eq'
-    | 'neq'
-    | 'gt'
-    | 'lt'
-    | 'gte'
-    | 'lte'
-    | 'in'
-    | 'not-in'
-    | undefined;
-  operands?: IRValue[] | undefined;
-}
+  operator?: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'not-in';
+  operands?: readonly IRValue[];
+}): IRCondition =>
+  Data.struct({
+    type: params.type,
+    value: params.value,
+    operator: params.operator ? Option.some(params.operator) : Option.none(),
+    operands: Chunk.fromIterable(params.operands ?? []),
+  });
 
 // ============= Node Types =============
 
@@ -147,7 +179,7 @@ export interface IRCondition {
  */
 export interface BaseIRNode {
   id: string;
-  type: 'tool' | 'conditional' | 'parallel' | 'sequence' | 'loop';
+  type: 'tool' | 'conditional' | 'parallel' | 'sequence' | 'loop' | 'switch';
   config?: NodeConfig | undefined;
 }
 
@@ -280,6 +312,38 @@ export interface LoopNode extends BaseIRNode {
 }
 
 /**
+ * Switch/case branching node
+ *
+ * @interface SwitchNode
+ *
+ * @description
+ * Executes different branches based on a discriminator value.
+ * Similar to switch/case statements in programming.
+ *
+ * @example
+ * ```typescript
+ * const switchNode: SwitchNode = {
+ *   id: 'node_10',
+ *   type: 'switch',
+ *   discriminator: { type: 'variable', name: 'status' },
+ *   cases: {
+ *     'pending': ['node_11'],
+ *     'active': ['node_12', 'node_13'],
+ *     'completed': ['node_14']
+ *   },
+ *   defaultCase: ['node_15']
+ * };
+ * ```
+ */
+export interface SwitchNode extends BaseIRNode {
+  type: 'switch';
+  discriminator: IRValue;
+  cases: Record<string, string[]>; // Map of case values to node IDs
+  defaultCase?: string[] | undefined; // Node IDs for default case
+  outputVar?: string | undefined;
+}
+
+/**
  * Union of all IR node types
  *
  * @type IRNode
@@ -293,7 +357,8 @@ export type IRNode =
   | ConditionalNode
   | ParallelNode
   | SequenceNode
-  | LoopNode;
+  | LoopNode
+  | SwitchNode;
 
 // ============= Value Types =============
 

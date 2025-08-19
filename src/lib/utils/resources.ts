@@ -294,17 +294,19 @@ export const managedFile = (
   managedWithConfig(
     Effect.tryPromise({
       try: () => import('fs/promises').then((fs) => fs.open(path, mode)),
-      catch: (error) => new ResourceError({
-        resource: 'File',
-        operation: 'acquire',
-        message: `Failed to open file: ${path}`,
-        cause: error
-      })
+      catch: (error) =>
+        new ResourceError({
+          resource: 'File',
+          operation: 'acquire',
+          message: `Failed to open file: ${path}`,
+          cause: error,
+        }),
     }),
-    (fileHandle) => Effect.tryPromise({
-      try: () => fileHandle.close(),
-      catch: (error) => error // Log but don't fail cleanup
-    }).pipe(Effect.orElse(() => Effect.void)),
+    (fileHandle) =>
+      Effect.tryPromise({
+        try: () => fileHandle.close(),
+        catch: (error) => error, // Log but don't fail cleanup
+      }).pipe(Effect.orElse(() => Effect.void)),
     {
       onAcquire: () =>
         logDebug(`File opened: ${path}`, { module: 'FileSystem' }),
@@ -321,22 +323,25 @@ export const managedTempDir = (
 ): ManagedResource<string, ResourceError> =>
   managedWithConfig(
     Effect.tryPromise({
-      try: () => import('fs/promises').then((fs) =>
-        fs.mkdtemp(prefix || '/tmp/dynamic-flow-')
-      ),
-      catch: (error) => new ResourceError({
-        resource: 'TempDirectory', 
-        operation: 'acquire',
-        message: 'Failed to create temporary directory',
-        cause: error
-      })
+      try: () =>
+        import('fs/promises').then((fs) =>
+          fs.mkdtemp(prefix || '/tmp/dynamic-flow-')
+        ),
+      catch: (error) =>
+        new ResourceError({
+          resource: 'TempDirectory',
+          operation: 'acquire',
+          message: 'Failed to create temporary directory',
+          cause: error,
+        }),
     }),
     (dirPath) =>
       Effect.tryPromise({
-        try: () => import('fs/promises').then((fs) =>
-          fs.rm(dirPath, { recursive: true, force: true })
-        ),
-        catch: (error) => error // Log but don't fail cleanup
+        try: () =>
+          import('fs/promises').then((fs) =>
+            fs.rm(dirPath, { recursive: true, force: true })
+          ),
+        catch: (error) => error, // Log but don't fail cleanup
       }).pipe(Effect.orElse(() => Effect.void)),
     {
       onAcquire: (dirPath) =>
@@ -484,5 +489,4 @@ export const bracket = <A, B, E1, E2, R1, R2>(
 export const ensuring = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   finalizer: Effect.Effect<void>
-): Effect.Effect<A, E, R> =>
-  Effect.ensuring(effect, finalizer);
+): Effect.Effect<A, E, R> => Effect.ensuring(effect, finalizer);

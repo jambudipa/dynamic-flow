@@ -69,7 +69,9 @@ export interface WorkerPool {
   /**
    * Execute multiple tasks in parallel
    */
-  executeParallel<T>(tasks: Array<() => Promise<T>>): Effect.Effect<T[], unknown>;
+  executeParallel<T>(
+    tasks: Array<() => Promise<T>>
+  ): Effect.Effect<T[], unknown>;
 
   /**
    * Get number of available workers
@@ -329,7 +331,9 @@ export class WorkerPoolImpl implements WorkerPool {
     });
   }
 
-  executeParallel<T>(tasks: Array<() => Promise<T>>): Effect.Effect<T[], unknown> {
+  executeParallel<T>(
+    tasks: Array<() => Promise<T>>
+  ): Effect.Effect<T[], unknown> {
     return Effect.all(
       tasks.map((task) => this.execute(task)),
       { concurrency: 'unbounded' }
@@ -475,12 +479,12 @@ export class PauseResumeManagerImpl implements PauseResumeManager {
       }
 
       self.currentPrompt = Option.some(prompt);
-      
+
       return yield* Effect.async<T, never>((resume) => {
         self.pausePromise = new Promise<T>((resolve) => {
           self.resumeCallback = resolve as (value: unknown) => void;
         });
-        
+
         // The promise will be resolved via the resume method
         self.pausePromise.then((value) => {
           resume(Effect.succeed(value as T));

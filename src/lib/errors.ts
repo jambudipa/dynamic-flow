@@ -1,6 +1,6 @@
 /**
  * Comprehensive Error Types - Centralized error definitions
- * 
+ *
  * Re-exports all error types from types/errors.ts and adds service-specific errors
  */
 
@@ -8,9 +8,9 @@
 export * from './types/errors';
 
 // Re-export error types from errors/index.ts
-export { 
-  OperatorError, 
-  PoolError, 
+export {
+  OperatorError,
+  PoolError,
   ExecutionError,
   ValidationError,
   ConfigError,
@@ -28,7 +28,7 @@ export {
   CacheError,
   DynamicFlowError,
   RecoveryError,
-  StreamError
+  StreamError,
 } from './errors/index';
 
 // Import for use in type definitions
@@ -41,7 +41,7 @@ import type {
   PersistenceError,
   EncryptionError,
   RecoveryError,
-  StreamError
+  StreamError,
 } from './errors/index';
 
 import { Data } from 'effect';
@@ -63,7 +63,9 @@ export class StateError extends Data.TaggedError('StateError')<{
 /**
  * Error that occurs when variable is not found
  */
-export class VariableNotFoundError extends Data.TaggedError('VariableNotFoundError')<{
+export class VariableNotFoundError extends Data.TaggedError(
+  'VariableNotFoundError'
+)<{
   readonly name: string;
   readonly scope?: number;
 }> {
@@ -228,7 +230,9 @@ export const isStateError = (error: unknown): error is StateError => {
 /**
  * Type guard for VariableNotFoundError
  */
-export const isVariableNotFoundError = (error: unknown): error is VariableNotFoundError => {
+export const isVariableNotFoundError = (
+  error: unknown
+): error is VariableNotFoundError => {
   return (
     typeof error === 'object' &&
     error !== null &&
@@ -252,7 +256,9 @@ export const isExecutionError = (error: unknown): error is ExecutionError => {
 /**
  * Type guard for RegistrationError
  */
-export const isRegistrationError = (error: unknown): error is RegistrationError => {
+export const isRegistrationError = (
+  error: unknown
+): error is RegistrationError => {
   return (
     typeof error === 'object' &&
     error !== null &&
@@ -264,7 +270,9 @@ export const isRegistrationError = (error: unknown): error is RegistrationError 
 /**
  * Type guard for ToolNotFoundError
  */
-export const isToolNotFoundError = (error: unknown): error is ToolNotFoundError => {
+export const isToolNotFoundError = (
+  error: unknown
+): error is ToolNotFoundError => {
   return (
     typeof error === 'object' &&
     error !== null &&
@@ -288,7 +296,9 @@ export const isValidationError = (error: unknown): error is ValidationError => {
 /**
  * Type guard for SerializationError
  */
-export const isSerializationError = (error: unknown): error is SerializationError => {
+export const isSerializationError = (
+  error: unknown
+): error is SerializationError => {
   return (
     typeof error === 'object' &&
     error !== null &&
@@ -300,7 +310,9 @@ export const isSerializationError = (error: unknown): error is SerializationErro
 /**
  * Type guard for PersistenceError
  */
-export const isPersistenceError = (error: unknown): error is PersistenceError => {
+export const isPersistenceError = (
+  error: unknown
+): error is PersistenceError => {
   return (
     typeof error === 'object' &&
     error !== null &&
@@ -354,18 +366,14 @@ export const createStateError = (
 /**
  * Create a VariableNotFoundError
  */
-export const createVariableNotFoundError = (
-  name: string,
-  scope?: number
-) => new VariableNotFoundError({ name, scope });
+export const createVariableNotFoundError = (name: string, scope?: number) =>
+  new VariableNotFoundError({ name, scope });
 
 /**
  * Create a ToolNotFoundError
  */
-export const createToolNotFoundError = (
-  toolId: string,
-  operation?: string
-) => new ToolNotFoundError({ toolId, operation });
+export const createToolNotFoundError = (toolId: string, operation?: string) =>
+  new ToolNotFoundError({ toolId, operation });
 
 /**
  * Create a CompressionError

@@ -3,7 +3,7 @@
  *
  * @description This is the main entry point for the DynamicFlow library. It provides
  * a complete surface API for building both static (programmatic) and dynamic (AI-generated)
- * workflows using functional composition patterns built on Effect.js.
+ * workflows using functional composition patterns built on Effect.
  *
  * ## Key Exports
  *
@@ -253,17 +253,18 @@ export {
   compileToIR,
 } from './compiler/json-to-ir';
 
-// Export IR executor
+// Export IR executor from services
 export {
-  IRExecutor,
-  createIRExecutor,
   executeIR,
   executeIRStream,
-  resumeIRExecution,
+  resumeFlowExecution as resumeIRExecution,
   type IRExecutionOptions,
   type IRExecutionEvent,
+  type ExecutionResult,
   type SuspendedExecutionResult,
-} from './engine/ir-executor';
+  IRExecutorService,
+  IRExecutorServiceLive,
+} from './services/ir-executor';
 
 export {
   type Tool,

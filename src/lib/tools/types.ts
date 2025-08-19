@@ -12,10 +12,18 @@
  */
 
 import { Data, Duration, Effect, Schema } from 'effect';
-import type { ExecutionContext, ToolError, ToolRequirements } from '@/lib/types';
+import type {
+  ExecutionContext,
+  ToolError,
+  ToolRequirements,
+} from '@/lib/types';
 
 // Re-export for backwards compatibility
-export type { ToolError, ToolRequirements, ExecutionContext } from '@/lib/types';
+export type {
+  ToolError,
+  ToolRequirements,
+  ExecutionContext,
+} from '@/lib/types';
 
 // ============= Type Constraints =============
 
@@ -534,7 +542,9 @@ export interface Executable<TInput = unknown, TOutput = unknown>
   /**
    * Validate input data against the schema
    */
-  validate(input: TInput): import('@/lib/types').ValidationResult<TInput>;
+  validate(
+    input: TInput
+  ): import('@/lib/types').ValidationResult<TInput, never>;
 
   /**
    * Get metadata about this executable

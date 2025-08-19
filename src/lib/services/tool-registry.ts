@@ -1,13 +1,26 @@
 /**
  * ToolRegistryService - Tool registration and lookup service
- * 
+ *
  * Central source of truth for tool definitions. Handles registration,
  * lookup, category indexing, and schema validation.
  */
 
-import { Effect, Context, Layer, Ref, HashMap, Option, pipe, Schema } from 'effect';
+import {
+  Effect,
+  Context,
+  Layer,
+  Ref,
+  HashMap,
+  Option,
+  pipe,
+  Schema,
+} from 'effect';
 import type { LLMTool, Tool } from '../tools/types';
-import { RegistrationError, ToolNotFoundError, ValidationError } from '../errors';
+import {
+  RegistrationError,
+  ToolNotFoundError,
+  ValidationError,
+} from '../errors';
 
 // ============= ToolRegistryService Interface =============
 
@@ -29,12 +42,16 @@ export interface ToolRegistryService {
   /**
    * Retrieve a tool by ID.
    */
-  readonly get: (id: string) => Effect.Effect<Tool<unknown, unknown>, ToolNotFoundError>;
+  readonly get: (
+    id: string
+  ) => Effect.Effect<Tool<unknown, unknown>, ToolNotFoundError>;
 
   /**
    * Retrieve an LLM tool by ID.
    */
-  readonly getLLM: (id: string) => Effect.Effect<LLMTool<unknown, unknown>, ToolNotFoundError>;
+  readonly getLLM: (
+    id: string
+  ) => Effect.Effect<LLMTool<unknown, unknown>, ToolNotFoundError>;
 
   /**
    * Return whether a tool is registered.
@@ -49,7 +66,9 @@ export interface ToolRegistryService {
   /**
    * List all tools in a category.
    */
-  readonly listByCategory: (category: string) => Effect.Effect<Array<Tool<unknown, unknown>>>;
+  readonly listByCategory: (
+    category: string
+  ) => Effect.Effect<Array<Tool<unknown, unknown>>>;
 
   /**
    * Unregister a tool by ID.
@@ -80,14 +99,20 @@ export interface ToolRegistryService {
 
 // ============= Context Tag =============
 
-export const ToolRegistryService = Context.GenericTag<ToolRegistryService>('@services/ToolRegistry');
+export const ToolRegistryService = Context.GenericTag<ToolRegistryService>(
+  '@services/ToolRegistry'
+);
 
 // ============= Service Implementation =============
 
 const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
   Effect.gen(function* () {
-    const toolsRef = yield* Ref.make(HashMap.empty<string, Tool<unknown, unknown>>());
-    const llmToolsRef = yield* Ref.make(HashMap.empty<string, LLMTool<unknown, unknown>>());
+    const toolsRef = yield* Ref.make(
+      HashMap.empty<string, Tool<unknown, unknown>>()
+    );
+    const llmToolsRef = yield* Ref.make(
+      HashMap.empty<string, LLMTool<unknown, unknown>>()
+    );
     const categoriesRef = yield* Ref.make(HashMap.empty<string, Set<string>>());
 
     const addToCategory = (toolId: string, category: string) =>
@@ -99,7 +124,9 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
           onSome: (set) => set,
         });
         toolSet.add(toolId);
-        yield* Ref.update(categoriesRef, (current) => HashMap.set(current, category, toolSet));
+        yield* Ref.update(categoriesRef, (current) =>
+          HashMap.set(current, category, toolSet)
+        );
       });
 
     const removeFromCategory = (toolId: string, category: string) =>
@@ -110,9 +137,13 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
           const toolSet = existing.value;
           toolSet.delete(toolId);
           if (toolSet.size === 0) {
-            yield* Ref.update(categoriesRef, (current) => HashMap.remove(current, category));
+            yield* Ref.update(categoriesRef, (current) =>
+              HashMap.remove(current, category)
+            );
           } else {
-            yield* Ref.update(categoriesRef, (current) => HashMap.set(current, category, toolSet));
+            yield* Ref.update(categoriesRef, (current) =>
+              HashMap.set(current, category, toolSet)
+            );
           }
         }
       });
@@ -144,7 +175,11 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
 
           // Add to registry
           yield* Ref.update(toolsRef, (current) =>
-            HashMap.set(current, tool.id, tool as unknown as Tool<unknown, unknown>)
+            HashMap.set(
+              current,
+              tool.id,
+              tool as unknown as Tool<unknown, unknown>
+            )
           );
 
           // Add to category index if specified
@@ -159,7 +194,11 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
           yield* service.register(tool);
           // Add to LLM tool map
           yield* Ref.update(llmToolsRef, (current) =>
-            HashMap.set(current, tool.id, tool as unknown as LLMTool<unknown, unknown>)
+            HashMap.set(
+              current,
+              tool.id,
+              tool as unknown as LLMTool<unknown, unknown>
+            )
           );
         }),
 
@@ -203,16 +242,16 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
         Effect.gen(function* () {
           const categories = yield* Ref.get(categoriesRef);
           const tools = yield* Ref.get(toolsRef);
-          
+
           const categoryTools = HashMap.get(categories, category);
           if (Option.isNone(categoryTools)) {
             return [] as Array<Tool<unknown, unknown>>;
           }
-          
+
           const toolIds = Array.from(
             Option.getOrElse(categoryTools, () => new Set<string>())
           );
-          
+
           const result: Array<Tool<unknown, unknown>> = [];
           for (const id of toolIds) {
             const maybeTool = HashMap.get(tools, id);
@@ -226,7 +265,7 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
       unregister: (id: string) =>
         Effect.gen(function* () {
           const tools = yield* Ref.get(toolsRef);
-          
+
           if (!HashMap.has(tools, id)) {
             return yield* Effect.fail(new ToolNotFoundError({ toolId: id }));
           }
@@ -236,7 +275,9 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
 
           // Remove from registries
           yield* Ref.update(toolsRef, (current) => HashMap.remove(current, id));
-          yield* Ref.update(llmToolsRef, (current) => HashMap.remove(current, id));
+          yield* Ref.update(llmToolsRef, (current) =>
+            HashMap.remove(current, id)
+          );
 
           // Remove from category index
           if (tool.category) {
@@ -256,10 +297,15 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
           const tool = yield* pipe(
             service.get(toolId),
             Effect.mapError(
-              () => new ValidationError({ message: `Tool ${toolId} not found`, field: 'toolId', value: toolId })
+              () =>
+                new ValidationError({
+                  message: `Tool ${toolId} not found`,
+                  field: 'toolId',
+                  value: toolId,
+                })
             )
           );
-          
+
           yield* pipe(
             Schema.decodeUnknown(tool.inputSchema)(input),
             Effect.mapError(
@@ -267,7 +313,7 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
                 new ValidationError({
                   message: `Input validation failed for tool ${toolId}: ${String(error)}`,
                   field: 'input',
-                  value: toolId
+                  value: toolId,
                 })
             ),
             Effect.map(() => undefined)
@@ -279,10 +325,15 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
           const tool = yield* pipe(
             service.get(toolId),
             Effect.mapError(
-              () => new ValidationError({ message: `Tool ${toolId} not found`, field: 'toolId', value: toolId })
+              () =>
+                new ValidationError({
+                  message: `Tool ${toolId} not found`,
+                  field: 'toolId',
+                  value: toolId,
+                })
             )
           );
-          
+
           yield* pipe(
             Schema.decodeUnknown(tool.outputSchema)(output),
             Effect.mapError(
@@ -290,14 +341,14 @@ const makeToolRegistryService = (): Effect.Effect<ToolRegistryService> =>
                 new ValidationError({
                   message: `Output validation failed for tool ${toolId}: ${String(error)}`,
                   field: 'output',
-                  value: toolId
+                  value: toolId,
                 })
             ),
             Effect.map(() => undefined)
           );
         }),
     };
-    
+
     return service;
   });
 
@@ -314,7 +365,9 @@ export const ToolRegistryServiceLive = Layer.effect(
 /**
  * Test implementation with pre-registered tools
  */
-export const ToolRegistryServiceTest = (tools?: Array<Tool<unknown, unknown>>) =>
+export const ToolRegistryServiceTest = (
+  tools?: Array<Tool<unknown, unknown>>
+) =>
   Layer.effect(
     ToolRegistryService,
     Effect.gen(function* () {
@@ -390,7 +443,7 @@ export const validateRegistry = () =>
   Effect.gen(function* () {
     const registry = yield* ToolRegistryService;
     const tools = yield* registry.list();
-    
+
     for (const tool of tools) {
       // Basic validation
       if (!tool.id || !tool.name || !tool.execute) {
@@ -398,7 +451,7 @@ export const validateRegistry = () =>
           new ValidationError({
             message: `Invalid tool definition for ${tool.id}`,
             field: 'tool',
-            value: tool.id
+            value: tool.id,
           })
         );
       }
@@ -408,7 +461,7 @@ export const validateRegistry = () =>
           new ValidationError({
             message: `Missing schema for tool ${tool.id}`,
             field: 'schema',
-            value: tool.id
+            value: tool.id,
           })
         );
       }
@@ -440,8 +493,5 @@ export const toolExists = (id: string) =>
 export const getToolSafe = (id: string) =>
   Effect.gen(function* () {
     const registry = yield* ToolRegistryService;
-    return yield* pipe(
-      registry.get(id),
-      Effect.option
-    );
+    return yield* pipe(registry.get(id), Effect.option);
   });

@@ -1,6 +1,6 @@
 /**
  * ExecutionContextService - Execution context management service
- * 
+ *
  * Provides shared state and services across all executable entities
  * with hierarchical scoping, session management, and proper cleanup.
  */
@@ -32,7 +32,9 @@ export interface VariableScope {
  */
 export interface WorkerPool {
   readonly execute: <T>(task: () => Promise<T>) => Effect.Effect<T, unknown>;
-  readonly executeParallel: <T>(tasks: Array<() => Promise<T>>) => Effect.Effect<T[], unknown>;
+  readonly executeParallel: <T>(
+    tasks: Array<() => Promise<T>>
+  ) => Effect.Effect<T[], unknown>;
   readonly getAvailableWorkers: () => Effect.Effect<number>;
   readonly getMaxWorkers: () => Effect.Effect<number>;
   readonly setMaxWorkers: (count: number) => Effect.Effect<void>;
@@ -85,32 +87,37 @@ export interface ExecutionContextService {
   readonly stepId: () => Effect.Effect<string>;
   readonly sessionId: () => Effect.Effect<string>;
   readonly metadata: () => Effect.Effect<Record<string, unknown>>;
-  
+
   readonly variableScope: () => Effect.Effect<VariableScope>;
   readonly workerPool: () => Effect.Effect<WorkerPool>;
   readonly pauseResumeManager: () => Effect.Effect<PauseResumeManager>;
   readonly flowControlManager: () => Effect.Effect<FlowControlManager>;
-  
+
   readonly createChildContext: (
     config?: Partial<ExecutionContextConfig>
   ) => Effect.Effect<ExecutionContextService>;
-  
-  readonly addManagedResource: (cleanup: () => Effect.Effect<void>) => Effect.Effect<void>;
+
+  readonly addManagedResource: (
+    cleanup: () => Effect.Effect<void>
+  ) => Effect.Effect<void>;
   readonly withResource: <T, E, R>(
     acquire: Effect.Effect<T, E, R>,
     use: (resource: T) => Effect.Effect<any, E, R>
   ) => Effect.Effect<any, E, R>;
-  
+
   readonly dispose: () => Effect.Effect<void>;
 }
 
 // ============= Context Tag =============
 
-export const ExecutionContextService = Context.GenericTag<ExecutionContextService>('@services/ExecutionContext');
+export const ExecutionContextService =
+  Context.GenericTag<ExecutionContextService>('@services/ExecutionContext');
 
 // ============= Variable Scope Implementation =============
 
-const makeVariableScope = (parent?: VariableScope): Effect.Effect<VariableScope, never, never> =>
+const makeVariableScope = (
+  parent?: VariableScope
+): Effect.Effect<VariableScope, never, never> =>
   Effect.gen(function* () {
     const variablesRef = yield* Ref.make(new Map<string, unknown>());
 
@@ -162,12 +169,14 @@ const makeVariableScope = (parent?: VariableScope): Effect.Effect<VariableScope,
           return existed;
         }),
 
-      createScope: () => Effect.gen(function* () {
-        const currentScope = yield* Effect.succeed(scope);
-        return yield* makeVariableScope(currentScope);
-      }),
+      createScope: () =>
+        Effect.gen(function* () {
+          const currentScope = yield* Effect.succeed(scope);
+          return yield* makeVariableScope(currentScope);
+        }),
 
-      getParentScope: () => Effect.succeed(parent ? Option.some(parent) : Option.none()),
+      getParentScope: () =>
+        Effect.succeed(parent ? Option.some(parent) : Option.none()),
 
       getKeys: () =>
         Effect.gen(function* () {
@@ -186,13 +195,15 @@ const makeVariableScope = (parent?: VariableScope): Effect.Effect<VariableScope,
           yield* Ref.set(variablesRef, new Map());
         }),
     };
-    
+
     return scope;
   });
 
 // ============= Worker Pool Implementation =============
 
-const makeWorkerPool = (maxWorkers: number = 4): Effect.Effect<WorkerPool, never, never> =>
+const makeWorkerPool = (
+  maxWorkers: number = 4
+): Effect.Effect<WorkerPool, never, never> =>
   Effect.gen(function* () {
     const maxWorkersRef = yield* Ref.make(maxWorkers);
     const activeTasksRef = yield* Ref.make(0);
@@ -207,7 +218,10 @@ const makeWorkerPool = (maxWorkers: number = 4): Effect.Effect<WorkerPool, never
           if (activeTasks >= maxWorkers) {
             yield* Effect.async<void>((resume) =>
               Effect.gen(function* () {
-                yield* Ref.update(taskQueueRef, (queue) => [...queue, () => resume(Effect.void)]);
+                yield* Ref.update(taskQueueRef, (queue) => [
+                  ...queue,
+                  () => resume(Effect.void),
+                ]);
               })
             );
           }
@@ -224,7 +238,9 @@ const makeWorkerPool = (maxWorkers: number = 4): Effect.Effect<WorkerPool, never
                 const queue = yield* Ref.get(taskQueueRef);
                 const nextTask = queue[0];
                 if (nextTask) {
-                  yield* Ref.update(taskQueueRef, (current) => current.slice(1));
+                  yield* Ref.update(taskQueueRef, (current) =>
+                    current.slice(1)
+                  );
                   nextTask();
                 }
               })
@@ -234,7 +250,9 @@ const makeWorkerPool = (maxWorkers: number = 4): Effect.Effect<WorkerPool, never
           return result;
         }),
 
-      executeParallel: <T>(tasks: Array<() => Promise<T>>): Effect.Effect<T[], unknown, never> =>
+      executeParallel: <T>(
+        tasks: Array<() => Promise<T>>
+      ): Effect.Effect<T[], unknown, never> =>
         Effect.gen(function* () {
           return yield* Effect.all(
             tasks.map((task) => pool.execute(task)),
@@ -266,13 +284,17 @@ const makeWorkerPool = (maxWorkers: number = 4): Effect.Effect<WorkerPool, never
           yield* Ref.set(taskQueueRef, []);
         }),
     };
-    
+
     return pool;
   });
 
 // ============= Flow Control Manager Implementation =============
 
-const makeFlowControlManager = (): Effect.Effect<FlowControlManager, never, never> =>
+const makeFlowControlManager = (): Effect.Effect<
+  FlowControlManager,
+  never,
+  never
+> =>
   Effect.gen(function* () {
     const shouldBreakRef = yield* Ref.make(false);
     const shouldContinueRef = yield* Ref.make(false);
@@ -314,7 +336,8 @@ const makeFlowControlManager = (): Effect.Effect<FlowControlManager, never, neve
           if (!canContinue) {
             return yield* Effect.fail(
               new ExecutionError({
-                message: 'Continue is not allowed in parallel execution context',
+                message:
+                  'Continue is not allowed in parallel execution context',
                 phase: 'execution' as const,
               })
             );
@@ -341,7 +364,9 @@ const makeFlowControlManager = (): Effect.Effect<FlowControlManager, never, neve
           const stack = yield* Ref.get(contextStackRef);
           const previousContext = stack[stack.length - 1];
           if (previousContext !== undefined) {
-            yield* Ref.update(contextStackRef, (current) => current.slice(0, -1));
+            yield* Ref.update(contextStackRef, (current) =>
+              current.slice(0, -1)
+            );
             yield* Ref.set(isParallelContextRef, previousContext);
           }
         }),
@@ -356,24 +381,34 @@ const makeFlowControlManager = (): Effect.Effect<FlowControlManager, never, neve
           yield* Ref.set(shouldContinueRef, false);
         }),
     };
-    
+
     return manager;
   });
 
 // ============= Pause/Resume Manager Implementation =============
 
-const makePauseResumeManager = (): Effect.Effect<PauseResumeManager, never, never> =>
+const makePauseResumeManager = (): Effect.Effect<
+  PauseResumeManager,
+  never,
+  never
+> =>
   Effect.gen(function* () {
     const pausePromiseRef = yield* Ref.make<Promise<unknown> | null>(null);
-    const resumeCallbackRef = yield* Ref.make<((value: unknown) => void) | null>(null);
-    const currentPromptRef = yield* Ref.make<Option.Option<string>>(Option.none());
+    const resumeCallbackRef = yield* Ref.make<
+      ((value: unknown) => void) | null
+    >(null);
+    const currentPromptRef = yield* Ref.make<Option.Option<string>>(
+      Option.none()
+    );
 
     const pauseManager: PauseResumeManager = {
       pause: <T>(prompt: string): Effect.Effect<T, never, never> =>
         Effect.gen(function* () {
           const existingPromise = yield* Ref.get(pausePromiseRef);
           if (existingPromise !== null) {
-            return yield* Effect.fail(new Error('Already paused - cannot pause again'));
+            return yield* Effect.fail(
+              new Error('Already paused - cannot pause again')
+            );
           }
 
           yield* Ref.set(currentPromptRef, Option.some(prompt));
@@ -381,7 +416,12 @@ const makePauseResumeManager = (): Effect.Effect<PauseResumeManager, never, neve
           return yield* Effect.async<T, never>((resume) =>
             Effect.gen(function* () {
               const pausePromise = new Promise<T>((resolve) => {
-                Effect.runSync(Ref.set(resumeCallbackRef, resolve as (value: unknown) => void));
+                Effect.runSync(
+                  Ref.set(
+                    resumeCallbackRef,
+                    resolve as (value: unknown) => void
+                  )
+                );
               });
 
               yield* Ref.set(pausePromiseRef, pausePromise);
@@ -426,7 +466,7 @@ const makePauseResumeManager = (): Effect.Effect<PauseResumeManager, never, neve
           }
         }),
     };
-    
+
     return pauseManager;
   });
 
@@ -440,7 +480,9 @@ const makeExecutionContextService = (
     const stepIdRef = yield* Ref.make(config.stepId || 'default-step');
     const sessionIdRef = yield* Ref.make(config.sessionId || uuidv4());
     const metadataRef = yield* Ref.make(config.metadata || {});
-    const managedResourcesRef = yield* Ref.make<Array<() => Effect.Effect<void>>>([]);
+    const managedResourcesRef = yield* Ref.make<
+      Array<() => Effect.Effect<void>>
+    >([]);
 
     const variableScopeInstance = yield* makeVariableScope();
     const workerPoolInstance = yield* makeWorkerPool(config.maxWorkers || 4);
@@ -477,7 +519,10 @@ const makeExecutionContextService = (
 
       addManagedResource: (cleanup: () => Effect.Effect<void>) =>
         Effect.gen(function* () {
-          yield* Ref.update(managedResourcesRef, (resources) => [...resources, cleanup]);
+          yield* Ref.update(managedResourcesRef, (resources) => [
+            ...resources,
+            cleanup,
+          ]);
         }),
 
       withResource: <T, E, R>(
@@ -485,14 +530,10 @@ const makeExecutionContextService = (
         use: (resource: T) => Effect.Effect<any, E, R>
       ): Effect.Effect<any, E, R> =>
         Effect.gen(function* () {
-          return yield* Effect.acquireUseRelease(
-            acquire,
-            use,
-            (resource) => {
-              Effect.runSync(service.addManagedResource(() => Effect.void));
-              return Effect.void;
-            }
-          );
+          return yield* Effect.acquireUseRelease(acquire, use, (resource) => {
+            Effect.runSync(service.addManagedResource(() => Effect.void));
+            return Effect.void;
+          });
         }),
 
       dispose: () =>
@@ -502,9 +543,7 @@ const makeExecutionContextService = (
           if (resources.length > 0) {
             yield* Effect.forEach(resources, (cleanup) => cleanup(), {
               concurrency: 'unbounded',
-            }).pipe(
-              Effect.catchAll(() => Effect.void)
-            );
+            }).pipe(Effect.catchAll(() => Effect.void));
           }
 
           // Clean up other resources
@@ -514,7 +553,7 @@ const makeExecutionContextService = (
           yield* flowControlInstance.reset();
         }),
     };
-    
+
     return service;
   });
 
@@ -554,14 +593,12 @@ export const createWorkerPool = (maxWorkers?: number) =>
 /**
  * Create flow control manager
  */
-export const createFlowControlManager = () =>
-  makeFlowControlManager();
+export const createFlowControlManager = () => makeFlowControlManager();
 
 /**
  * Create pause/resume manager
  */
-export const createPauseResumeManager = () =>
-  makePauseResumeManager();
+export const createPauseResumeManager = () => makePauseResumeManager();
 
 /**
  * Execute with execution context
@@ -585,7 +622,7 @@ export const getExecutionVariables = () =>
     const context = yield* ExecutionContextService;
     const scope = yield* context.variableScope();
     const keys = yield* scope.getKeys();
-    
+
     const variables: Record<string, unknown> = {};
     for (const key of keys) {
       const value = yield* scope.get(key);
@@ -593,6 +630,6 @@ export const getExecutionVariables = () =>
         variables[key] = value.value;
       }
     }
-    
+
     return variables;
   });

@@ -12,7 +12,13 @@ import * as Schema from '@effect/schema/Schema';
 export const ConfigSchema = Schema.Struct({
   // Persistence configuration
   persistence: Schema.Struct({
-    backend: Schema.Literal('filesystem', 'postgres', 'mongodb', 'neo4j', 'redis'),
+    backend: Schema.Literal(
+      'filesystem',
+      'postgres',
+      'mongodb',
+      'neo4j',
+      'redis'
+    ),
     encryption: Schema.Struct({
       enabled: Schema.Boolean,
       algorithm: Schema.optional(Schema.Literal('aes-256-gcm', 'aes-256-cbc')),
@@ -23,60 +29,78 @@ export const ConfigSchema = Schema.Struct({
       prefix: Schema.optional(Schema.String),
     }),
   }),
-  
+
   // Execution configuration
   execution: Schema.Struct({
     timeout: Schema.optional(Schema.Number),
     maxRetries: Schema.optional(Schema.Number),
     concurrency: Schema.optional(Schema.Number),
-    circuitBreaker: Schema.optional(Schema.Struct({
-      enabled: Schema.Boolean,
-      threshold: Schema.Number,
-      timeout: Schema.Number,
-      resetTimeout: Schema.Number,
-    })),
+    circuitBreaker: Schema.optional(
+      Schema.Struct({
+        enabled: Schema.Boolean,
+        threshold: Schema.Number,
+        timeout: Schema.Number,
+        resetTimeout: Schema.Number,
+      })
+    ),
   }),
-  
+
   // Logging configuration
   logging: Schema.Struct({
     level: Schema.Literal('trace', 'debug', 'info', 'warn', 'error'),
     format: Schema.Literal('json', 'text'),
     destination: Schema.optional(Schema.Literal('console', 'file', 'both')),
   }),
-  
+
   // Backend-specific configurations
-  backends: Schema.optional(Schema.Struct({
-    filesystem: Schema.optional(Schema.Struct({
-      basePath: Schema.String,
-      createIfMissing: Schema.optional(Schema.Boolean),
-    })),
-    postgres: Schema.optional(Schema.Struct({
-      connectionString: Schema.String,
-      pool: Schema.optional(Schema.Struct({
-        min: Schema.Number,
-        max: Schema.Number,
-      })),
-    })),
-    mongodb: Schema.optional(Schema.Struct({
-      connectionString: Schema.String,
-      database: Schema.String,
-      collection: Schema.optional(Schema.String),
-    })),
-    neo4j: Schema.optional(Schema.Struct({
-      uri: Schema.String,
-      username: Schema.String,
-      password: Schema.String,
-    })),
-    redis: Schema.optional(Schema.Struct({
-      host: Schema.String,
-      port: Schema.Number,
-      password: Schema.optional(Schema.String),
-      db: Schema.optional(Schema.Number),
-    })),
-  })),
-  
+  backends: Schema.optional(
+    Schema.Struct({
+      filesystem: Schema.optional(
+        Schema.Struct({
+          basePath: Schema.String,
+          createIfMissing: Schema.optional(Schema.Boolean),
+        })
+      ),
+      postgres: Schema.optional(
+        Schema.Struct({
+          connectionString: Schema.String,
+          pool: Schema.optional(
+            Schema.Struct({
+              min: Schema.Number,
+              max: Schema.Number,
+            })
+          ),
+        })
+      ),
+      mongodb: Schema.optional(
+        Schema.Struct({
+          connectionString: Schema.String,
+          database: Schema.String,
+          collection: Schema.optional(Schema.String),
+        })
+      ),
+      neo4j: Schema.optional(
+        Schema.Struct({
+          uri: Schema.String,
+          username: Schema.String,
+          password: Schema.String,
+        })
+      ),
+      redis: Schema.optional(
+        Schema.Struct({
+          host: Schema.String,
+          port: Schema.Number,
+          password: Schema.optional(Schema.String),
+          db: Schema.optional(Schema.Number),
+        })
+      ),
+    })
+  ),
+
   // Environment
-  environment: Schema.optional(Schema.Literal('development', 'staging', 'production')),
+  environment: Schema.optional(
+    Schema.Literal('development', 'staging', 'production')
+  ),
 });
 
 export type Config = Schema.Schema.Type<typeof ConfigSchema>;
@@ -87,23 +111,27 @@ export interface ConfigService {
   /**
    * Get a configuration value by key path
    */
-  readonly get: <K extends keyof Config>(key: K) => Effect.Effect<Config[K], ConfigError>;
-  
+  readonly get: <K extends keyof Config>(
+    key: K
+  ) => Effect.Effect<Config[K], ConfigError>;
+
   /**
    * Get the entire configuration
    */
   readonly getAll: () => Effect.Effect<Config, ConfigError>;
-  
+
   /**
    * Get a nested configuration value
    */
   readonly getNested: (path: string) => Effect.Effect<unknown, ConfigError>;
-  
+
   /**
    * Update configuration (for testing)
    */
-  readonly update: (updates: Partial<Config>) => Effect.Effect<void, ConfigError>;
-  
+  readonly update: (
+    updates: Partial<Config>
+  ) => Effect.Effect<void, ConfigError>;
+
   /**
    * Reload configuration from source
    */
@@ -112,7 +140,8 @@ export interface ConfigService {
 
 // ============= Context Tag =============
 
-export const ConfigService = Context.GenericTag<ConfigService>('@services/Config');
+export const ConfigService =
+  Context.GenericTag<ConfigService>('@services/Config');
 
 // ============= Default Configuration =============
 
@@ -147,16 +176,17 @@ const loadConfigFromEnv = (): Effect.Effect<Partial<Config>, ConfigError> =>
     let persistence: Partial<Config['persistence']> | undefined;
     let logging: Partial<Config['logging']> | undefined;
     let environment: Config['environment'] | undefined;
-    
+
     // Load persistence backend
     if (env.PERSISTENCE_BACKEND) {
-      const backend = env.PERSISTENCE_BACKEND as Config['persistence']['backend'];
+      const backend =
+        env.PERSISTENCE_BACKEND as Config['persistence']['backend'];
       persistence = {
         ...persistence,
         backend,
       };
     }
-    
+
     // Load encryption settings
     if (env.ENCRYPTION_ENABLED) {
       persistence = {
@@ -167,7 +197,7 @@ const loadConfigFromEnv = (): Effect.Effect<Partial<Config>, ConfigError> =>
         },
       };
     }
-    
+
     // Load logging level
     if (env.LOG_LEVEL) {
       logging = {
@@ -175,25 +205,25 @@ const loadConfigFromEnv = (): Effect.Effect<Partial<Config>, ConfigError> =>
         level: env.LOG_LEVEL as Config['logging']['level'],
       };
     }
-    
+
     // Load environment
     if (env.NODE_ENV) {
       environment = env.NODE_ENV as Config['environment'];
     }
-    
+
     const partial: Partial<Config> = {
       ...(persistence && { persistence: persistence as Config['persistence'] }),
       ...(logging && { logging: logging as Config['logging'] }),
       ...(environment && { environment }),
     };
-    
+
     return partial;
   });
 
 const mergeConfigs = (base: Config, overrides: Partial<Config>): Config => {
   // Deep merge configuration objects
   const merged = { ...base };
-  
+
   for (const key in overrides) {
     const value = overrides[key as keyof Config];
     if (value !== undefined) {
@@ -207,7 +237,7 @@ const mergeConfigs = (base: Config, overrides: Partial<Config>): Config => {
       }
     }
   }
-  
+
   return merged;
 };
 
@@ -219,7 +249,7 @@ const makeConfigService = (
   Effect.gen(function* () {
     // Store configuration in a Ref for mutability
     const configRef = yield* Ref.make(initialConfig);
-    
+
     return {
       get: <K extends keyof Config>(key: K) =>
         pipe(
@@ -234,16 +264,16 @@ const makeConfigService = (
             )
           )
         ),
-      
+
       getAll: () => Ref.get(configRef),
-      
+
       getNested: (path: string) =>
         pipe(
           Ref.get(configRef),
           Effect.map((config) => {
             const keys = path.split('.');
             let value: any = config;
-            
+
             for (const key of keys) {
               if (value && typeof value === 'object' && key in value) {
                 value = value[key];
@@ -251,7 +281,7 @@ const makeConfigService = (
                 return Option.none();
               }
             }
-            
+
             return Option.some(value);
           }),
           Effect.flatMap((option) =>
@@ -267,7 +297,7 @@ const makeConfigService = (
             })
           )
         ),
-      
+
       update: (updates: Partial<Config>) =>
         pipe(
           Ref.update(configRef, (current) => mergeConfigs(current, updates)),
@@ -280,7 +310,7 @@ const makeConfigService = (
             )
           )
         ),
-      
+
       reload: () =>
         pipe(
           loadConfigFromEnv(),
@@ -363,7 +393,7 @@ export const getBackendConfig = (backend: Config['persistence']['backend']) =>
   Effect.gen(function* () {
     const config = yield* ConfigService;
     const allConfig = yield* config.getAll();
-    
+
     if (!allConfig.backends || !allConfig.backends[backend]) {
       return yield* Effect.fail(
         new ConfigError({
@@ -372,6 +402,6 @@ export const getBackendConfig = (backend: Config['persistence']['backend']) =>
         })
       );
     }
-    
+
     return allConfig.backends[backend];
   });

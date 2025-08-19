@@ -1,6 +1,6 @@
 /**
  * DynamicFlow Services - Centralized service exports
- * 
+ *
  * All services use Effect's service pattern with Context.GenericTag
  * and Layer.effect for implementation.
  */
@@ -14,7 +14,7 @@ export * from './execution-context';
 // Tool Services
 export * from './tool-registry';
 
-// Persistence Services  
+// Persistence Services
 export {
   SerializerService,
   SerializerServiceLive,
@@ -22,7 +22,7 @@ export {
   estimateCompressionRatio,
   validateStateSerializability,
   type SerializedState as SerializerSerializedState,
-  type CompressedState
+  type CompressedState,
 } from './serializer';
 export {
   EncryptionService,
@@ -32,7 +32,7 @@ export {
   type EncryptedData,
   type SerializedState,
   encryptState,
-  decryptState
+  decryptState,
 } from './encryption';
 export * from './key-generator';
 export * from './persistence';

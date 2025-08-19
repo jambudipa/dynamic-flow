@@ -132,6 +132,7 @@ export class MapOperator implements UnifiedOperator<MapConfig> {
       config: {
         timeout: config.timeout,
         retries: config.retry,
+        parallel: (config as any).parallel,
       },
     } as IRNode;
   }

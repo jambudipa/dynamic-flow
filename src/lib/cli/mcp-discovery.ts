@@ -254,34 +254,39 @@ async function discoverServers(
 /**
  * Discover MCP servers from configuration file
  */
-function discoverFromConfig(options: DiscoveryOptions): Effect.Effect<MCPServer[]> {
+function discoverFromConfig(
+  options: DiscoveryOptions
+): Effect.Effect<MCPServer[]> {
   return Effect.gen(function* () {
     // Check for MCP config in common locations
     const configPaths = [
       './mcp-servers.json',
       '~/.config/mcp/servers.json',
-      '/etc/mcp/servers.json'
+      '/etc/mcp/servers.json',
     ];
 
     const servers: MCPServer[] = [];
 
     for (const configPath of configPaths) {
-      const configResult = yield* Effect.tryPromise(() => 
-        import('fs/promises').then(fs => fs.readFile(configPath, 'utf-8'))
+      const configResult = yield* Effect.tryPromise(() =>
+        import('fs/promises').then((fs) => fs.readFile(configPath, 'utf-8'))
       ).pipe(Effect.catchAll(() => Effect.succeed(null)));
-      
+
       if (configResult) {
         try {
           const config = JSON.parse(configResult);
-          
+
           if (config.servers && Array.isArray(config.servers)) {
             for (const serverConfig of config.servers) {
-              const server = yield* interrogateMCPServer(serverConfig.url || serverConfig.command, options);
+              const server = yield* interrogateMCPServer(
+                serverConfig.url || serverConfig.command,
+                options
+              );
               if (server) {
                 servers.push({
                   ...server,
                   id: serverConfig.id || server.id,
-                  metadata: { ...server.metadata, ...serverConfig.metadata }
+                  metadata: { ...server.metadata, ...serverConfig.metadata },
                 });
               }
             }
@@ -300,7 +305,9 @@ function discoverFromConfig(options: DiscoveryOptions): Effect.Effect<MCPServer[
 /**
  * Discover MCP server from direct URL
  */
-function discoverFromUrl(options: DiscoveryOptions): Effect.Effect<MCPServer[]> {
+function discoverFromUrl(
+  options: DiscoveryOptions
+): Effect.Effect<MCPServer[]> {
   return Effect.gen(function* () {
     // URL should be provided in filter option
     const url = options.filter;
@@ -316,7 +323,9 @@ function discoverFromUrl(options: DiscoveryOptions): Effect.Effect<MCPServer[]> 
 /**
  * Discover MCP servers on local network
  */
-function discoverFromNetwork(options: DiscoveryOptions): Effect.Effect<MCPServer[]> {
+function discoverFromNetwork(
+  options: DiscoveryOptions
+): Effect.Effect<MCPServer[]> {
   return Effect.gen(function* () {
     const servers: MCPServer[] = [];
 
@@ -325,7 +334,7 @@ function discoverFromNetwork(options: DiscoveryOptions): Effect.Effect<MCPServer
       'http://localhost:3000/mcp',
       'http://localhost:8080/mcp',
       'ws://localhost:3001/mcp',
-      'ws://localhost:3002/mcp'
+      'ws://localhost:3002/mcp',
     ];
 
     for (const serverUrl of commonServers) {
@@ -349,31 +358,47 @@ function discoverFromNetwork(options: DiscoveryOptions): Effect.Effect<MCPServer
 /**
  * Interrogate an MCP server to discover its capabilities
  */
-function interrogateMCPServer(serverUrl: string, options: DiscoveryOptions): Effect.Effect<MCPServer | null> {
+function interrogateMCPServer(
+  serverUrl: string,
+  options: DiscoveryOptions
+): Effect.Effect<MCPServer | null> {
   return Effect.tryPromise(async () => {
     try {
       // Dynamic import to handle optional MCP SDK
-      const { Client } = await import('@modelcontextprotocol/sdk/client/index.js').catch(() => {
-        throw new Error('MCP SDK not installed. Run: npm install @modelcontextprotocol/sdk');
+      const { Client } = await import(
+        '@modelcontextprotocol/sdk/client/index.js'
+      ).catch(() => {
+        throw new Error(
+          'MCP SDK not installed. Run: npm install @modelcontextprotocol/sdk'
+        );
       });
 
       let transport;
-      
+
       if (serverUrl.startsWith('stdio://')) {
-        const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
-        
+        const { StdioClientTransport } = await import(
+          '@modelcontextprotocol/sdk/client/stdio.js'
+        );
+
         const command = serverUrl.replace('stdio://', '');
         const [cmd, ...args] = command.split(' ');
-        
+
         transport = new StdioClientTransport({
           command: cmd || '',
-          args: args
+          args: args,
         });
       } else if (serverUrl.startsWith('ws://')) {
-        const { WebSocketClientTransport } = await import('@modelcontextprotocol/sdk/client/websocket.js');
+        const { WebSocketClientTransport } = await import(
+          '@modelcontextprotocol/sdk/client/websocket.js'
+        );
         transport = new WebSocketClientTransport(new URL(serverUrl));
-      } else if (serverUrl.startsWith('http://') || serverUrl.startsWith('https://')) {
-        const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js');
+      } else if (
+        serverUrl.startsWith('http://') ||
+        serverUrl.startsWith('https://')
+      ) {
+        const { SSEClientTransport } = await import(
+          '@modelcontextprotocol/sdk/client/sse.js'
+        );
         transport = new SSEClientTransport(new URL(serverUrl));
       } else {
         throw new Error(`Unsupported server URL format: ${serverUrl}`);
@@ -387,32 +412,43 @@ function interrogateMCPServer(serverUrl: string, options: DiscoveryOptions): Eff
       // Connect with timeout
       await Promise.race([
         client.connect(transport),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), Math.min(options.timeout, 5000)))
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Connection timeout')),
+            Math.min(options.timeout, 5000)
+          )
+        ),
       ]);
 
       // List available tools with timeout
       const toolsList = await Promise.race([
         client.listTools(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('listTools timeout')), 3000))
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('listTools timeout')), 3000)
+        ),
       ]);
 
       // Convert tools to our capability format
       const toolsListAny = toolsList as any;
-      const capabilities: MCPCapability[] = toolsListAny.tools?.map((tool: any) => ({
-        name: tool.name,
-        description: tool.description || '',
-        parameters: tool.inputSchema?.properties ? 
-          Object.entries(tool.inputSchema.properties).map(([name, schema]: [string, any]) => ({
-            name,
-            type: schema.type || 'unknown',
-            required: tool.inputSchema.required?.includes(name) || false,
-            description: schema.description,
-            mcpSchema: schema // Preserve the full MCP schema
-          })) : [],
-        returnType: inferReturnType(tool.name, tool.outputSchema),
-        examples: tool.examples,
-        outputSchema: tool.outputSchema // Preserve original schema
-      })) || [];
+      const capabilities: MCPCapability[] =
+        toolsListAny.tools?.map((tool: any) => ({
+          name: tool.name,
+          description: tool.description || '',
+          parameters: tool.inputSchema?.properties
+            ? Object.entries(tool.inputSchema.properties).map(
+                ([name, schema]: [string, any]) => ({
+                  name,
+                  type: schema.type || 'unknown',
+                  required: tool.inputSchema.required?.includes(name) || false,
+                  description: schema.description,
+                  mcpSchema: schema, // Preserve the full MCP schema
+                })
+              )
+            : [],
+          returnType: inferReturnType(tool.name, tool.outputSchema),
+          examples: tool.examples,
+          outputSchema: tool.outputSchema, // Preserve original schema
+        })) || [];
 
       // Get server info
       const serverCapabilities = client.getServerCapabilities();
@@ -422,7 +458,9 @@ function interrogateMCPServer(serverUrl: string, options: DiscoveryOptions): Eff
       try {
         await Promise.race([
           client.close(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Close timeout')), 2000))
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Close timeout')), 2000)
+          ),
         ]);
       } catch {
         // Ignore close errors
@@ -438,36 +476,37 @@ function interrogateMCPServer(serverUrl: string, options: DiscoveryOptions): Eff
           name: serverVersion?.name || `MCP Server`,
           description: serverVersion?.description || 'Discovered MCP server',
           version: serverVersion?.version || '1.0.0',
-          ...serverVersion
-        }
+          ...serverVersion,
+        },
       };
 
       if (options.verbose) {
-        console.log(`Discovered server: ${server.metadata.name} with ${capabilities.length} tools`);
+        console.log(
+          `Discovered server: ${server.metadata.name} with ${capabilities.length} tools`
+        );
       }
 
       return server;
-
     } catch (error) {
       if (options.verbose) {
         console.log(`Failed to interrogate ${serverUrl}: ${error}`);
       }
       return null;
     }
-  }).pipe(
-    Effect.catchAll(() => Effect.succeed(null))
-  );
+  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
 }
 
 /**
  * Generate a server ID from URL
  */
 function generateServerId(url: string): string {
-  return url
-    .replace(/[^\w\-]/g, '-')
-    .replace(/--+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toLowerCase() || 'mcp-server';
+  return (
+    url
+      .replace(/[^\w\-]/g, '-')
+      .replace(/--+/g, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase() || 'mcp-server'
+  );
 }
 
 /**
@@ -561,7 +600,7 @@ function inferReturnType(toolName: string, outputSchema?: any): string {
   if (outputSchema) {
     return 'typed';
   }
-  
+
   // Default to unknown for generic tools
   return 'unknown';
 }
@@ -573,7 +612,7 @@ function getOutputTypeScript(returnType: string, outputSchema?: any): string {
   if (outputSchema) {
     return convertSchemaToTypeScript(outputSchema);
   }
-  
+
   // Generic fallback for any MCP tool
   return 'unknown';
 }
@@ -585,7 +624,7 @@ function getOutputSchema(returnType: string, outputSchema?: any): string {
   if (outputSchema) {
     return convertSchemaToEffectSchema(outputSchema);
   }
-  
+
   // Generic fallback for any MCP tool
   return 'Schema.Unknown';
 }
@@ -595,12 +634,14 @@ function getOutputSchema(returnType: string, outputSchema?: any): string {
  */
 function convertSchemaToTypeScript(schema: any): string {
   if (!schema || typeof schema !== 'object') return 'unknown';
-  
+
   if (schema.type === 'string') return 'string';
   if (schema.type === 'number' || schema.type === 'integer') return 'number';
   if (schema.type === 'boolean') return 'boolean';
   if (schema.type === 'array') {
-    const itemType = schema.items ? convertSchemaToTypeScript(schema.items) : 'unknown';
+    const itemType = schema.items
+      ? convertSchemaToTypeScript(schema.items)
+      : 'unknown';
     return `Array<${itemType}>`;
   }
   if (schema.type === 'object' && schema.properties) {
@@ -612,7 +653,7 @@ function convertSchemaToTypeScript(schema: any): string {
       .join('; ');
     return `{ ${props} }`;
   }
-  
+
   return 'unknown';
 }
 
@@ -621,25 +662,30 @@ function convertSchemaToTypeScript(schema: any): string {
  */
 function convertSchemaToEffectSchema(schema: any): string {
   if (!schema || typeof schema !== 'object') return 'Schema.Unknown';
-  
+
   if (schema.type === 'string') return 'Schema.String';
-  if (schema.type === 'number' || schema.type === 'integer') return 'Schema.Number';
+  if (schema.type === 'number' || schema.type === 'integer')
+    return 'Schema.Number';
   if (schema.type === 'boolean') return 'Schema.Boolean';
   if (schema.type === 'array') {
-    const itemSchema = schema.items ? convertSchemaToEffectSchema(schema.items) : 'Schema.Unknown';
+    const itemSchema = schema.items
+      ? convertSchemaToEffectSchema(schema.items)
+      : 'Schema.Unknown';
     return `Schema.Array(${itemSchema}).pipe(Schema.mutable)`;
   }
   if (schema.type === 'object' && schema.properties) {
     const props = Object.entries(schema.properties)
       .map(([key, prop]: [string, any]) => {
         const propSchema = convertSchemaToEffectSchema(prop);
-        const optional = !schema.required?.includes(key) ? `Schema.optional(${propSchema})` : propSchema;
+        const optional = !schema.required?.includes(key)
+          ? `Schema.optional(${propSchema})`
+          : propSchema;
         return `    ${key}: ${optional}`;
       })
       .join(',\n');
     return `Schema.Struct({\n${props}\n  })`;
   }
-  
+
   return 'Schema.Unknown';
 }
 
@@ -648,34 +694,52 @@ function convertSchemaToEffectSchema(schema: any): string {
  */
 function getTypeScriptType(type: string): string {
   switch (type.toLowerCase()) {
-    case 'string': return 'string';
-    case 'number': return 'number';
-    case 'boolean': return 'boolean';
-    case 'array': return 'unknown[]';
-    case 'object': return 'Record<string, unknown>';
-    default: return 'unknown';
+    case 'string':
+      return 'string';
+    case 'number':
+      return 'number';
+    case 'boolean':
+      return 'boolean';
+    case 'array':
+      return 'unknown[]';
+    case 'object':
+      return 'Record<string, unknown>';
+    default:
+      return 'unknown';
   }
 }
 
 function getSchemaType(type: string): string {
   switch (type.toLowerCase()) {
-    case 'string': return 'Schema.String';
-    case 'number': return 'Schema.Number';
-    case 'boolean': return 'Schema.Boolean';
-    case 'array': return 'Schema.Array(Schema.Unknown).pipe(Schema.mutable)';
-    case 'object': return 'Schema.Record({ key: Schema.String, value: Schema.Unknown })';
-    default: return 'Schema.Unknown';
+    case 'string':
+      return 'Schema.String';
+    case 'number':
+      return 'Schema.Number';
+    case 'boolean':
+      return 'Schema.Boolean';
+    case 'array':
+      return 'Schema.Array(Schema.Unknown).pipe(Schema.mutable)';
+    case 'object':
+      return 'Schema.Record({ key: Schema.String, value: Schema.Unknown })';
+    default:
+      return 'Schema.Unknown';
   }
 }
 
 function getDefaultValue(type: string): string {
   switch (type.toLowerCase()) {
-    case 'string': return "''";
-    case 'number': return '0';
-    case 'boolean': return 'false';
-    case 'array': return '[]';
-    case 'object': return '{}';
-    default: return 'undefined';
+    case 'string':
+      return "''";
+    case 'number':
+      return '0';
+    case 'boolean':
+      return 'false';
+    case 'array':
+      return '[]';
+    case 'object':
+      return '{}';
+    default:
+      return 'undefined';
   }
 }
 
@@ -757,8 +821,9 @@ export interface Tool<TInput, TOutput> {
  * Generate tool file content
  */
 function generateToolFile(server: MCPServer): string {
-  const serverName = typeof server.metadata.name === 'string' ? server.metadata.name : server.id;
-  
+  const serverName =
+    typeof server.metadata.name === 'string' ? server.metadata.name : server.id;
+
   return `/**
  * MCP Server: ${serverName}
  * URL: ${server.url}
@@ -904,13 +969,17 @@ export class ${server.id.replace(/[^a-zA-Z0-9]/g, '')}MCPClient {
     );
   }
 
-  ${server.capabilities.map(cap => `
+  ${server.capabilities
+    .map(
+      (cap) => `
   /**
    * ${cap.description.replace(/'/g, "\\'")}
    */
-  ${cap.name}(${cap.parameters.map(p => `${p.name}: ${getTypeScriptType(p.type)}${p.required ? '' : ' | undefined'}`).join(', ')}): Effect.Effect<unknown, Error, never> {
-    return this.executeToolCall('${cap.name}', { ${cap.parameters.length > 0 ? cap.parameters.map(p => `${p.name}: ${p.name} ?? ${getDefaultValue(p.type)}`).join(', ') : ''} });
-  }`).join('\n  ')}
+  ${cap.name}(${cap.parameters.map((p) => `${p.name}: ${getTypeScriptType(p.type)}${p.required ? '' : ' | undefined'}`).join(', ')}): Effect.Effect<unknown, Error, never> {
+    return this.executeToolCall('${cap.name}', { ${cap.parameters.length > 0 ? cap.parameters.map((p) => `${p.name}: ${p.name} ?? ${getDefaultValue(p.type)}`).join(', ') : ''} });
+  }`
+    )
+    .join('\n  ')}
 }
 
 /**
@@ -919,18 +988,21 @@ export class ${server.id.replace(/[^a-zA-Z0-9]/g, '')}MCPClient {
 const mcpClient = new ${server.id.replace(/[^a-zA-Z0-9]/g, '')}MCPClient();
 
 ${server.capabilities
-  .map(
-    (cap) => {
-      const inputFields = cap.parameters.map(p => {
+  .map((cap) => {
+    const inputFields = cap.parameters
+      .map((p) => {
         // Use the actual MCP schema if available, otherwise fall back to basic type
-        const schemaType = p.mcpSchema ? convertSchemaToEffectSchema(p.mcpSchema) : getSchemaType(p.type);
+        const schemaType = p.mcpSchema
+          ? convertSchemaToEffectSchema(p.mcpSchema)
+          : getSchemaType(p.type);
         return `    ${p.name}: ${p.required ? schemaType : `Schema.optional(${schemaType})`}`;
-      }).join(',\n');
-      
-      const outputType = getOutputTypeScript(cap.returnType, cap.outputSchema);
-      const outputSchemaStr = getOutputSchema(cap.returnType, cap.outputSchema);
+      })
+      .join(',\n');
 
-      return `
+    const outputType = getOutputTypeScript(cap.returnType, cap.outputSchema);
+    const outputSchemaStr = getOutputSchema(cap.returnType, cap.outputSchema);
+
+    return `
 /**
  * ${cap.description}
  */
@@ -947,7 +1019,7 @@ ${inputFields}
   outputSchema: ${outputSchemaStr},
   execute: (input, context: ExecutionContext) => {
     return pipe(
-      mcpClient.${cap.name}(${cap.parameters.length > 0 ? cap.parameters.map(p => `input.${p.name}`).join(', ') : ''}),
+      mcpClient.${cap.name}(${cap.parameters.length > 0 ? cap.parameters.map((p) => `input.${p.name}`).join(', ') : ''}),
       Effect.map((result: unknown) => result as ${outputType}),
       Effect.mapError((error): ToolError => 
         new ToolError({
@@ -958,16 +1030,15 @@ ${inputFields}
       )
     );
   }
-};`
-    }
-  )
+};`;
+  })
   .join('\n')}
 
 /**
  * All tools from this MCP server
  */
 export const ${server.id.replace(/[^a-zA-Z0-9]/g, '')}Tools = [
-  ${server.capabilities.map(cap => `${cap.name}Tool`).join(',\n  ')}
+  ${server.capabilities.map((cap) => `${cap.name}Tool`).join(',\n  ')}
 ];
 `;
 }

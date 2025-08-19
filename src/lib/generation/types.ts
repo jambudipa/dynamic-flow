@@ -19,12 +19,11 @@ export type { ToolError, ToolRequirements } from '../tools/types';
 // Define ExecutionContext since it's not exported from tools/types
 export interface ExecutionContext {
   signal?: AbortSignal | undefined;
-  logger?:
-    | {
-        log: (message: string) => void;
-        error: (message: string) => void;
-        warn: (message: string) => void;
-      };
+  logger?: {
+    log: (message: string) => void;
+    error: (message: string) => void;
+    warn: (message: string) => void;
+  };
   metadata?: Record<string, unknown> | undefined;
 }
 
@@ -53,7 +52,10 @@ export interface AiModel {
     options?: unknown | undefined
   ): Effect.Effect<{ content: string }, never>;
 
-  stream(prompt: unknown, options?: unknown | undefined): Stream.Stream<any, never>;
+  stream(
+    prompt: unknown,
+    options?: unknown | undefined
+  ): Stream.Stream<any, never>;
 }
 
 // Re-export for use in other modules
@@ -102,7 +104,12 @@ export type FlowEvent =
       error?: { message: string; code?: string | undefined };
     }
   // Node events
-  | { type: 'node-start'; timestamp: number; nodeId: string; nodeType?: string | undefined }
+  | {
+      type: 'node-start';
+      timestamp: number;
+      nodeId: string;
+      nodeType?: string | undefined;
+    }
   | {
       type: 'node-complete';
       timestamp: number;
@@ -362,8 +369,8 @@ export interface ValidationError {
 export interface ValidatedFlow {
   ir: any; // IR type from ../ir/core-types
   json?: FlowJSON | undefined; // Optional, for debugging
-  tools: Map<string, Tool<any, any>>;
-  joins: Map<string, ToolJoin<any, any>>;
+  tools: Map<string, Tool<any, any>>; // Each tool has its own specific input/output types
+  joins: Map<string, ToolJoin<any, any>>; // Each join has its own specific transformation types
   warnings: ValidationWarning[];
 }
 
@@ -399,7 +406,11 @@ export class GenerationError extends DynamicFlowError {
 export class ExecutionError extends FlowExecutionError {
   readonly code?: string | undefined;
 
-  constructor(message: string, code?: string | undefined, nodeId?: string | undefined) {
+  constructor(
+    message: string,
+    code?: string | undefined,
+    nodeId?: string | undefined
+  ) {
     const params: {
       nodeId?: string | undefined;
       executionContext?: Record<string, unknown>;

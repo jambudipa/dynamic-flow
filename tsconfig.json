@@ -33,6 +33,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": false,
+    "verbatimModuleSyntax": true,
     "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"],
@@ -44,9 +45,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "test",
-    "**/*.test.ts",
-    "**/*.spec.ts",
     "src/lib/core/workers/**",
     "src/grammar/**"
   ]

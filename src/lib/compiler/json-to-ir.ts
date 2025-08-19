@@ -5,7 +5,7 @@
  * each operator knows how to generate its own IR representation.
  */
 
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 import { logWarn } from '../utils/logging';
 import { type DynamicFlowType, type StepType } from '@/lib/schema/flow-schema';
 import { type IR, IRBuilder, IRCompilationError, type IRNode } from '@/lib/ir';
@@ -45,10 +45,10 @@ export class JSONToIRCompiler {
           joins !== null && joins !== undefined
             ? new Map(joins.map((j) => [`${j.fromTool}-${j.toTool}`, j]))
             : new Map(),
-        validateConnections: options?.validateConnections || true,
+        validateConnections: options?.validateConnections ?? true,
         addNode: (node: IRNode) => {
           allNodes.push(node);
-        }
+        },
       };
 
       // Convert steps to IR nodes using operators
@@ -57,7 +57,7 @@ export class JSONToIRCompiler {
         const irNode = yield* self.stepToIR(step, context);
         topLevelNodes.push(irNode);
         // Top-level nodes also go into allNodes if not already there
-        if (!allNodes.some(n => n.id === irNode.id)) {
+        if (!allNodes.some((n) => n.id === irNode.id)) {
           allNodes.push(irNode);
         }
       }
@@ -70,11 +70,14 @@ export class JSONToIRCompiler {
         context.joins !== null &&
         context.joins !== undefined
       ) {
-        const validation = yield* FlowConnectivityValidator.validate(topLevelNodes, {
-          tools: context.tools,
-          joins: context.joins,
-          strictMode: false, // Warnings only by default
-        });
+        const validation = yield* FlowConnectivityValidator.validate(
+          topLevelNodes,
+          {
+            tools: context.tools,
+            joins: context.joins,
+            strictMode: false, // Warnings only by default
+          }
+        );
 
         if (validation.valid !== true) {
           return yield* Effect.fail(
@@ -102,7 +105,9 @@ export class JSONToIRCompiler {
       const builder = new IRBuilder({
         source: 'dynamic',
         created: new Date().toISOString(),
-        hash: self.generateHash(flow),
+        hash: Option.fromNullable(self.generateHash(flow)),
+        name: Option.fromNullable(flow.metadata?.name),
+        description: Option.fromNullable(flow.metadata?.description),
       });
 
       // Register tools and joins
@@ -134,7 +139,7 @@ export class JSONToIRCompiler {
         builder.setEntryPoint(topLevelNodes[0].id);
       }
 
-      return builder.build();
+      return builder.build({ skipValidation: !options?.validateConnections });
     });
   }
 

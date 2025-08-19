@@ -5,18 +5,21 @@ This directory contains the implementation of the DynamicFlow persistence featur
 ## Implementation Status
 
 ### ✅ Completed Tasks
+
 - [x] Core types and interfaces defined (`types.ts`)
 - [x] Module structure created
 - [x] Docker test environment setup
 - [x] Test scripts created
 
 ### 🚧 In Progress Tasks
+
 - [ ] T1.2: State Serializer implementation
 - [ ] T1.3: Encryption Layer implementation
 - [ ] T1.4: Key Generator implementation
 - [ ] T1.5: Persistence Hub Core implementation
 
 ### 📋 Next Tasks (From Phase 1)
+
 1. **T1.2: Implement State Serializer** (6 hours)
    - Handle circular references in state objects
    - Add gzip compression for large states
@@ -76,6 +79,7 @@ tests/
 ## Development Workflow
 
 ### 1. Start Development Environment
+
 ```bash
 # Start all backend services for testing
 ./scripts/test-setup.sh start
@@ -88,6 +92,7 @@ tests/
 ```
 
 ### 2. Run Tests
+
 ```bash
 # Run all persistence tests
 npm run test:persistence
@@ -103,23 +108,27 @@ npm run test:persistence:redis
 ### 3. Development Guidelines
 
 #### Error Handling
+
 - All errors must extend `PersistenceError` from `types.ts`
 - Use Effect error channel for all failures
 - Provide detailed error context for debugging
 
 #### State Serialization
+
 - Handle circular references gracefully
 - Support compression for large states
 - Include integrity checks (checksums)
 - Version serialization format for compatibility
 
 #### Backend Implementation
+
 - Implement `StorageBackend` interface completely
 - Add proper connection management
 - Include health checks
 - Support cleanup operations
 
 #### Key Generation
+
 - Use cryptographically secure random generation
 - Ensure URL-safe encoding
 - Prevent collisions across distributed systems
@@ -128,12 +137,14 @@ npm run test:persistence:redis
 ### 4. Testing Requirements
 
 #### Unit Tests
+
 - Mock external dependencies
 - Test error scenarios
 - Achieve >90% code coverage
 - Fast execution (<10s)
 
 #### Integration Tests
+
 - Test with real backend services
 - End-to-end suspension/resumption
 - Performance validation
@@ -149,19 +160,23 @@ npm run test:persistence:redis
 ## Implementation Notes
 
 ### State Capture Strategy
+
 The persistence system captures complete flow state including:
+
 - Current execution position in the IR
 - All variable values and context
 - Tool outputs and intermediate results
 - Execution metadata and timestamps
 
 ### Security Considerations
+
 - Encryption of sensitive state data at rest
 - Secure suspension key generation
 - Authentication for resumption operations
 - Audit logging of all operations
 
 ### Scalability Design
+
 - Pluggable backend architecture
 - Connection pooling for database backends
 - Automatic cleanup of expired flows
@@ -170,17 +185,19 @@ The persistence system captures complete flow state including:
 ## Dependencies
 
 ### Required Dependencies
+
 ```json
 {
-  "pg": "^8.11.0",           // PostgreSQL client
-  "redis": "^4.6.0",         // Redis client
-  "mongodb": "^5.7.0",       // MongoDB client
+  "pg": "^8.11.0", // PostgreSQL client
+  "redis": "^4.6.0", // Redis client
+  "mongodb": "^5.7.0", // MongoDB client
   "neo4j-driver": "^5.12.0", // Neo4j client
-  "compression": "^1.7.4"    // Gzip compression
+  "compression": "^1.7.4" // Gzip compression
 }
 ```
 
 ### Development Dependencies
+
 ```json
 {
   "testcontainers": "^10.0.0", // Container testing
@@ -191,16 +208,19 @@ The persistence system captures complete flow state including:
 ## Getting Started
 
 1. **Install Dependencies**
+
    ```bash
    npm install
    ```
 
 2. **Start Test Environment**
+
    ```bash
    ./scripts/test-setup.sh start
    ```
 
 3. **Run Basic Tests**
+
    ```bash
    npm run test:unit:persistence
    ```

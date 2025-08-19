@@ -1,8 +1,15 @@
 /**
  * Switch Operator - Multi-way branching based on LLM choice
+ *
+ * Refactored to use idiomatic Effect patterns:
+ * - Effect.gen for structured concurrency
+ * - Data.Struct for configuration
+ * - Either for error handling
+ * - HashMap for efficient lookups
+ * - Option for optional values
  */
 
-import { Effect, Schema } from 'effect';
+import { Effect, Schema, Data, Either, HashMap, Option, Chunk } from 'effect';
 import {
   BaseFields,
   type ExecutionContext,
@@ -13,21 +20,81 @@ import {
 import { inferType } from './utils';
 import { structuredChoice } from '@/lib/llm/structured';
 import type { IRNode, IRValue } from '@/lib/ir';
+import { NodeId } from '@/lib/ir/core-types';
 import { OperatorRegistry } from './registry';
 
-export interface SwitchConfig {
+/**
+ * Switch option using Data.struct for immutability and structural equality
+ */
+export interface SwitchOption {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+}
+
+export const SwitchOption = (params: {
   id: string;
-  switch: string; // The prompt for LLM
-  options: Array<{
-    id: string;
-    name: string;
-    description: string;
-  }>;
-  branches: Record<string, Array<any>>; // Map of option ID to steps
+  name: string;
+  description: string;
+}): SwitchOption => Data.struct(params);
+
+/**
+ * Switch configuration using Data.struct with proper Effect types
+ */
+export interface SwitchConfig {
+  readonly id: string;
+  readonly switch: string;
+  readonly options: Chunk.Chunk<SwitchOption>;
+  readonly branches: HashMap.HashMap<string, Chunk.Chunk<unknown>>; // Steps for each branch
+  readonly output: Option.Option<string>;
+  readonly timeout: Option.Option<number>;
+  readonly retry: Option.Option<number>;
+  readonly description: Option.Option<string>;
+}
+
+export const SwitchConfig = (params: {
+  id: string;
+  switch: string;
+  options: readonly SwitchOption[];
+  branches: Record<string, readonly unknown[]>;
   output?: string;
   timeout?: number;
   retry?: number;
   description?: string;
+}): SwitchConfig =>
+  Data.struct({
+    id: params.id,
+    switch: params.switch,
+    options: Chunk.fromIterable(params.options),
+    branches: HashMap.fromIterable(
+      Object.entries(params.branches).map(
+        ([key, steps]) => [key, Chunk.fromIterable(steps)] as const
+      )
+    ),
+    output: params.output ? Option.some(params.output) : Option.none(),
+    timeout: params.timeout ? Option.some(params.timeout) : Option.none(),
+    retry: params.retry ? Option.some(params.retry) : Option.none(),
+    description: params.description
+      ? Option.some(params.description)
+      : Option.none(),
+  });
+
+/**
+ * Switch execution error using Data.TaggedError
+ */
+export class SwitchExecutionError extends Data.TaggedError(
+  'SwitchExecutionError'
+)<{
+  readonly message: string;
+  readonly choice: Option.Option<string>;
+  readonly context?: Record<string, unknown>;
+}> {
+  get displayMessage(): string {
+    const choiceInfo = Option.isSome(this.choice)
+      ? ` (choice: ${this.choice.value})`
+      : '';
+    return `Switch execution failed${choiceInfo}: ${this.message}`;
+  }
 }
 
 export class SwitchOperator implements UnifiedOperator<SwitchConfig> {
@@ -72,37 +139,64 @@ export class SwitchOperator implements UnifiedOperator<SwitchConfig> {
     input: any,
     config: SwitchConfig,
     ctx: ExecutionContext
-  ): Effect.Effect<any, any, any> {
+  ): Effect.Effect<any, SwitchExecutionError, any> {
     return Effect.gen(function* () {
-      // Use LLM to choose branch
-      const choice = yield* structuredChoice(config.switch, config.options, {
-        retries: config.retry || 2,
-      });
+      // Use LLM to choose branch with proper error handling
+      const optionsArray = Chunk.toArray(config.options);
+      const retries = Option.getOrElse(config.retry, () => 2);
 
-      // Get selected branch
-      const branch = config.branches[choice.choice];
-      if (!branch) {
+      const choice = yield* structuredChoice(config.switch, optionsArray, {
+        retries,
+      }).pipe(
+        Effect.mapError(
+          (error) =>
+            new SwitchExecutionError({
+              message: `Failed to get LLM choice: ${error}`,
+              choice: Option.none(),
+              context: { input, switch: config.switch },
+            })
+        )
+      );
+
+      // Get selected branch using HashMap
+      const branchSteps = HashMap.get(config.branches, choice.choice);
+      if (Option.isNone(branchSteps)) {
         return yield* Effect.fail(
-          new Error(`Switch selected unknown branch '${choice.choice}'`)
+          new SwitchExecutionError({
+            message: `Selected branch '${choice.choice}' not found`,
+            choice: Option.some(choice.choice),
+            context: {
+              availableBranches: Array.from(HashMap.keys(config.branches)),
+            },
+          })
         );
       }
 
-      // Execute branch steps sequentially
+      // Execute branch steps sequentially using Chunk operations
+      const steps = Chunk.toArray(branchSteps.value);
       let result = input;
 
-
-      for (const step of branch) {
+      for (const step of steps) {
         const operator = OperatorRegistry.getInstance().get(
-          step.type || inferType(step)
+          (step as any).type || inferType(step)
         );
         if (operator) {
-          result = yield* operator.execute(result, step, ctx);
+          result = yield* operator.execute(result, step, ctx).pipe(
+            Effect.mapError(
+              (error) =>
+                new SwitchExecutionError({
+                  message: `Step execution failed: ${error}`,
+                  choice: Option.some(choice.choice),
+                  context: { step, currentResult: result },
+                })
+            )
+          );
         }
       }
 
-      // Store output if specified
-      if (config.output) {
-        ctx.variables.set(config.output, result);
+      // Store output if specified using Option pattern
+      if (Option.isSome(config.output)) {
+        (ctx.variables as any).set(config.output.value, result);
       }
 
       return result;
@@ -141,39 +235,55 @@ export class SwitchOperator implements UnifiedOperator<SwitchConfig> {
   }
 
   toIR(config: SwitchConfig, ctx: IRGenerationContext): IRNode {
-    // Switch is a special tool that selects a branch using LLM
-    const inputs: Record<string, IRValue> = {
-      prompt: { type: 'literal', value: config.switch },
-      options: { type: 'literal', value: config.options },
-    };
+    // Convert branch steps to node IDs (handle both 'branches' and 'cases')
+    const cases: Record<string, string[]> = {};
+    const branches = (config as any).cases || config.branches || {};
 
-    // Convert branch steps to node IDs
-    const branchIds: Record<string, string[]> = {};
-    for (const [key, steps] of Object.entries(config.branches)) {
-      branchIds[key] = [];
-      for (const step of steps) {
+    for (const [key, steps] of Object.entries(branches)) {
+      cases[key] = [];
+      for (const step of steps as any[]) {
         const operator = OperatorRegistry.getInstance().get(
           step.type || inferType(step)
         );
         if (operator) {
           const node = operator.toIR(step, ctx);
-          branchIds[key].push(node.id);
+          cases[key].push(node.id);
           ctx.addNode(node);
         }
       }
     }
 
-    inputs.branches = { type: 'literal', value: branchIds };
+    // Handle default case
+    let defaultCase: string[] | undefined;
+    if ((config as any).default) {
+      defaultCase = [];
+      for (const step of (config as any).default as any[]) {
+        const operator = OperatorRegistry.getInstance().get(
+          step.type || inferType(step)
+        );
+        if (operator) {
+          const node = operator.toIR(step, ctx);
+          defaultCase.push(node.id);
+          ctx.addNode(node);
+        }
+      }
+    }
+
+    // Determine discriminator value
+    const discriminator: IRValue = (config as any).on
+      ? { type: 'expression', expr: (config as any).on }
+      : { type: 'literal', value: config.switch };
 
     return {
       id: config.id || ctx.nodeIdGenerator(),
-      type: 'tool',
-      tool: '__builtin_switch',
-      inputs,
-      outputVar: config.output,
+      type: 'switch',
+      discriminator,
+      cases,
+      defaultCase,
+      outputVar: Option.getOrUndefined(config.output),
       config: {
-        timeout: config.timeout,
-        retries: config.retry,
+        timeout: Option.getOrUndefined(config.timeout),
+        retries: Option.getOrUndefined(config.retry),
       },
     } as IRNode;
   }

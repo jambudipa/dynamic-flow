@@ -241,7 +241,9 @@ export const EmailSchema = Schema.String.pipe(
  * Get the fields of a struct schema
  * Helper function to extract fields from a struct schema
  */
-const getSchemaFields = <A>(schema: Schema.Schema<A>): Record<string, Schema.Schema.Any> => {
+const getSchemaFields = <A>(
+  schema: Schema.Schema<A>
+): Record<string, Schema.Schema.Any> => {
   // Access the AST to get struct fields
   const ast = (schema as any).ast;
   if (ast && ast._tag === 'TypeLiteral') {
@@ -264,7 +266,10 @@ export const extendSchema = <A, B>(
 ): Schema.Schema<A & B> => {
   const baseFields = getSchemaFields(baseSchema);
   const extFields = getSchemaFields(extension);
-  return Schema.Struct({ ...baseFields, ...extFields }) as unknown as Schema.Schema<A & B>;
+  return Schema.Struct({
+    ...baseFields,
+    ...extFields,
+  }) as unknown as Schema.Schema<A & B>;
 };
 
 /**
@@ -285,7 +290,9 @@ export const pickFromSchema = <A, K extends keyof A>(
   schema: Schema.Schema<A>,
   keys: readonly K[]
 ): Schema.Schema<Pick<A, K>> => {
-  return (Schema.pick as any)(schema, ...keys) as unknown as Schema.Schema<Pick<A, K>>;
+  return (Schema.pick as any)(schema, ...keys) as unknown as Schema.Schema<
+    Pick<A, K>
+  >;
 };
 
 /**
@@ -296,7 +303,9 @@ export const omitFromSchema = <A, K extends keyof A>(
   schema: Schema.Schema<A>,
   keys: readonly K[]
 ): Schema.Schema<Omit<A, K>> => {
-  return (Schema.omit as any)(schema, ...keys) as unknown as Schema.Schema<Omit<A, K>>;
+  return (Schema.omit as any)(schema, ...keys) as unknown as Schema.Schema<
+    Omit<A, K>
+  >;
 };
 
 // ============= Transform Utilities =============

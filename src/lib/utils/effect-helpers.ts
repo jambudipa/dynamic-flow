@@ -216,15 +216,17 @@ export const some = <A>(value: A): Effect.Effect<Option.Option<A>, never> =>
 /**
  * Filters an Effect's success value with a predicate, returning Option.
  */
-export const filterOption = <A>(
-  predicate: (value: A) => boolean
-) => <E, R>(
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<Option.Option<A>, E, R> =>
-  pipe(
-    effect,
-    Effect.map((value) => predicate(value) ? Option.some(value) : Option.none())
-  );
+export const filterOption =
+  <A>(predicate: (value: A) => boolean) =>
+  <E, R>(
+    effect: Effect.Effect<A, E, R>
+  ): Effect.Effect<Option.Option<A>, E, R> =>
+    pipe(
+      effect,
+      Effect.map((value) =>
+        predicate(value) ? Option.some(value) : Option.none()
+      )
+    );
 
 /**
  * Chains multiple effects with error accumulation.

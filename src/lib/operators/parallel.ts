@@ -47,7 +47,6 @@ export class ParallelOperator implements UnifiedOperator<ParallelConfig> {
     ctx: ExecutionContext
   ): Effect.Effect<any, any, any> {
     return Effect.gen(function* () {
-
       // Create effects for each parallel step
       const effects = config.parallel.map((step: any) => {
         const operator = OperatorRegistry.getInstance().get(
@@ -90,17 +89,43 @@ export class ParallelOperator implements UnifiedOperator<ParallelConfig> {
 
   toIR(config: ParallelConfig, ctx: IRGenerationContext): IRNode {
     // Convert parallel steps to IR nodes
-    const branches: [string[]] = [[]];
+    const branches: string[][] = [];
 
-    for (const step of config.parallel) {
-      const operator = OperatorRegistry.getInstance().get(
-        step.type || inferType(step)
-      );
-      if (operator) {
-        const node = operator.toIR(step, ctx);
-        branches[0].push(node.id);
-        ctx.addNode(node);
+    // Handle both 'parallel' and 'branches' properties for backward compatibility
+    const inputBranches = (config as any).branches;
+
+    if (inputBranches && Array.isArray(inputBranches)) {
+      // Handle branches format: array of arrays
+      for (const branch of inputBranches) {
+        const branchNodeIds: string[] = [];
+        if (Array.isArray(branch)) {
+          for (const step of branch) {
+            const operator = OperatorRegistry.getInstance().get(
+              step.type || inferType(step)
+            );
+            if (operator) {
+              const node = operator.toIR(step, ctx);
+              branchNodeIds.push(node.id);
+              ctx.addNode(node);
+            }
+          }
+        }
+        branches.push(branchNodeIds);
       }
+    } else if (config.parallel && Array.isArray(config.parallel)) {
+      // Handle parallel format: flat array of steps
+      const branchNodeIds: string[] = [];
+      for (const step of config.parallel) {
+        const operator = OperatorRegistry.getInstance().get(
+          step.type || inferType(step)
+        );
+        if (operator) {
+          const node = operator.toIR(step, ctx);
+          branchNodeIds.push(node.id);
+          ctx.addNode(node);
+        }
+      }
+      branches.push(branchNodeIds);
     }
 
     return {
@@ -112,6 +137,7 @@ export class ParallelOperator implements UnifiedOperator<ParallelConfig> {
       config: {
         timeout: config.timeout,
         retries: config.retry,
+        maxConcurrency: (config as any).maxConcurrency,
       },
     } as IRNode;
   }

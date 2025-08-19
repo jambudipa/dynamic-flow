@@ -72,19 +72,27 @@ export class OperatorRegistry {
   /**
    * Generate the flat Step schema (union of all flat schemas)
    */
-  generateFlatStepSchema(): Schema.Schema<any, any, any> {
+  generateFlatStepSchema(): Schema.Schema<any, any, never> {
+    // Each operator provides a "flatSchema" that is discriminated by a
+    // literal `type` field (e.g. 'tool', 'filter', ...). The flat Step schema
+    // is simply the union of all of these operator-specific flat schemas.
     const schemas = this.getAll().map((op) => op.flatSchema);
 
-    // Need at least 2 schemas for Union
-    if (schemas.length < 2) {
-      return schemas[0] || Schema.Unknown;
+    if (schemas.length === 0) {
+      return Schema.Unknown as unknown as Schema.Schema<any, any, never>;
+    }
+    if (schemas.length === 1) {
+      return schemas[0] as unknown as Schema.Schema<any, any, never>;
     }
 
-    return Schema.Union(...(schemas as [any, any, ...any[]])) as Schema.Schema<
-      any,
-      any,
-      any
-    >;
+    const union = Schema.Union(
+      ...(schemas as unknown as [
+        Schema.Schema<any, any, never>,
+        Schema.Schema<any, any, never>,
+        ...Schema.Schema<any, any, never>[],
+      ])
+    );
+    return union as Schema.Schema<any, any, never>;
   }
 
   /**
