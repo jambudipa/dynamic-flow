@@ -12,6 +12,7 @@ import {
 } from './base';
 import { inferType } from './utils';
 import type { IRNode } from '@/lib/ir';
+import { OperatorRegistry } from './registry';
 
 export interface ReduceConfig {
   id: string;
@@ -92,10 +93,6 @@ export class ReduceOperator implements UnifiedOperator<ReduceConfig> {
         ctx.variables.set('item', item);
         ctx.variables.set('acc', accumulator);
 
-        // Import registry dynamically
-        const { OperatorRegistry } = yield* Effect.promise(
-          () => import('./registry')
-        );
         const operator = OperatorRegistry.getInstance().get(
           config.with.type || inferType(config.with)
         );
@@ -139,13 +136,13 @@ export class ReduceOperator implements UnifiedOperator<ReduceConfig> {
     // Reduce with nested operation
     const bodyNodes: string[] = [];
     if (config.with) {
-      const { OperatorRegistry } = require('./registry');
       const operator = OperatorRegistry.getInstance().get(
         config.with.type || inferType(config.with)
       );
       if (operator) {
         const node = operator.toIR(config.with, ctx);
         bodyNodes.push(node.id);
+        ctx.addNode(node);
       }
     }
 

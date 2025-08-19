@@ -79,12 +79,91 @@ export class DynamicFlowOrchestrator {
           model: config.model.toString(),
           timestamp: new Date().toISOString(),
         },
-        nodes: json.flow.map((step: any) => ({
-          id: step.id,
-          type: step.tool ? 'tool' : step.type || 'tool', // Infer type from tool field
-          toolId: step.tool || undefined,
-          inputs: step.args || undefined,
-        })),
+        nodes: json.flow.map((step: any) => {
+          // Preserve the full node structure based on type
+          if (step.condition) {
+            // Conditional node (if-then)
+            return {
+              id: step.id,
+              type: 'if-then' as const,
+              condition: step.condition,
+              if_true: step.if_true,
+              if_false: step.if_false,
+              description: step.description
+            };
+          } else if (step.parallel) {
+            // Parallel node
+            return {
+              id: step.id,
+              type: 'parallel' as const,
+              parallel: step.parallel,
+              description: step.description
+            };
+          } else if (step.forEach) {
+            // ForEach node
+            return {
+              id: step.id,
+              type: 'forEach' as const,
+              over: step.over,
+              body: step.body,
+              description: step.description
+            };
+          } else if (step.map) {
+            // Map node
+            return {
+              id: step.id,
+              type: 'map' as const,
+              map: step.map,
+              with: step.with,
+              description: step.description
+            };
+          } else if (step.reduce) {
+            // Reduce node
+            return {
+              id: step.id,
+              type: 'reduce' as const,
+              reduce: step.reduce,
+              initial: step.initial,
+              with: step.with,
+              description: step.description
+            };
+          } else if (step.flatMap) {
+            // FlatMap node
+            return {
+              id: step.id,
+              type: 'flatMap' as const,
+              flatMap: step.flatMap,
+              with: step.with,
+              description: step.description
+            };
+          } else if (step.filter) {
+            // Filter node
+            return {
+              id: step.id,
+              type: 'filter' as const,
+              filter: step.filter,
+              condition: step.condition,
+              description: step.description
+            };
+          } else if (step.sequence) {
+            // Sequence node
+            return {
+              id: step.id,
+              type: 'sequence' as const,
+              steps: step.steps,
+              description: step.description
+            };
+          } else {
+            // Tool node (default)
+            return {
+              id: step.id,
+              type: 'tool' as const,
+              toolId: step.tool || step.toolId,
+              inputs: step.args || step.inputs || {},
+              description: step.description
+            };
+          }
+        }),
         edges:
           json.flow.length > 1
             ? json.flow.slice(0, -1).map((_: any, i: number) => ({

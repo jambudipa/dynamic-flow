@@ -12,6 +12,7 @@ import {
 } from './base';
 import { inferType } from './utils';
 import type { IRNode } from '@/lib/ir';
+import { OperatorRegistry } from './registry';
 
 export interface ParallelConfig {
   id: string;
@@ -46,10 +47,6 @@ export class ParallelOperator implements UnifiedOperator<ParallelConfig> {
     ctx: ExecutionContext
   ): Effect.Effect<any, any, any> {
     return Effect.gen(function* () {
-      // Import registry dynamically
-      const { OperatorRegistry } = yield* Effect.promise(
-        () => import('./registry')
-      );
 
       // Create effects for each parallel step
       const effects = config.parallel.map((step: any) => {
@@ -96,16 +93,13 @@ export class ParallelOperator implements UnifiedOperator<ParallelConfig> {
     const branches: [string[]] = [[]];
 
     for (const step of config.parallel) {
-      const { OperatorRegistry } = require('./registry');
       const operator = OperatorRegistry.getInstance().get(
         step.type || inferType(step)
       );
       if (operator) {
         const node = operator.toIR(step, ctx);
-        const id = (node as IRNode | undefined)?.id;
-        if (id) {
-          branches[0].push(id);
-        }
+        branches[0].push(node.id);
+        ctx.addNode(node);
       }
     }
 

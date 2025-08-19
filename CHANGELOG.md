@@ -1,5 +1,11 @@
 # @jambudipa/dynamic-flow
 
+## 0.2.1
+
+### Patch Changes
+
+- Fix type imports and remove unused re-exports to resolve build issues
+
 ## 0.2.0
 
 ### Minor Changes

@@ -186,6 +186,7 @@ export interface IRGenerationContext {
   tools?: Map<string, Tool<any, any>>;
   joins?: Map<string, ToolJoin<any, any>>;
   validateConnections?: boolean;
+  addNode: (node: IRNode) => void;
 }
 
 /**

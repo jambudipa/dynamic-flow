@@ -13,6 +13,7 @@ import {
 import { inferType } from './utils';
 import { structuredChoice } from '@/lib/llm/structured';
 import type { IRNode, IRValue } from '@/lib/ir';
+import { OperatorRegistry } from './registry';
 
 export interface SwitchConfig {
   id: string;
@@ -89,10 +90,6 @@ export class SwitchOperator implements UnifiedOperator<SwitchConfig> {
       // Execute branch steps sequentially
       let result = input;
 
-      // Import registry dynamically
-      const { OperatorRegistry } = yield* Effect.promise(
-        () => import('./registry')
-      );
 
       for (const step of branch) {
         const operator = OperatorRegistry.getInstance().get(
@@ -155,13 +152,13 @@ export class SwitchOperator implements UnifiedOperator<SwitchConfig> {
     for (const [key, steps] of Object.entries(config.branches)) {
       branchIds[key] = [];
       for (const step of steps) {
-        const { OperatorRegistry } = require('./registry');
         const operator = OperatorRegistry.getInstance().get(
           step.type || inferType(step)
         );
         if (operator) {
           const node = operator.toIR(step, ctx);
           branchIds[key].push(node.id);
+          ctx.addNode(node);
         }
       }
     }

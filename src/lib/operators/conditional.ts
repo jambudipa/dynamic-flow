@@ -12,6 +12,7 @@ import {
 } from './base';
 import { evaluateCondition, inferType } from './utils';
 import type { IRNode } from '@/lib/ir';
+import { OperatorRegistry } from './registry';
 
 export interface ConditionalConfig {
   id: string;
@@ -72,10 +73,7 @@ export class ConditionalOperator implements UnifiedOperator<ConditionalConfig> {
       // Execute branch steps sequentially
       let result = input;
       for (const step of branch) {
-        // Import registry dynamically to avoid circular dependency
-        const { OperatorRegistry } = yield* Effect.promise(
-          () => import('./registry')
-        );
+        // Use the imported OperatorRegistry
         const operator = OperatorRegistry.getInstance().get(
           step.type || inferType(step)
         );
@@ -118,29 +116,29 @@ export class ConditionalOperator implements UnifiedOperator<ConditionalConfig> {
     const trueBranch: string[] = [];
     const falseBranch: string[] = [];
 
-    // Import registry dynamically to get operators for nested steps
+    // Get operators for nested steps from registry
     if (config.if_true) {
       for (const step of config.if_true) {
-        const { OperatorRegistry } = require('./registry');
         const operator = OperatorRegistry.getInstance().get(
           step.type || inferType(step)
         );
         if (operator) {
           const node = operator.toIR(step, ctx);
           trueBranch.push(node.id);
+          ctx.addNode(node);
         }
       }
     }
 
     if (config.if_false) {
       for (const step of config.if_false) {
-        const { OperatorRegistry } = require('./registry');
         const operator = OperatorRegistry.getInstance().get(
           step.type || inferType(step)
         );
         if (operator) {
           const node = operator.toIR(step, ctx);
           falseBranch.push(node.id);
+          ctx.addNode(node);
         }
       }
     }

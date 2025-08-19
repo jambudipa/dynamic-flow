@@ -12,6 +12,7 @@ import {
 } from './base';
 import { evaluateCondition, inferType } from './utils';
 import type { IRNode } from '@/lib/ir';
+import { OperatorRegistry } from './registry';
 
 export interface LoopConfig {
   id: string;
@@ -83,10 +84,6 @@ export class LoopOperator implements UnifiedOperator<LoopConfig> {
 
           let result = item;
           for (const step of config.body) {
-            // Import registry dynamically to avoid circular dependency
-            const { OperatorRegistry } = yield* Effect.promise(
-              () => import('./registry')
-            );
             const operator = OperatorRegistry.getInstance().get(
               step.type || inferType(step)
             );
@@ -111,10 +108,6 @@ export class LoopOperator implements UnifiedOperator<LoopConfig> {
 
           let result = input;
           for (const step of config.body) {
-            // Import registry dynamically to avoid circular dependency
-            const { OperatorRegistry } = yield* Effect.promise(
-              () => import('./registry')
-            );
             const operator = OperatorRegistry.getInstance().get(
               step.type || inferType(step)
             );
@@ -158,13 +151,13 @@ export class LoopOperator implements UnifiedOperator<LoopConfig> {
     const bodyNodes: string[] = [];
 
     for (const step of config.body) {
-      const { OperatorRegistry } = require('./registry');
       const operator = OperatorRegistry.getInstance().get(
         step.type || inferType(step)
       );
       if (operator) {
         const node = operator.toIR(step, ctx);
         bodyNodes.push(node.id);
+        ctx.addNode(node);
       }
     }
 

@@ -32,7 +32,9 @@ export class JSONToIRCompiler {
       // Reset counter
       self.nodeCounter = 0;
 
-      // Create context for IR generation
+      // Create context for IR generation with node collection
+      const allNodes: IRNode[] = []; // Collect ALL nodes including nested
+
       const context: IRGenerationContext = {
         nodeIdGenerator: () => `node_${++self.nodeCounter}`,
         tools:
@@ -44,13 +46,20 @@ export class JSONToIRCompiler {
             ? new Map(joins.map((j) => [`${j.fromTool}-${j.toTool}`, j]))
             : new Map(),
         validateConnections: options?.validateConnections || true,
+        addNode: (node: IRNode) => {
+          allNodes.push(node);
+        }
       };
 
       // Convert steps to IR nodes using operators
-      const irNodes: IRNode[] = [];
+      const topLevelNodes: IRNode[] = [];
       for (const step of flow.flow) {
         const irNode = yield* self.stepToIR(step, context);
-        irNodes.push(irNode);
+        topLevelNodes.push(irNode);
+        // Top-level nodes also go into allNodes if not already there
+        if (!allNodes.some(n => n.id === irNode.id)) {
+          allNodes.push(irNode);
+        }
       }
 
       // Validate connectivity if requested
@@ -61,7 +70,7 @@ export class JSONToIRCompiler {
         context.joins !== null &&
         context.joins !== undefined
       ) {
-        const validation = yield* FlowConnectivityValidator.validate(irNodes, {
+        const validation = yield* FlowConnectivityValidator.validate(topLevelNodes, {
           tools: context.tools,
           joins: context.joins,
           strictMode: false, // Warnings only by default
@@ -109,20 +118,20 @@ export class JSONToIRCompiler {
         }
       }
 
-      // Add nodes to builder
-      for (const node of irNodes) {
+      // Add ALL nodes to builder (including nested ones)
+      for (const node of allNodes) {
         builder.addNode(node);
       }
 
-      // Connect nodes in sequence
-      if (irNodes.length > 1) {
-        const nodeIds = irNodes.map((n) => n.id);
+      // Connect top-level nodes in sequence
+      if (topLevelNodes.length > 1) {
+        const nodeIds = topLevelNodes.map((n) => n.id);
         builder.connectSequence(nodeIds);
       }
 
       // Set entry point
-      if (irNodes[0] !== null && irNodes[0] !== undefined) {
-        builder.setEntryPoint(irNodes[0].id);
+      if (topLevelNodes[0] !== null && topLevelNodes[0] !== undefined) {
+        builder.setEntryPoint(topLevelNodes[0].id);
       }
 
       return builder.build();

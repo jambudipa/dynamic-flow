@@ -12,7 +12,7 @@ import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai/index';
 import * as AiLanguageModel from '@effect/ai/AiLanguageModel';
 import type { AiModel } from '../generation/types';
 
-const DEFAULT_MODEL = 'gpt-5'; // DO NOT CHANGE
+const DEFAULT_MODEL = 'gpt-5';
 
 function makeLayers(
   apiKey: string
@@ -123,10 +123,6 @@ export class LLMCoreService {
         unknown
       >;
     })();
-
-    // TODO: Re-enable OpenAI SDK approach once we resolve the import issues
-    // The SDK provides better type safety and error handling, but dynamic imports
-    // are causing issues in some environments. For now, we use the fetch API directly.
 
     // Direct fetch approach using Chat Completions API with response_format
     const viaFetch = Effect.tryPromise({
@@ -266,31 +262,31 @@ export const LLMLive = Layer.effect(
   LLMService,
   Effect.gen(function* () {
     const config = yield* LLMConfigService;
-    
+
     return {
-      completion: (prompt: string) => 
+      completion: (prompt: string) =>
         Effect.gen(function* () {
           const result = yield* LLMCoreService.completion(prompt);
           return result;
         }).pipe(
-          Effect.catchAllCause(() => 
+          Effect.catchAllCause(() =>
             Effect.fail(new LLMError({ message: 'Completion failed' }))
           )
         ),
-        
-      stream: (prompt: string) => 
+
+      stream: (prompt: string) =>
         LLMCoreService.stream(prompt).pipe(
-          Stream.catchAllCause(() => 
+          Stream.catchAllCause(() =>
             Stream.fail(new LLMError({ message: 'Stream failed' }))
           )
         ),
-        
+
       structured: <T>(prompt: string, schema: Schema.Schema<T>) =>
         Effect.gen(function* () {
           const result = yield* LLMCoreService.structured<T>(prompt, schema);
           return result;
         }).pipe(
-          Effect.catchAllCause(() => 
+          Effect.catchAllCause(() =>
             Effect.fail(new LLMError({ message: 'Structured output failed' }))
           )
         )
@@ -306,11 +302,11 @@ export const LLMConfigLive = Layer.effect(
   Effect.gen(function* () {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      yield* Effect.fail(new LLMConfigError({ 
-        message: 'OPENAI_API_KEY environment variable is required' 
+      yield* Effect.fail(new LLMConfigError({
+        message: 'OPENAI_API_KEY environment variable is required'
       }));
     }
-    
+
     return {
       apiKey: apiKey!,
       model: process.env.OPENAI_MODEL || DEFAULT_MODEL,

@@ -12,6 +12,7 @@ import {
 } from './base';
 import { inferType } from './utils';
 import type { IRNode } from '@/lib/ir';
+import { OperatorRegistry } from './registry';
 
 export interface MapConfig {
   id: string;
@@ -68,10 +69,6 @@ export class MapOperator implements UnifiedOperator<MapConfig> {
       for (const item of collection) {
         ctx.variables.set('item', item);
 
-        // Import registry dynamically
-        const { OperatorRegistry } = yield* Effect.promise(
-          () => import('./registry')
-        );
         const operator = OperatorRegistry.getInstance().get(
           config.with.type || inferType(config.with)
         );
@@ -114,13 +111,13 @@ export class MapOperator implements UnifiedOperator<MapConfig> {
     // Map with nested operation
     const bodyNodes: string[] = [];
     if (config.with) {
-      const { OperatorRegistry } = require('./registry');
       const operator = OperatorRegistry.getInstance().get(
         config.with.type || inferType(config.with)
       );
       if (operator) {
         const node = operator.toIR(config.with, ctx);
         bodyNodes.push(node.id);
+        ctx.addNode(node);
       }
     }
 
